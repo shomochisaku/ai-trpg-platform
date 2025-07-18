@@ -102,10 +102,7 @@ const UpdateImportanceSchema = z.object({
 // });
 
 // Helper function to handle API responses
-const handleResponse = <T>(
-  res: express.Response,
-  data: T
-): void => {
+const handleResponse = <T>(res: express.Response, data: T): void => {
   const response: ApiResponse<T> = {
     success: true,
     data,
