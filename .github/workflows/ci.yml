@@ -45,7 +45,7 @@ jobs:
 
     - name: Run database migrations
       working-directory: backend
-      run: npx prisma migrate deploy
+      run: npx prisma db push
       env:
         DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
 
