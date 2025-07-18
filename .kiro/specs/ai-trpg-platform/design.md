@@ -2,7 +2,7 @@
 
 ## 概要
 
-本文書は、プレイヤーが「物語の主人公」になる体験に完全に没入できる、次世代のAI駆動型TRPGプラットフォームの技術設計を概説します。GEMINI案を基に、Inworld AI SDKを中核とした実装可能な設計を提供します。
+本文書は、プレイヤーが「物語の主人公」になる体験に完全に没入できる、次世代のAI駆動型TRPGプラットフォームの技術設計を概説します。Mastra AI フレームワークを中核とした実装可能な設計を提供します。
 
 ## アーキテクチャ
 
@@ -12,21 +12,22 @@
 
 1. **フロントエンド (UI層)**
    - プレイヤーが直接操作するWebインターフェース
-   - React等のモダンなフレームワークで構築
+   - React + TypeScriptで構築
    - リアルタイムチャットインターフェース
    - シナリオ設定フォーム
    - キャンペーン管理ダッシュボード
 
 2. **バックエンド (アプリケーション層)**
-   - ゲームロジック、状態管理、AIとの通信を司るAPIサーバー
+   - Mastra AI フレームワークを中核とするAPIサーバー
    - Node.js (Express) + TypeScriptで構築
    - 認証とセッション管理
-   - データ永続化機能
+   - PostgreSQL による永続化機能
 
 3. **AIエンジン層**
-   - 第一選択：Inworld AIプラットフォーム（内蔵メモリ機能付き）
-   - 代替：OpenAI GPT、Claude、その他のLLMサービス
-   - キャラクターの認知、思考、対話生成を担当
+   - Mastra AI フレームワーク（統合エージェント・ワークフロー）
+   - OpenAI GPT-4、Claude 3.5 Sonnet サポート
+   - 内蔵RAG・メモリ機能による高度な対話生成
+   - ワークフロー・エージェント・ツールの統合管理
 
 ### システム全体構成
 
@@ -41,21 +42,23 @@ graph TB
     
     subgraph "Backend (アプリケーション層)"
         API[Express.js API Server]
-        GameEngine[ゲームエンジン]
-        StateManager[状態管理]
-        DiceSystem[判定システム]
+        Mastra[Mastra AI Framework]
+        Workflow[ワークフロー管理]
+        Agent[AIエージェント]
+        Tools[ツール統合]
     end
     
     subgraph "AIエンジン層"
-        Inworld[Inworld AI SDK]
-        InworldStudio[Inworld Studio API]
-        OpenAI[OpenAI GPT]
-        Claude[Anthropic Claude]
-        AIAdapter[AI統合アダプター]
+        OpenAI[OpenAI GPT-4]
+        Claude[Claude 3.5 Sonnet]
+        RAG[RAG システム]
+        Memory[メモリ管理]
+        Embeddings[埋め込み生成]
     end
     
     subgraph "データ層"
         DB[(PostgreSQL)]
+        Vector[ベクトルDB]
         FileStore[scenario_settings.json]
         Cache[Redis Cache]
     end
@@ -64,14 +67,17 @@ graph TB
     Chat --> API
     Settings --> API
     Status --> API
-    API --> GameEngine
-    GameEngine --> StateManager
-    GameEngine --> DiceSystem
-    GameEngine --> AIAdapter
-    AIAdapter --> Inworld
-    AIAdapter --> InworldStudio
-    AIAdapter --> OpenAI
-    AIAdapter --> Claude
+    API --> Mastra
+    Mastra --> Workflow
+    Mastra --> Agent
+    Mastra --> Tools
+    Agent --> OpenAI
+    Agent --> Claude
+    Agent --> RAG
+    Agent --> Memory
+    RAG --> Embeddings
+    RAG --> Vector
+    Memory --> DB
     API --> DB
     API --> FileStore
     API --> Cache
@@ -86,18 +92,21 @@ graph TB
 
 **バックエンド:**
 - Node.js + Express + TypeScript
+- Mastra AI Framework（エージェント・ワークフロー管理）
 - Socket.io for real-time WebSocket communication
 - Prisma ORM for database operations
 
 **データベース:**
-- PostgreSQL（永続化ストレージ）
+- PostgreSQL（永続化ストレージ・メモリ管理）
+- Vector Database（pgvector or Pinecone）
 - Redis（キャッシュ・セッション管理）
 
 **AI統合:**
-- Inworld AI Node.js SDK（第一選択）
-- Inworld Studio REST API（GM自動設定用）
-- OpenAI API（代替）
-- Anthropic Claude API（代替）
+- Mastra AI Framework（統合AI管理）
+- OpenAI GPT-4（メインLLM）
+- Claude 3.5 Sonnet（サブLLM）
+- RAG システム（知識統合）
+- 埋め込み生成（OpenAI/Cohere）
 
 ## コンポーネントとインターフェース
 
@@ -140,16 +149,28 @@ interface GameService {
 }
 ```
 
-#### 2. AIService
+#### 2. MastraAgentService
 ```typescript
-interface AIService {
-  generateResponse(context: GameContext): Promise<AIResponse>
-  calculateDifficulty(action: string, statusTags: string[]): Promise<number>
-  updateStatusTags(currentTags: string[], gameEvent: GameEvent): Promise<string[]>
+interface MastraAgentService {
+  createGMAgent(scenarioSettings: ScenarioSettings): Promise<Agent>
+  processAction(agent: Agent, action: string, context: GameContext): Promise<AgentResponse>
+  executeWorkflow(workflowId: string, input: any): Promise<WorkflowResult>
+  getAgentMemory(agentId: string): Promise<Memory[]>
+  updateAgentMemory(agentId: string, memories: Memory[]): Promise<void>
 }
 ```
 
-#### 3. CampaignService
+#### 3. RAGService
+```typescript
+interface RAGService {
+  embedDocument(document: string): Promise<number[]>
+  searchSimilar(query: string, limit: number): Promise<RAGResult[]>
+  storeKnowledge(campaignId: string, knowledge: string): Promise<void>
+  retrieveContext(campaignId: string, query: string): Promise<string>
+}
+```
+
+#### 4. CampaignService
 ```typescript
 interface CampaignService {
   createCampaign(settings: ScenarioSettings): Promise<Campaign>
@@ -275,15 +296,18 @@ interface Message {
 
 ## AI統合戦略
 
-### AI統合アーキテクチャ
+### Mastra AI フレームワーク統合
 
-統一されたAIサービスインターフェースを通じて、複数のAIプロバイダーに対応します：
+Mastra AI フレームワークを中核とした統合AI管理システムを採用します：
 
 ```typescript
-interface AIService {
-  generateResponse(context: GameContext): Promise<AIResponse>
-  calculateDifficulty(action: string, statusTags: string[]): Promise<DifficultyResult>
-  updateCharacterMemory?(gameEvent: GameEvent): Promise<void>
+interface MastraGameAgent {
+  id: string
+  name: string
+  personality: string
+  memory: Memory[]
+  tools: Tool[]
+  workflow: Workflow
 }
 
 interface GameContext {
@@ -292,152 +316,226 @@ interface GameContext {
   conversationHistory: Message[]
   worldSettings: WorldSettings
   gmProfile: GMProfile
+  campaignId: string
+  currentScene: string
 }
 
-interface AIResponse {
+interface AgentResponse {
   narrative: string
   statusTagChanges?: string[]
   worldStateChanges?: Record<string, any>
+  diceRoll?: DiceRoll
+  reasoning?: string
 }
 
-interface DifficultyResult {
-  targetValue: number
-  reason: string
+interface WorkflowResult {
+  success: boolean
+  outputs: Record<string, any>
+  errors?: string[]
 }
 ```
 
-### Inworld AI統合（第一選択）
-
-**注意**: 以下の実装は実際のInworld AI APIドキュメントに基づいて調整が必要です。
+### Mastra エージェント統合
 
 **基本的な統合方針:**
-- Inworld AI Node.js SDKを使用してGMキャラクターとの対話を実装
-- キャラクターの記憶機能を活用して状態タグと会話履歴を管理
-- プロンプトエンジニアリングによる判定システムの実装
+- Mastra AI フレームワークを使用してGMエージェントを構築
+- 内蔵RAG・メモリ機能を活用した高度な対話システム
+- ワークフロー・ツール統合による複雑なゲームロジック実装
 
 ```typescript
-// Inworld AI実装例（実際のAPI仕様に要調整）
-class InworldAIService implements AIService {
-  private client: InworldClient
-  private characterId: string
+// Mastra AI実装例
+class MastraGameMasterAgent {
+  private mastra: Mastra
+  private gmAgent: Agent
+  private ragSystem: RAGSystem
+  private memory: MemorySystem
 
-  async generateResponse(context: GameContext): Promise<AIResponse> {
-    // 実装時にInworld APIドキュメントを参照して調整
-    const prompt = this.buildGamePrompt(context)
-    const response = await this.client.sendMessage(this.characterId, prompt)
-    
+  async initialize(scenarioSettings: ScenarioSettings): Promise<void> {
+    this.mastra = new Mastra({
+      provider: 'openai',
+      model: 'gpt-4',
+      tools: this.getGameTools(),
+      workflows: this.getGameWorkflows()
+    })
+
+    this.gmAgent = await this.mastra.createAgent({
+      name: 'GameMaster',
+      personality: scenarioSettings.gmProfile.personality,
+      systemPrompt: this.buildSystemPrompt(scenarioSettings),
+      memory: true,
+      ragEnabled: true
+    })
+  }
+
+  async processPlayerAction(context: GameContext): Promise<AgentResponse> {
+    // RAGシステムで関連する知識を検索
+    const relevantContext = await this.ragSystem.searchSimilar(
+      context.playerAction,
+      { limit: 5, campaignId: context.campaignId }
+    )
+
+    // エージェントに行動を処理させる
+    const response = await this.gmAgent.process({
+      input: context.playerAction,
+      context: {
+        ...context,
+        relevantKnowledge: relevantContext,
+        previousActions: await this.memory.getRecentActions(context.campaignId)
+      }
+    })
+
     return {
-      narrative: response.text,
-      statusTagChanges: this.extractStatusTags(response.text),
-      worldStateChanges: this.extractWorldChanges(response.text)
+      narrative: response.output,
+      statusTagChanges: this.extractStatusTags(response.output),
+      worldStateChanges: this.extractWorldChanges(response.output),
+      diceRoll: response.metadata?.diceRoll,
+      reasoning: response.reasoning
     }
   }
 
-  async calculateDifficulty(action: string, statusTags: string[]): Promise<DifficultyResult> {
-    const difficultyPrompt = `
-    プレイヤーの行動: "${action}"
-    現在の状態: ${statusTags.join(', ')}
-    この行動の難易度を1-100で判定し、理由と共にJSON形式で回答してください。
-    形式: {"targetValue": 数値, "reason": "理由"}
-    `
-    
-    const response = await this.client.sendMessage(this.characterId, difficultyPrompt)
-    return JSON.parse(response.text)
+  private getGameTools(): Tool[] {
+    return [
+      {
+        name: 'rollDice',
+        description: 'Roll dice for difficulty checks',
+        schema: z.object({
+          targetValue: z.number(),
+          reason: z.string()
+        }),
+        executor: async ({ targetValue, reason }) => {
+          const roll = Math.floor(Math.random() * 100) + 1
+          return {
+            success: roll <= targetValue,
+            roll,
+            targetValue,
+            reason
+          }
+        }
+      },
+      {
+        name: 'updateStatusTags',
+        description: 'Update character status tags',
+        schema: z.object({
+          addTags: z.array(z.string()),
+          removeTags: z.array(z.string())
+        }),
+        executor: async ({ addTags, removeTags }) => {
+          // 状態タグの更新ロジック
+          return { updated: true }
+        }
+      },
+      {
+        name: 'storeKnowledge',
+        description: 'Store campaign knowledge in RAG system',
+        schema: z.object({
+          knowledge: z.string(),
+          category: z.string()
+        }),
+        executor: async ({ knowledge, category }) => {
+          await this.ragSystem.storeKnowledge(knowledge, category)
+          return { stored: true }
+        }
+      }
+    ]
+  }
+
+  private getGameWorkflows(): Workflow[] {
+    return [
+      {
+        name: 'processGameAction',
+        description: 'Complete game action processing workflow',
+        steps: [
+          'analyzeDifficulty',
+          'rollDice',
+          'generateNarrative',
+          'updateGameState',
+          'storeMemory'
+        ]
+      }
+    ]
   }
 }
 ```
 
-### 代替AI統合（OpenAI/Claude）
+### RAGシステム統合
 
-Inworld AIが利用できない場合の代替実装：
+**知識管理とコンテキスト検索:**
 
 ```typescript
-class OpenAIService implements AIService {
-  private client: OpenAI
-  private conversationMemory: Message[] = []
+class CampaignRAGSystem {
+  private vectorStore: VectorStore
+  private embeddings: EmbeddingProvider
 
-  async generateResponse(context: GameContext): Promise<AIResponse> {
-    const systemPrompt = this.buildSystemPrompt(context.gmProfile, context.worldSettings)
-    const messages = this.buildMessageHistory(context)
+  async storeKnowledge(campaignId: string, knowledge: string, category: string): Promise<void> {
+    const embedding = await this.embeddings.embed(knowledge)
     
-    const response = await this.client.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...messages,
-        { role: "user", content: context.playerAction }
-      ]
+    await this.vectorStore.store({
+      id: `${campaignId}-${Date.now()}`,
+      content: knowledge,
+      embedding,
+      metadata: {
+        campaignId,
+        category,
+        timestamp: new Date()
+      }
     })
-
-    return {
-      narrative: response.choices[0].message.content || "",
-      statusTagChanges: this.extractStatusTags(response.choices[0].message.content || ""),
-      worldStateChanges: {}
-    }
   }
 
-  async calculateDifficulty(action: string, statusTags: string[]): Promise<DifficultyResult> {
-    const prompt = `
-    プレイヤーの行動: "${action}"
-    現在の状態: ${statusTags.join(', ')}
-    この行動の難易度を1-100で判定し、理由と共にJSON形式で回答してください。
-    形式: {"targetValue": 数値, "reason": "理由"}
-    `
+  async searchSimilar(query: string, options: SearchOptions): Promise<RAGResult[]> {
+    const queryEmbedding = await this.embeddings.embed(query)
     
-    const response = await this.client.chat.completions.create({
-      model: "gpt-4",
-      messages: [{ role: "user", content: prompt }]
+    return await this.vectorStore.search({
+      embedding: queryEmbedding,
+      limit: options.limit,
+      filter: {
+        campaignId: options.campaignId
+      }
     })
-
-    return JSON.parse(response.choices[0].message.content || '{"targetValue": 50, "reason": "標準的な難易度"}')
   }
 }
 ```
 
-### AI統合の実装戦略
+### メモリ管理システム
 
-**実装順序の検討:**
+**エージェントメモリの永続化:**
 
-**オプション1: Inworld AI優先アプローチ**
-- **メリット**: データベース設計の手戻りを回避、Inworldの内蔵メモリ機能を最大活用
-- **リスク**: Inworld AIが利用できない場合、全体的な手戻りが発生
+```typescript
+class AgentMemoryManager {
+  private db: Database
 
-**オプション2: 代替AI優先アプローチ**  
-- **メリット**: 確実に動作する基盤で開発開始、UI/UXの早期検証
-- **リスク**: データベース設計で手戻りが発生する可能性
+  async storeMemory(agentId: string, memory: Memory): Promise<void> {
+    await this.db.memories.create({
+      data: {
+        agentId,
+        content: memory.content,
+        type: memory.type,
+        importance: memory.importance,
+        timestamp: new Date()
+      }
+    })
+  }
 
-**推奨アプローチ: Inworld AI検証ファーストアプローチ**
+  async getRecentMemories(agentId: string, limit: number = 10): Promise<Memory[]> {
+    return await this.db.memories.findMany({
+      where: { agentId },
+      orderBy: { timestamp: 'desc' },
+      take: limit
+    })
+  }
 
-1. **フェーズ0**: Inworld AI利用可能性の検証（最優先）
-   - Inworld AI Node.js SDKの動作確認
-   - 基本的なキャラクター作成・対話のプロトタイプ
-   - 内蔵メモリ機能の仕様確認
-   - 判定可否の早期決定（1-2日以内）
-
-2. **フェーズ1A**: Inworld AI利用可能な場合
-   - Inworldの内蔵メモリ機能を活用した設計
-   - 最小限のローカルデータベース（ユーザー管理、キャンペーン一覧のみ）
-   - Inworldキャラクターとの統合実装
-
-2. **フェーズ1B**: Inworld AI利用不可の場合
-   - PostgreSQL/SQLiteによる完全なデータ永続化
-   - OpenAI/Claudeによる代替実装
-   - 独自のメモリ管理システム
-
-3. **フェーズ2**: UI/UX実装
-   - フロントエンド開発
-   - リアルタイム通信
-   - ゲームフロー実装
-
-4. **フェーズ3**: 統合とテスト
-   - エンドツーエンドテスト
-   - パフォーマンス最適化
-
-**実装時の注意点:**
-- 各AIサービスのAPI制限とコスト管理
-- レスポンス時間の監視とタイムアウト処理
-- プロンプトエンジニアリングの最適化
-- 状態タグ抽出の精度向上
+  async searchMemories(agentId: string, query: string): Promise<Memory[]> {
+    // セマンティック検索やキーワード検索
+    return await this.db.memories.findMany({
+      where: {
+        agentId,
+        content: {
+          contains: query
+        }
+      }
+    })
+  }
+}
+```
 
 ## API仕様
 

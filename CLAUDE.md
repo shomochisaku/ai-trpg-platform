@@ -24,10 +24,10 @@
    - PRの作成とレビュー
 
 ### 実装アプローチ
-Inworld AI検証ファーストアプローチを採用：
-1. まずInworld AIの利用可能性を1-2日以内に検証
-2. 検証結果に基づいて実装パスを決定（1A or 1B）
-3. 並列処理可能なタスクは同時進行で効率化
+Mastra AI フレームワーク中心アプローチを採用：
+1. **Mastra AI フレームワーク**: エージェント・ワークフロー・RAGシステムの統合管理
+2. **段階的な実装**: 基盤→エージェント→ワークフロー→UI統合
+3. **並列処理**: 独立したコンポーネントは同時進行で効率化
 
 ## 技術スタック
 
@@ -41,18 +41,22 @@ Inworld AI検証ファーストアプローチを採用：
 ### バックエンド
 - **ランタイム**: Node.js
 - **フレームワーク**: Express + TypeScript
+- **AI統合**: Mastra AI Framework
 - **ORM**: Prisma
 - **リアルタイム**: Socket.io
 - **認証**: JWT
 
 ### AI統合
-- **第一選択**: Inworld AI Node.js SDK（内蔵メモリ機能付き）
-- **代替**: OpenAI GPT、Anthropic Claude
+- **コアフレームワーク**: Mastra AI Framework
+- **LLMプロバイダー**: OpenAI GPT-4、Claude 3.5 Sonnet
+- **RAGシステム**: Mastra内蔵RAGシステム
+- **メモリ管理**: Mastra内蔵メモリ機能
 
 ### データベース
-- **本番**: PostgreSQL
+- **本番**: PostgreSQL + pgvector（ベクトル検索）
 - **開発**: SQLite
 - **キャッシュ**: Redis（オプション）
+- **ベクトルDB**: pgvector or Pinecone（RAGシステム用）
 
 ### インフラ
 - **フロントエンド**: Vercel or Netlify
@@ -97,7 +101,7 @@ git push origin main
 
 #### ラベルの設定
 まず以下のラベルをGitHubで作成してください：
-- `milestone-1`: Inworld AI検証とコアエンジン基盤
+- `milestone-1`: Mastra AI統合とコアエンジン基盤
 - `milestone-2`: MVP開発
 - `milestone-3`: 機能拡張と永続化
 - `milestone-4`: ポリッシュとデプロイ
@@ -111,28 +115,29 @@ git push origin main
 
 #### Issue作成例
 ```markdown
-Title: [Backend] Inworld AI検証プロトタイプ作成
+Title: [Backend] Mastra AI フレームワーク導入
 
 ## 概要
-Inworld AIの利用可能性を検証するためのプロトタイプを作成します。
+Mastra AI フレームワークをバックエンドプロジェクトに導入し、基本的なGMエージェントを構築します。
 
 ## タスク
-- [ ] Inworld Studioでアカウント作成とAPIキー取得
-- [ ] Inworld Node.js SDK のインストール
-- [ ] 基本的なキャラクター作成・対話テスト
-- [ ] 内蔵メモリ機能の動作検証
-- [ ] 判定システムの実現可能性確認
+- [ ] Mastra AI フレームワークのインストール
+- [ ] OpenAI/Claude APIキーの設定
+- [ ] 基本的なエージェント作成・対話テスト
+- [ ] ゲーム専用ツール（rollDice, updateStatusTags）の実装
+- [ ] 統合テストの実行
 
 ## 受け入れ基準
-- Inworld AIとの基本的な対話が可能
-- メモリ機能が期待通り動作する
-- 判定システムが実装可能であることを確認
+- Mastra フレームワークが正常に動作する
+- GMエージェントとの基本的な対話が可能
+- ゲーム専用ツールが期待通り動作する
+- 統合テストが全て通る
 
 ## ラベル
 `milestone-1`, `backend`, `ai-integration`, `priority-high`
 
 ## 実装依頼
-@claude このIssueの実装をお願いします。Inworld AIの検証プロトタイプを作成してください。
+@claude このIssueの実装をお願いします。Mastra AI フレームワークの導入とGMエージェントの構築を行ってください。
 ```
 
 ### 3. @claudeコマンドでの実装依頼
@@ -143,7 +148,7 @@ GitHub Actions経由でClaudeに実装を依頼する際の形式：
 @claude [具体的な指示をここに記載]
 
 例：
-@claude このIssueに記載されているバックエンドAPIの実装をお願いします。Express + TypeScriptで実装してください。
+@claude このIssueに記載されているMastra AI フレームワークの導入を実装してください。GMエージェントと基本的なツールの実装もお願いします。
 
 @claude フロントエンドのチャットログコンポーネントを実装してください。Reactで作成し、適切なスタイリングを適用してください。
 ```
@@ -193,11 +198,13 @@ npm run type-check
 # Database
 DATABASE_URL="postgresql://user:password@localhost:5432/aitrpg"
 
-# AI Services
-INWORLD_API_KEY="your-inworld-api-key"
-INWORLD_WORKSPACE_ID="your-workspace-id"
+# AI Services (Mastra統合)
 OPENAI_API_KEY="your-openai-api-key"
 ANTHROPIC_API_KEY="your-anthropic-api-key"
+
+# Vector Database (RAGシステム用)
+PINECONE_API_KEY="your-pinecone-api-key"
+PINECONE_ENVIRONMENT="your-pinecone-environment"
 
 # Auth
 JWT_SECRET="your-jwt-secret"
@@ -220,10 +227,10 @@ VITE_WS_URL=ws://localhost:3000
 - .envファイルは.gitignoreに含める
 - フロントエンドにAPIキーを露出させない
 
-### Inworld AI検証
-- 最優先で実施（1-2日以内）
-- 利用不可の場合は速やかに代替案（OpenAI/Claude）に切り替え
-- 検証結果を必ずドキュメント化
+### Mastra AI統合
+- Mastra AI フレームワークの導入を最優先で実施
+- OpenAI/Claude APIキーの設定を確実に行う
+- 段階的な統合（エージェント→RAG→ワークフロー）
 
 ### 開発の進め方
 1. まずGitHubレポジトリを作成
@@ -234,9 +241,10 @@ VITE_WS_URL=ws://localhost:3000
 
 ### 並列処理可能なタスク
 以下のタスクは同時に進行可能：
-- フロントエンド基盤構築
-- バックエンド基盤構築  
+- RAGシステム実装
+- メモリ管理システム実装
 - データベース設計
+- フロントエンド基盤構築
 
 効率的に開発を進めるため、並列実行可能なタスクは同時にIssue化してください。
 
@@ -244,11 +252,11 @@ VITE_WS_URL=ws://localhost:3000
 
 ### よくある質問
 
-**Q: Inworld AIのAPIキーはどこで取得できますか？**
-A: https://studio.inworld.ai/ でアカウントを作成後、ダッシュボードから取得できます。
+**Q: Mastra AI フレームワークのドキュメントはどこにありますか？**
+A: https://mastra.ai/en/docs で公式ドキュメントを確認できます。
 
 **Q: どのタスクから始めるべきですか？**
-A: まずInworld AIの検証（タスク0.1）から始めてください。その結果によって後続のタスクが変わります。
+A: まずMastra AI フレームワークの導入（タスク1.1）から始めてください。
 
 **Q: 技術的な判断に迷った場合は？**
 A: Claude Code CLIで相談してください。最適な選択肢を提案します。
@@ -256,3 +264,4 @@ A: Claude Code CLIで相談してください。最適な選択肢を提案し�
 ## 更新履歴
 
 - 2025-01-18: 初版作成
+- 2025-01-18: Mastra AI フレームワーク採用に伴う大幅更新（Inworld AI→Mastra AI）
