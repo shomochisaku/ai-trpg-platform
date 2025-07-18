@@ -1,0 +1,78 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  gameSessions GameSession[]
+  messages     GameMessage[]
+
+  @@map("users")
+}
+
+model GameSession {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  createdBy   String
+  creator     User          @relation(fields: [createdBy], references: [id])
+  messages    GameMessage[]
+  players     SessionPlayer[]
+
+  @@map("game_sessions")
+}
+
+model SessionPlayer {
+  id        String   @id @default(cuid())
+  userId    String
+  sessionId String
+  joinedAt  DateTime @default(now())
+
+  // Relations
+  session GameSession @relation(fields: [sessionId], references: [id])
+
+  @@unique([userId, sessionId])
+  @@map("session_players")
+}
+
+model GameMessage {
+  id        String      @id @default(cuid())
+  content   String
+  type      MessageType @default(PLAYER)
+  timestamp DateTime    @default(now())
+
+  // Relations
+  userId    String
+  user      User        @relation(fields: [userId], references: [id])
+  sessionId String
+  session   GameSession @relation(fields: [sessionId], references: [id])
+
+  @@map("game_messages")
+}
+
+enum MessageType {
+  PLAYER
+  GM
+  SYSTEM
+  AI
+}
