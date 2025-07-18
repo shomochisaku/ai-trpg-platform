@@ -9,6 +9,12 @@ describe('App', () => {
     expect(heading).toBeInTheDocument()
   })
 
+  it('renders the create session button', () => {
+    render(<App />)
+    const button = screen.getByRole('button', { name: /Create Session/i })
+    expect(button).toBeInTheDocument()
+  })
+
   it('renders the action input form', () => {
     render(<App />)
     const textarea = screen.getByRole('textbox')
