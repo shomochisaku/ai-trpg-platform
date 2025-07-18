@@ -33,7 +33,15 @@ jest.mock('@prisma/client', () => {
 // Set test environment variables
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test-secret';
-process.env.DATABASE_URL = 'file:./test.db';
+
+// Use PostgreSQL in CI, SQLite locally
+if (process.env.CI) {
+  // CI environment already has DATABASE_URL set, don't override
+} else {
+  // Local environment uses SQLite
+  process.env.DATABASE_URL = 'file:./test.db';
+}
+
 process.env.OPENAI_API_KEY = 'test-openai-key';
 process.env.ANTHROPIC_API_KEY = 'test-anthropic-key';
 process.env.PINECONE_API_KEY = 'test-pinecone-key';
