@@ -61,3 +61,68 @@ export interface GameMessage {
   type: 'player' | 'gm' | 'system' | 'ai';
   timestamp: Date;
 }
+
+// Memory management types
+export interface MemoryEntry {
+  id: string;
+  content: string;
+  category: 'GENERAL' | 'CHARACTER' | 'LOCATION' | 'EVENT' | 'RULE' | 'PREFERENCE' | 'STORY_BEAT';
+  importance: number;
+  tags: string[];
+  embedding?: number[];
+  createdAt: Date;
+  updatedAt: Date;
+  sessionId?: string;
+  userId?: string;
+  isActive: boolean;
+}
+
+export interface MemorySearchResult {
+  id: string;
+  content: string;
+  category: string;
+  importance: number;
+  similarity: number;
+  createdAt: Date;
+  tags: string[];
+}
+
+export interface MemoryStats {
+  totalMemories: number;
+  activeMemories: number;
+  memoriesByCategory: Record<string, number>;
+  averageImportance: number;
+}
+
+export interface ConversationMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: Date;
+  userId?: string;
+}
+
+export interface ConversationHistory {
+  messages: ConversationMessage[];
+  totalCount: number;
+  hasMore: boolean;
+}
+
+export interface ConversationSummary {
+  summary: string;
+  messageCount: number;
+  keyTopics: string[];
+  participants: string[];
+  timeRange: {
+    start: Date;
+    end: Date;
+  };
+}
+
+export interface ConversationStats {
+  totalMessages: number;
+  messagesByRole: Record<string, number>;
+  averageMessageLength: number;
+  conversationDuration: number;
+  messagesPerHour: number;
+  mostActiveHour: string;
+}
