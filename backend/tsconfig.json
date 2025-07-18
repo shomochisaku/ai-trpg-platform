@@ -28,6 +28,7 @@
     "baseUrl": "./src",
     "paths": {
       "@/*": ["*"],
+      "@/ai/*": ["ai/*"],
       "@/controllers/*": ["controllers/*"],
       "@/middleware/*": ["middleware/*"],
       "@/models/*": ["models/*"],

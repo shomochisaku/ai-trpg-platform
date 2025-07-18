@@ -8,6 +8,8 @@ import { logger } from '@/utils/logger';
 import { errorHandler } from '@/middleware/errorHandler';
 import { authRoutes } from '@/routes/auth';
 import { healthRoutes } from '@/routes/health';
+import { aiRoutes } from '@/routes/ai';
+import { aiService } from '@/ai/aiService';
 
 // Load environment variables
 dotenv.config();
@@ -37,6 +39,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Routes
 app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
@@ -50,9 +53,23 @@ io.on('connection', (socket) => {
 // Error handling middleware (must be last)
 app.use(errorHandler);
 
-// Start server
-server.listen(PORT, () => {
-  logger.info(`Server running on port ${PORT}`);
-});
+// Initialize AI service and start server
+async function startServer() {
+  try {
+    // Initialize AI service
+    await aiService.initialize();
+    logger.info('AI service initialized successfully');
+    
+    // Start server
+    server.listen(PORT, () => {
+      logger.info(`Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    logger.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+startServer();
 
 export { app, io };
