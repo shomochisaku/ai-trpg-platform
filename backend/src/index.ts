@@ -9,7 +9,9 @@ import { errorHandler } from '@/middleware/errorHandler';
 import { authRoutes } from '@/routes/auth';
 import { healthRoutes } from '@/routes/health';
 import { aiRoutes } from '@/routes/ai';
+import memoryRoutes from '@/routes/memory';
 import { aiService } from '@/ai/aiService';
+import { memoryService } from '@/services/memory';
 
 // Load environment variables
 dotenv.config();
@@ -40,6 +42,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/memory', memoryRoutes);
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
@@ -53,12 +56,21 @@ io.on('connection', (socket) => {
 // Error handling middleware (must be last)
 app.use(errorHandler);
 
-// Initialize AI service and start server
+// Initialize services and start server
 async function startServer() {
   try {
     // Initialize AI service
     await aiService.initialize();
     logger.info('AI service initialized successfully');
+    
+    // Initialize memory service
+    try {
+      await memoryService.initialize();
+      logger.info('Memory service initialized successfully');
+    } catch (error) {
+      logger.error('Failed to initialize memory service:', error);
+      // Continue without memory service for now
+    }
     
     // Start server
     server.listen(PORT, () => {
