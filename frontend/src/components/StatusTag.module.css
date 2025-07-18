@@ -1,0 +1,98 @@
+.statusTag {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 12px;
+  margin: 4px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  min-width: 80px;
+  max-width: 120px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.statusTag:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.tagContent {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.icon {
+  font-size: 16px;
+}
+
+.name {
+  text-align: center;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stackCount {
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 4px;
+  border-radius: 4px;
+  margin-left: 4px;
+}
+
+.timeRemaining {
+  font-size: 10px;
+  font-weight: 400;
+  opacity: 0.8;
+  text-align: center;
+}
+
+.permanent {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.6;
+}
+
+/* Color variants */
+.buff {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+}
+
+.debuff {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+}
+
+.status {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+}
+
+.neutral {
+  background: linear-gradient(135deg, #6b7280, #4b5563);
+  color: white;
+}
+
+.buff:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+}
+
+.debuff:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+}
+
+.status:hover {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+}
+
+.neutral:hover {
+  background: linear-gradient(135deg, #4b5563, #374151);
+}

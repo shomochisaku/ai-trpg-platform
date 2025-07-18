@@ -1,0 +1,224 @@
+.inventoryItem {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  margin: 4px 0;
+  border-radius: 8px;
+  background: #2a2a2a;
+  border: 2px solid #444;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.inventoryItem:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.inventoryItem.compact {
+  padding: 8px;
+  flex-direction: row;
+  align-items: center;
+}
+
+.itemHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.compact .itemHeader {
+  margin-bottom: 0;
+  flex: 1;
+}
+
+.itemIcon {
+  font-size: 20px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.itemInfo {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.itemName {
+  font-weight: 600;
+  font-size: 14px;
+  color: #fff;
+  margin-bottom: 2px;
+}
+
+.quantity {
+  font-size: 12px;
+  color: #aaa;
+  font-weight: 500;
+}
+
+.equippedBadge {
+  background: #10b981;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+
+.itemDetails {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #888;
+}
+
+.itemType {
+  text-transform: capitalize;
+}
+
+.itemRarity {
+  text-transform: capitalize;
+  font-weight: 500;
+}
+
+/* Rarity colors */
+.common {
+  border-color: #6b7280;
+}
+
+.uncommon {
+  border-color: #10b981;
+}
+
+.rare {
+  border-color: #3b82f6;
+}
+
+.epic {
+  border-color: #8b5cf6;
+}
+
+.legendary {
+  border-color: #f59e0b;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+}
+
+.common:hover {
+  border-color: #9ca3af;
+}
+
+.uncommon:hover {
+  border-color: #34d399;
+}
+
+.rare:hover {
+  border-color: #60a5fa;
+}
+
+.epic:hover {
+  border-color: #a78bfa;
+}
+
+.legendary:hover {
+  border-color: #fbbf24;
+  box-shadow: 0 0 15px rgba(245, 158, 11, 0.5);
+}
+
+/* Tooltip styles */
+.tooltipContainer {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  pointer-events: none;
+}
+
+.inventoryItem:hover .tooltipContainer {
+  opacity: 1;
+  visibility: visible;
+}
+
+.tooltip {
+  background: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  max-width: 300px;
+}
+
+.tooltipHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.tooltipName {
+  font-weight: 600;
+  font-size: 14px;
+  color: #fff;
+}
+
+.tooltipRarity {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.tooltipRarity.common {
+  background: #6b7280;
+  color: white;
+}
+
+.tooltipRarity.uncommon {
+  background: #10b981;
+  color: white;
+}
+
+.tooltipRarity.rare {
+  background: #3b82f6;
+  color: white;
+}
+
+.tooltipRarity.epic {
+  background: #8b5cf6;
+  color: white;
+}
+
+.tooltipRarity.legendary {
+  background: #f59e0b;
+  color: white;
+}
+
+.tooltipDescription {
+  font-size: 13px;
+  color: #ccc;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.tooltipDetails {
+  font-size: 12px;
+  color: #888;
+}
+
+.tooltipDetails > div {
+  margin-bottom: 2px;
+}
