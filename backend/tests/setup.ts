@@ -16,16 +16,16 @@ jest.mock('../src/utils/logger', () => ({
 jest.mock('@prisma/client', () => {
   if (process.env.CI) {
     // Use regular PrismaClient in CI
-    const { PrismaClient } = require('@prisma/client');
-    return { PrismaClient };
+    const actualPrisma = jest.requireActual('@prisma/client');
+    return actualPrisma;
   } else {
     // Try SQLite client locally, fallback to regular if not available
     try {
       const { PrismaClient } = require('../node_modules/.prisma/client-test');
       return { PrismaClient };
     } catch (error) {
-      const { PrismaClient } = require('@prisma/client');
-      return { PrismaClient };
+      const actualPrisma = jest.requireActual('@prisma/client');
+      return actualPrisma;
     }
   }
 });
