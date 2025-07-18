@@ -9,8 +9,7 @@ export interface CustomError extends Error {
 export const errorHandler = (
   err: CustomError,
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ): void => {
   logger.error('Error occurred:', {
     error: err.message,

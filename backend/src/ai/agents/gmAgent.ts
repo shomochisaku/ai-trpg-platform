@@ -294,6 +294,10 @@ Always respond in character as the GM, describing scenes vividly and asking for 
 
     const choice = response.choices[0];
     
+    if (!choice) {
+      throw new Error('No response choices received from OpenAI');
+    }
+    
     // Handle tool calls
     if (choice.message.tool_calls) {
       for (const toolCall of choice.message.tool_calls) {
@@ -321,11 +325,15 @@ Always respond in character as the GM, describing scenes vividly and asking for 
       model: this.config.model!,
       max_tokens: this.config.maxTokens!,
       temperature: this.config.temperature,
-      system: systemMessage,
+      system: systemMessage || 'You are a helpful AI assistant.',
       messages,
     });
 
-    return response.content[0].type === 'text' ? response.content[0].text : 'I apologize, but I was unable to generate a response.';
+    const firstContent = response.content[0];
+    if (!firstContent) {
+      return 'I apologize, but I was unable to generate a response.';
+    }
+    return firstContent.type === 'text' ? firstContent.text : 'I apologize, but I was unable to generate a response.';
   }
 
   /**

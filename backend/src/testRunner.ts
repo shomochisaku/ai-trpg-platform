@@ -28,7 +28,7 @@ async function runBasicTests() {
     if (!result || !result.rolls || result.rolls.length !== 1) {
       throw new Error('Invalid dice roll result');
     }
-    if (result.rolls[0] < 1 || result.rolls[0] > 20) {
+    if ((result.rolls[0] || 0) < 1 || (result.rolls[0] || 0) > 20) {
       throw new Error('Dice roll out of range');
     }
   });
@@ -55,7 +55,7 @@ async function runBasicTests() {
         action: 'add',
       }],
     });
-    if (tags.length !== 1 || tags[0].name !== 'Test Status') {
+    if (tags.length !== 1 || tags[0]?.name !== 'Test Status') {
       throw new Error('Status tag not added correctly');
     }
   });
@@ -78,7 +78,7 @@ async function runBasicTests() {
       limit: 1,
     });
     
-    if (retrieved.length !== 1 || retrieved[0].title !== 'Test Knowledge') {
+    if (retrieved.length !== 1 || retrieved[0]?.title !== 'Test Knowledge') {
       throw new Error('Knowledge not retrieved correctly');
     }
   });

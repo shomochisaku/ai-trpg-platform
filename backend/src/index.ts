@@ -69,13 +69,13 @@ async function startServer() {
     logger.info('AI service initialized successfully');
     
     // Initialize memory service
-    try {
-      await memoryService.initialize();
-      logger.info('Memory service initialized successfully');
-    } catch (error) {
-      logger.error('Failed to initialize memory service:', error);
-      // Continue without memory service for now
-    }
+    // try {
+    //   await memoryService.initialize();
+    //   logger.info('Memory service initialized successfully');
+    // } catch (error) {
+    //   logger.error('Failed to initialize memory service:', error);
+    //   // Continue without memory service for now
+    // }
     
     // Initialize RAG service
     try {

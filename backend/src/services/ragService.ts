@@ -39,7 +39,14 @@ export interface KnowledgeEntry {
 // Validation schemas
 export const createKnowledgeSchema = z.object({
   campaignId: z.string(),
-  category: z.enum(['characters', 'locations', 'events', 'rules', 'lore', 'other']),
+  category: z.enum([
+    'characters',
+    'locations',
+    'events',
+    'rules',
+    'lore',
+    'other',
+  ]),
   title: z.string().min(1).max(200),
   content: z.string().min(1).max(10000),
   metadata: z.record(z.any()).optional(),
@@ -50,7 +57,9 @@ export const createKnowledgeSchema = z.object({
 export const searchSchema = z.object({
   campaignId: z.string(),
   query: z.string().min(1).max(1000),
-  category: z.enum(['characters', 'locations', 'events', 'rules', 'lore', 'other']).optional(),
+  category: z
+    .enum(['characters', 'locations', 'events', 'rules', 'lore', 'other'])
+    .optional(),
   limit: z.number().min(1).max(100).default(10),
   threshold: z.number().min(0).max(1).default(0.7),
 });
@@ -81,8 +90,14 @@ export class RAGService {
         input: text,
       });
 
+      const embedding = response.data[0]?.embedding;
+
+      if (!embedding) {
+        throw new Error('Failed to generate embedding');
+      }
+
       return {
-        embedding: response.data[0].embedding,
+        embedding,
         tokenCount: response.usage?.total_tokens || 0,
       };
     } catch (error) {
@@ -94,29 +109,27 @@ export class RAGService {
   /**
    * Store knowledge with embeddings
    */
-  async storeKnowledge(data: z.infer<typeof createKnowledgeSchema>): Promise<KnowledgeEntry> {
+  async storeKnowledge(
+    data: z.infer<typeof createKnowledgeSchema>
+  ): Promise<KnowledgeEntry> {
     const validated = createKnowledgeSchema.parse(data);
-    
+
     // Generate embedding for the content
     const { embedding } = await this.generateEmbedding(
       `${validated.title} ${validated.content}`
     );
 
     // Calculate importance based on content length and metadata
-    const importance = validated.importance ?? this.calculateImportance(validated);
+    const importance =
+      validated.importance ?? this.calculateImportance(validated);
 
     // Store in database
     const entry = await prisma.memoryEntry.create({
       data: {
-        agentId: validated.campaignId,
+        sessionId: validated.campaignId,
         content: validated.content,
-        type: 'knowledge',
-        metadata: {
-          ...validated.metadata,
-          category: validated.category,
-          title: validated.title,
-          tags: validated.tags || [],
-        },
+        category: validated.category as any,
+        tags: validated.tags || [],
         importance,
         embedding,
       },
@@ -128,9 +141,11 @@ export class RAGService {
   /**
    * Search for similar knowledge entries
    */
-  async searchKnowledge(params: z.infer<typeof searchSchema>): Promise<SearchResult[]> {
+  async searchKnowledge(
+    params: z.infer<typeof searchSchema>
+  ): Promise<SearchResult[]> {
     const validated = searchSchema.parse(params);
-    
+
     // Generate embedding for the query
     const { embedding } = await this.generateEmbedding(validated.query);
 
@@ -171,17 +186,10 @@ export class RAGService {
   ): Promise<KnowledgeEntry[]> {
     const entries = await prisma.memoryEntry.findMany({
       where: {
-        agentId: campaignId,
-        type: 'knowledge',
-        metadata: {
-          path: ['category'],
-          equals: category,
-        },
+        sessionId: campaignId,
+        category: category as any,
       },
-      orderBy: [
-        { importance: 'desc' },
-        { createdAt: 'desc' },
-      ],
+      orderBy: [{ importance: 'desc' }, { createdAt: 'desc' }],
       take: limit,
     });
 
@@ -200,8 +208,8 @@ export class RAGService {
     if (data.content || data.title) {
       const entry = await prisma.memoryEntry.findUnique({ where: { id } });
       if (!entry) throw new Error('Knowledge entry not found');
-      
-      const newContent = `${data.title || entry.metadata?.title || ''} ${data.content || entry.content}`;
+
+      const newContent = `${data.title || ''} ${data.content || entry.content}`;
       const result = await this.generateEmbedding(newContent);
       embedding = result.embedding;
     }
@@ -210,13 +218,8 @@ export class RAGService {
       where: { id },
       data: {
         content: data.content,
-        metadata: data.metadata || data.title || data.tags || data.category ? {
-          ...(await prisma.memoryEntry.findUnique({ where: { id } }))?.metadata,
-          ...(data.metadata || {}),
-          ...(data.title && { title: data.title }),
-          ...(data.tags && { tags: data.tags }),
-          ...(data.category && { category: data.category }),
-        } : undefined,
+        category: data.category as any,
+        tags: data.tags,
         importance: data.importance,
         ...(embedding && { embedding }),
       },
@@ -239,24 +242,23 @@ export class RAGService {
    */
   async getKnowledgeStats(campaignId: string): Promise<any> {
     const stats = await prisma.memoryEntry.groupBy({
-      by: ['metadata'],
+      by: ['category'],
       where: {
-        agentId: campaignId,
-        type: 'knowledge',
+        sessionId: campaignId,
       },
       _count: true,
     });
 
     const categoryCounts: Record<string, number> = {};
     stats.forEach(stat => {
-      const category = (stat.metadata as any)?.category || 'other';
-      categoryCounts[category] = (categoryCounts[category] || 0) + stat._count;
+      const category = stat.category || 'other';
+      categoryCounts[category] =
+        (categoryCounts[category] || 0) + (stat._count as any);
     });
 
     const total = await prisma.memoryEntry.count({
       where: {
-        agentId: campaignId,
-        type: 'knowledge',
+        sessionId: campaignId,
       },
     });
 
@@ -280,6 +282,7 @@ export class RAGService {
       campaignId,
       query,
       limit: 20,
+      threshold: 0.7,
     });
 
     // Sort by relevance and importance
@@ -292,13 +295,13 @@ export class RAGService {
     // Build context within token limit
     let context = '';
     let tokenCount = 0;
-    
+
     for (const result of sorted) {
       const entry = `[${result.metadata?.category || 'info'}] ${result.metadata?.title || ''}: ${result.content}\n\n`;
       const entryTokens = Math.ceil(entry.length / 4); // Rough estimation
-      
+
       if (tokenCount + entryTokens > maxTokens) break;
-      
+
       context += entry;
       tokenCount += entryTokens;
     }
@@ -309,29 +312,29 @@ export class RAGService {
   private calculateImportance(data: any): number {
     // Base importance on content length and category
     let importance = 0.5;
-    
+
     if (data.content.length > 500) importance += 0.1;
     if (data.content.length > 1000) importance += 0.1;
-    
+
     if (data.category === 'characters' || data.category === 'rules') {
       importance += 0.2;
     } else if (data.category === 'events') {
       importance += 0.1;
     }
-    
+
     return Math.min(importance, 1.0);
   }
 
   private formatKnowledgeEntry(entry: any): KnowledgeEntry {
     return {
       id: entry.id,
-      campaignId: entry.agentId,
-      category: entry.metadata?.category || 'other',
-      title: entry.metadata?.title || '',
+      campaignId: entry.sessionId,
+      category: entry.category || 'other',
+      title: entry.title || '',
       content: entry.content,
-      metadata: entry.metadata || {},
+      metadata: {},
       importance: entry.importance,
-      tags: entry.metadata?.tags || [],
+      tags: entry.tags || [],
       createdAt: entry.createdAt,
       updatedAt: entry.updatedAt,
     };

@@ -176,8 +176,8 @@ export class ConversationHistoryManager {
         keyTopics,
         participants,
         timeRange: {
-          start: messages[0].timestamp,
-          end: messages[messages.length - 1].timestamp,
+          start: messages[0]?.timestamp || new Date(),
+          end: messages[messages.length - 1]?.timestamp || new Date(),
         },
       };
     } catch (error) {
@@ -228,8 +228,8 @@ export class ConversationHistoryManager {
 
         results.push({
           message: {
-            role: message.role === AIRole.USER ? 'user' : 
-                  message.role === AIRole.ASSISTANT ? 'assistant' : 'system',
+            role: message.role === AIRole.USER ? 'user' as const : 
+                  message.role === AIRole.ASSISTANT ? 'assistant' as const : 'system' as const,
             content: message.content,
             timestamp: message.timestamp,
           },
@@ -281,8 +281,8 @@ export class ConversationHistoryManager {
 
       const averageMessageLength = messages.reduce((sum, msg) => sum + msg.content.length, 0) / totalMessages;
 
-      const startTime = messages[0].timestamp;
-      const endTime = messages[messages.length - 1].timestamp;
+      const startTime = messages[0]?.timestamp || new Date();
+      const endTime = messages[messages.length - 1]?.timestamp || new Date();
       const conversationDuration = endTime.getTime() - startTime.getTime();
 
       const messagesPerHour = conversationDuration > 0 ? 
@@ -296,7 +296,7 @@ export class ConversationHistoryManager {
       });
 
       const mostActiveHour = Object.keys(hourCounts).reduce((a, b) => 
-        hourCounts[a] > hourCounts[b] ? a : b, '00:00');
+        (hourCounts[a] || 0) > (hourCounts[b] || 0) ? a : b, '00:00');
 
       return {
         totalMessages,
@@ -372,7 +372,7 @@ export class ConversationHistoryManager {
       // Check if we need to chunk based on time
       const oldestMessage = recentMessages[recentMessages.length - 1];
       const newestMessage = recentMessages[0];
-      const timeDiff = newestMessage.timestamp.getTime() - oldestMessage.timestamp.getTime();
+      const timeDiff = (newestMessage?.timestamp?.getTime() || 0) - (oldestMessage?.timestamp?.getTime() || 0);
 
       if (timeDiff > this.MAX_CHUNK_DURATION || recentMessages.length > this.MAX_CHUNK_SIZE) {
         // Create a chunk for older messages
@@ -392,8 +392,8 @@ export class ConversationHistoryManager {
     try {
       if (messages.length === 0) return;
 
-      const startTime = messages[messages.length - 1].timestamp;
-      const endTime = messages[0].timestamp;
+      const startTime = messages[messages.length - 1]?.timestamp || new Date();
+      const endTime = messages[0]?.timestamp || new Date();
       const summary = await this.generateConversationSummary(messages);
       const keyTopics = this.extractKeyTopics(messages);
       const participants = [...new Set(messages.map(m => m.role))];
@@ -422,7 +422,7 @@ export class ConversationHistoryManager {
     const topics = this.extractKeyTopics(messages);
     const topicSummary = topics.length > 0 ? `Key topics: ${topics.join(', ')}. ` : '';
 
-    return `${topicSummary}Conversation included ${userMessages.length} user messages and ${assistantMessages.length} assistant responses spanning ${this.formatDuration(messages[0].timestamp, messages[messages.length - 1].timestamp)}.`;
+    return `${topicSummary}Conversation included ${userMessages.length} user messages and ${assistantMessages.length} assistant responses spanning ${this.formatDuration(messages[0]?.timestamp || new Date(), messages[messages.length - 1]?.timestamp || new Date())}.`;
   }
 
   /**

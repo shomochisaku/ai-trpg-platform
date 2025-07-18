@@ -53,36 +53,29 @@ export class CampaignService {
   /**
    * Create a new campaign
    */
-  async createCampaign(data: z.infer<typeof createCampaignSchema>): Promise<Campaign> {
+  async createCampaign(
+    data: z.infer<typeof createCampaignSchema>
+  ): Promise<Campaign> {
     const validated = createCampaignSchema.parse(data);
 
     // Create campaign in database
     const campaign = await prisma.gameSession.create({
       data: {
-        userId: validated.userId,
-        title: validated.title,
+        createdBy: validated.userId,
+        name: validated.title,
         description: validated.description || '',
-        status: 'active',
-        aiSettings: validated.settings as any,
-        metadata: {
-          knowledgeInitialized: false,
-        },
+        status: 'ACTIVE',
+        setting: validated.settings as any,
+        systemType: 'AI_TRPG',
+        maxPlayers: 1,
+        isActive: true,
       },
     });
 
     // Initialize campaign knowledge base
     await this.initializeCampaignKnowledge(campaign.id, validated.settings);
 
-    // Update metadata to mark knowledge as initialized
-    await prisma.gameSession.update({
-      where: { id: campaign.id },
-      data: {
-        metadata: {
-          ...campaign.metadata,
-          knowledgeInitialized: true,
-        },
-      },
-    });
+    // Knowledge initialization completed
 
     return this.formatCampaign(campaign);
   }
@@ -110,8 +103,8 @@ export class CampaignService {
     } = {}
   ): Promise<{ campaigns: Campaign[]; total: number }> {
     const where = {
-      userId,
-      ...(options.status && { status: options.status }),
+      createdBy: userId,
+      ...(options.status && { status: options.status as any }),
     };
 
     const [campaigns, total] = await Promise.all([
@@ -142,16 +135,12 @@ export class CampaignService {
     const updated = await prisma.gameSession.update({
       where: { id },
       data: {
-        ...(validated.title && { title: validated.title }),
-        ...(validated.description !== undefined && { description: validated.description }),
-        ...(validated.settings && { aiSettings: validated.settings }),
-        ...(validated.status && { status: validated.status }),
-        ...(validated.metadata && {
-          metadata: {
-            ...(await prisma.gameSession.findUnique({ where: { id } }))?.metadata,
-            ...validated.metadata,
-          },
+        ...(validated.title && { name: validated.title }),
+        ...(validated.description !== undefined && {
+          description: validated.description,
         }),
+        ...(validated.settings && { setting: validated.settings }),
+        ...(validated.status && { status: validated.status as any }),
       },
     });
 
@@ -164,7 +153,7 @@ export class CampaignService {
   async deleteCampaign(id: string): Promise<void> {
     // Delete associated knowledge entries
     await prisma.memoryEntry.deleteMany({
-      where: { agentId: id },
+      where: { sessionId: id },
     });
 
     // Delete campaign
@@ -255,8 +244,8 @@ export class CampaignService {
     });
 
     // Get total actions/messages
-    const conversations = await prisma.conversationHistory.count({
-      where: { sessionId: campaignId },
+    const conversations = await prisma.aIMessage.count({
+      where: { conversationId: campaignId },
     });
 
     return {
@@ -278,12 +267,12 @@ export class CampaignService {
   private formatCampaign(session: any): Campaign {
     return {
       id: session.id,
-      userId: session.userId,
-      title: session.title,
+      userId: session.createdBy,
+      title: session.name,
       description: session.description,
-      settings: session.aiSettings,
+      settings: session.setting,
       status: session.status,
-      metadata: session.metadata || {},
+      metadata: {},
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
     };

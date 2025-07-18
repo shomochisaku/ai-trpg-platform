@@ -66,7 +66,14 @@ export interface GameMessage {
 export interface MemoryEntry {
   id: string;
   content: string;
-  category: 'GENERAL' | 'CHARACTER' | 'LOCATION' | 'EVENT' | 'RULE' | 'PREFERENCE' | 'STORY_BEAT';
+  category:
+    | 'GENERAL'
+    | 'CHARACTER'
+    | 'LOCATION'
+    | 'EVENT'
+    | 'RULE'
+    | 'PREFERENCE'
+    | 'STORY_BEAT';
   importance: number;
   tags: string[];
   embedding?: number[];

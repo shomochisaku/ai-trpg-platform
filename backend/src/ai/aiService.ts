@@ -1,15 +1,15 @@
 import { GMAgent, GMSession } from './agents/gmAgent';
 import { logger } from '../utils/logger';
-import { 
-  rollDice, 
-  updateStatusTags, 
-  storeKnowledge, 
-  getKnowledge, 
+import {
+  rollDice,
+  updateStatusTags,
+  storeKnowledge,
+  getKnowledge,
   getStatusTags,
   clearExpiredTags,
   DiceResult,
   StatusTag,
-  KnowledgeEntry 
+  KnowledgeEntry,
 } from './tools/gameTools';
 
 /**
@@ -30,7 +30,7 @@ export class AIService {
     try {
       // Start periodic cleanup of expired status tags
       this.startCleanupInterval();
-      
+
       this.initialized = true;
       logger.info('AI Service initialized successfully');
     } catch (error) {
@@ -49,14 +49,17 @@ export class AIService {
   /**
    * Create a new game session
    */
-  async createGameSession(playerId: string, playerName: string): Promise<string> {
+  async createGameSession(
+    playerId: string,
+    playerName: string
+  ): Promise<string> {
     if (!this.initialized) {
       throw new Error('AI Service not initialized');
     }
 
     try {
       const sessionId = await this.gmAgent.createSession(playerId, playerName);
-      
+
       // Store initial knowledge about the player
       await storeKnowledge({
         category: 'player',
@@ -65,8 +68,10 @@ export class AIService {
         tags: ['player', 'session', playerName.toLowerCase()],
         relevance: 0.8,
       });
-      
-      logger.info(`Game session created: ${sessionId} for player: ${playerName}`);
+
+      logger.info(
+        `Game session created: ${sessionId} for player: ${playerName}`
+      );
       return sessionId;
     } catch (error) {
       logger.error('Error creating game session:', error);
@@ -84,7 +89,7 @@ export class AIService {
 
     try {
       const response = await this.gmAgent.chat(sessionId, message);
-      
+
       // Store the conversation in knowledge base for context
       await storeKnowledge({
         category: 'conversation',
@@ -93,7 +98,7 @@ export class AIService {
         tags: ['conversation', sessionId, 'player-interaction'],
         relevance: 0.6,
       });
-      
+
       return response;
     } catch (error) {
       logger.error('Error in GM chat:', error);
@@ -185,8 +190,8 @@ export class AIService {
   /**
    * Get service statistics
    */
-  getStats(): { 
-    totalSessions: number; 
+  getStats(): {
+    totalSessions: number;
     activeSessions: number;
     initialized: boolean;
   } {
@@ -199,13 +204,13 @@ export class AIService {
   /**
    * Health check for the AI service
    */
-  async healthCheck(): Promise<{ 
-    status: 'healthy' | 'unhealthy'; 
-    details: any 
+  async healthCheck(): Promise<{
+    status: 'healthy' | 'unhealthy';
+    details: any;
   }> {
     try {
       const stats = this.getStats();
-      
+
       return {
         status: this.initialized ? 'healthy' : 'unhealthy',
         details: {

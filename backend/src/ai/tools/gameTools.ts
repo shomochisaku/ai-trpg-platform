@@ -62,8 +62,8 @@ export async function rollDice(params: {
     throw new Error(`Invalid dice notation: ${dice}`);
   }
   
-  const numDice = parseInt(match[1]);
-  const diceSize = parseInt(match[2]);
+  const numDice = parseInt(match[1] || '1');
+  const diceSize = parseInt(match[2] || '6');
   const modifier = match[3] ? parseInt(match[3]) : 0;
   
   // Roll dice

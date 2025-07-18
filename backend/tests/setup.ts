@@ -10,10 +10,20 @@ jest.mock('../src/utils/logger', () => ({
   },
 }));
 
+// Mock PrismaClient to use test database
+jest.mock('@prisma/client', () => {
+  const { PrismaClient } = require('../node_modules/.prisma/client-test');
+  return { PrismaClient };
+});
+
 // Set test environment variables
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test-secret';
-process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
+process.env.DATABASE_URL = 'file:./test.db';
+process.env.OPENAI_API_KEY = 'test-openai-key';
+process.env.ANTHROPIC_API_KEY = 'test-anthropic-key';
+process.env.PINECONE_API_KEY = 'test-pinecone-key';
+process.env.PINECONE_ENVIRONMENT = 'test-environment';
 
 // Global test setup
 beforeAll(() => {

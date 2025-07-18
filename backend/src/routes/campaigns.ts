@@ -1,5 +1,9 @@
 import { Router, Request, Response } from 'express';
-import { campaignService, createCampaignSchema, updateCampaignSchema } from '@/services/campaignService';
+import {
+  campaignService,
+  createCampaignSchema,
+  updateCampaignSchema,
+} from '@/services/campaignService';
 import { logger } from '@/utils/logger';
 import { z } from 'zod';
 
@@ -13,7 +17,7 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const data = createCampaignSchema.parse(req.body);
     const campaign = await campaignService.createCampaign(data);
-    
+
     res.status(201).json({
       success: true,
       data: campaign,
@@ -26,7 +30,7 @@ router.post('/', async (req: Request, res: Response) => {
         details: error.errors,
       });
     }
-    
+
     logger.error('Failed to create campaign:', error);
     res.status(500).json({
       success: false,
@@ -42,20 +46,20 @@ router.post('/', async (req: Request, res: Response) => {
 router.get('/', async (req: Request, res: Response) => {
   try {
     const { userId, status, limit, offset } = req.query;
-    
+
     if (!userId) {
       return res.status(400).json({
         success: false,
         error: 'userId is required',
       });
     }
-    
+
     const result = await campaignService.listCampaigns(userId as string, {
       status: status as string,
       limit: limit ? parseInt(limit as string) : undefined,
       offset: offset ? parseInt(offset as string) : undefined,
     });
-    
+
     res.json({
       success: true,
       data: result.campaigns,
@@ -77,15 +81,23 @@ router.get('/', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Campaign ID is required',
+      });
+    }
+
     const campaign = await campaignService.getCampaign(id);
-    
+
     if (!campaign) {
       return res.status(404).json({
         success: false,
         error: 'Campaign not found',
       });
     }
-    
+
     res.json({
       success: true,
       data: campaign,
@@ -106,9 +118,17 @@ router.get('/:id', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Campaign ID is required',
+      });
+    }
+
     const data = updateCampaignSchema.parse(req.body);
     const campaign = await campaignService.updateCampaign(id, data);
-    
+
     res.json({
       success: true,
       data: campaign,
@@ -121,7 +141,7 @@ router.put('/:id', async (req: Request, res: Response) => {
         details: error.errors,
       });
     }
-    
+
     logger.error('Failed to update campaign:', error);
     res.status(500).json({
       success: false,
@@ -137,8 +157,16 @@ router.put('/:id', async (req: Request, res: Response) => {
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Campaign ID is required',
+      });
+    }
+
     await campaignService.deleteCampaign(id);
-    
+
     res.json({
       success: true,
       message: 'Campaign deleted successfully',
@@ -159,8 +187,16 @@ router.delete('/:id', async (req: Request, res: Response) => {
 router.get('/:id/stats', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Campaign ID is required',
+      });
+    }
+
     const stats = await campaignService.getCampaignStats(id);
-    
+
     res.json({
       success: true,
       data: stats,
@@ -182,14 +218,21 @@ router.post('/:id/action', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { action } = req.body;
-    
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Campaign ID is required',
+      });
+    }
+
     if (!action) {
       return res.status(400).json({
         success: false,
         error: 'action is required',
       });
     }
-    
+
     // Get campaign to verify it exists
     const campaign = await campaignService.getCampaign(id);
     if (!campaign) {
@@ -198,7 +241,7 @@ router.post('/:id/action', async (req: Request, res: Response) => {
         error: 'Campaign not found',
       });
     }
-    
+
     // TODO: Integrate with Mastra AI agent to process the action
     // For now, return a placeholder response
     res.json({
@@ -208,7 +251,8 @@ router.post('/:id/action', async (req: Request, res: Response) => {
         campaignId: id,
         action,
         // This will be replaced with actual AI response
-        response: 'This feature will process player actions through the Mastra AI framework',
+        response:
+          'This feature will process player actions through the Mastra AI framework',
       },
     });
   } catch (error) {

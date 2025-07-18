@@ -1,0 +1,161 @@
+// Test schema file using SQLite
+// This is used for local testing when PostgreSQL is not available
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client-test"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./test.db"
+}
+
+// ============================================================================
+// USER & AUTHENTICATION
+// ============================================================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  gameSessions GameSession[]
+  characters   Character[]
+  memories     Memory[]
+  preferences  UserPreference[]
+
+  @@map("users")
+}
+
+model UserPreference {
+  id     String @id @default(cuid())
+  userId String
+  key    String
+  value  String
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@map("user_preferences")
+}
+
+// ============================================================================
+// GAME SESSIONS & CAMPAIGNS
+// ============================================================================
+
+model GameSession {
+  id          String   @id @default(cuid())
+  createdBy   String
+  name        String
+  description String   @default("")
+  setting     String   @default("{}") // JSON string
+  status      String   @default("ACTIVE") // ACTIVE, PAUSED, COMPLETED, ARCHIVED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user       User        @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  characters Character[]
+  memories   Memory[]
+  aiMessages AIMessage[]
+
+  @@map("game_sessions")
+}
+
+// ============================================================================
+// CHARACTERS
+// ============================================================================
+
+model Character {
+  id          String @id @default(cuid())
+  sessionId   String
+  userId      String
+  name        String
+  description String @default("")
+  stats       String @default("{}") // JSON string
+  inventory   String @default("{}") // JSON string
+  statusTags  String @default("[]") // JSON array
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  session GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("characters")
+}
+
+// ============================================================================
+// AI MESSAGES & CONVERSATION
+// ============================================================================
+
+model AIMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String   // USER, ASSISTANT, SYSTEM
+  content        String
+  timestamp      DateTime @default(now())
+
+  // Relations
+  gameSession GameSession @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("ai_messages")
+}
+
+// ============================================================================
+// MEMORY & KNOWLEDGE MANAGEMENT
+// ============================================================================
+
+model Memory {
+  id             String   @id @default(cuid())
+  sessionId      String
+  userId         String
+  type           String   // GENERAL, CHARACTER, LOCATION, EVENT, RULE, PREFERENCE
+  title          String
+  content        String
+  summary        String?
+  importance     Int      @default(5)
+  tags           String   @default("[]") // JSON array
+  embedding      String? // JSON array as string
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  lastAccessedAt DateTime @default(now())
+
+  // Relations
+  session GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([userId])
+  @@index([type])
+  @@index([importance])
+  @@index([lastAccessedAt])
+  @@map("memories")
+}
+
+// ============================================================================
+// KNOWLEDGE BASE
+// ============================================================================
+
+model Knowledge {
+  id          String   @id @default(cuid())
+  title       String
+  content     String
+  summary     String?
+  category    String
+  tags        String   @default("[]") // JSON array
+  importance  Int      @default(5)
+  embedding   String? // JSON array as string
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([importance])
+  @@map("knowledge")
+}

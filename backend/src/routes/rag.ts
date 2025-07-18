@@ -1,5 +1,9 @@
 import { Router, Request, Response } from 'express';
-import { ragService, createKnowledgeSchema, searchSchema } from '@/services/ragService';
+import {
+  ragService,
+  createKnowledgeSchema,
+  searchSchema,
+} from '@/services/ragService';
 import { logger } from '@/utils/logger';
 import { z } from 'zod';
 
@@ -13,7 +17,7 @@ router.post('/knowledge', async (req: Request, res: Response) => {
   try {
     const data = createKnowledgeSchema.parse(req.body);
     const entry = await ragService.storeKnowledge(data);
-    
+
     res.status(201).json({
       success: true,
       data: entry,
@@ -26,7 +30,7 @@ router.post('/knowledge', async (req: Request, res: Response) => {
         details: error.errors,
       });
     }
-    
+
     logger.error('Failed to store knowledge:', error);
     res.status(500).json({
       success: false,
@@ -43,7 +47,7 @@ router.post('/search', async (req: Request, res: Response) => {
   try {
     const params = searchSchema.parse(req.body);
     const results = await ragService.searchKnowledge(params);
-    
+
     res.json({
       success: true,
       data: results,
@@ -57,7 +61,7 @@ router.post('/search', async (req: Request, res: Response) => {
         details: error.errors,
       });
     }
-    
+
     logger.error('Failed to search knowledge:', error);
     res.status(500).json({
       success: false,
@@ -70,26 +74,41 @@ router.post('/search', async (req: Request, res: Response) => {
  * @route GET /api/rag/knowledge/:campaignId/category/:category
  * @desc Get knowledge by category
  */
-router.get('/knowledge/:campaignId/category/:category', async (req: Request, res: Response) => {
-  try {
-    const { campaignId, category } = req.params;
-    const limit = parseInt(req.query.limit as string) || 50;
-    
-    const entries = await ragService.getKnowledgeByCategory(campaignId, category, limit);
-    
-    res.json({
-      success: true,
-      data: entries,
-      count: entries.length,
-    });
-  } catch (error) {
-    logger.error('Failed to get knowledge by category:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to retrieve knowledge entries',
-    });
+router.get(
+  '/knowledge/:campaignId/category/:category',
+  async (req: Request, res: Response) => {
+    try {
+      const { campaignId, category } = req.params;
+
+      if (!campaignId || !category) {
+        return res.status(400).json({
+          success: false,
+          error: 'Campaign ID and category are required',
+        });
+      }
+
+      const limit = parseInt(req.query.limit as string) || 50;
+
+      const entries = await ragService.getKnowledgeByCategory(
+        campaignId,
+        category,
+        limit
+      );
+
+      res.json({
+        success: true,
+        data: entries,
+        count: entries.length,
+      });
+    } catch (error) {
+      logger.error('Failed to get knowledge by category:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve knowledge entries',
+      });
+    }
   }
-});
+);
 
 /**
  * @route PUT /api/rag/knowledge/:id
@@ -98,8 +117,16 @@ router.get('/knowledge/:campaignId/category/:category', async (req: Request, res
 router.put('/knowledge/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Knowledge ID is required',
+      });
+    }
+
     const entry = await ragService.updateKnowledge(id, req.body);
-    
+
     res.json({
       success: true,
       data: entry,
@@ -120,8 +147,16 @@ router.put('/knowledge/:id', async (req: Request, res: Response) => {
 router.delete('/knowledge/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Knowledge ID is required',
+      });
+    }
+
     await ragService.deleteKnowledge(id);
-    
+
     res.json({
       success: true,
       message: 'Knowledge entry deleted successfully',
@@ -142,8 +177,16 @@ router.delete('/knowledge/:id', async (req: Request, res: Response) => {
 router.get('/stats/:campaignId', async (req: Request, res: Response) => {
   try {
     const { campaignId } = req.params;
+
+    if (!campaignId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Campaign ID is required',
+      });
+    }
+
     const stats = await ragService.getKnowledgeStats(campaignId);
-    
+
     res.json({
       success: true,
       data: stats,
@@ -164,20 +207,20 @@ router.get('/stats/:campaignId', async (req: Request, res: Response) => {
 router.post('/context', async (req: Request, res: Response) => {
   try {
     const { campaignId, query, maxTokens } = req.body;
-    
+
     if (!campaignId || !query) {
       return res.status(400).json({
         success: false,
         error: 'campaignId and query are required',
       });
     }
-    
+
     const context = await ragService.generateContext(
       campaignId,
       query,
       maxTokens || 2000
     );
-    
+
     res.json({
       success: true,
       data: {
@@ -202,7 +245,7 @@ router.get('/health', async (req: Request, res: Response) => {
   try {
     // Check if OpenAI API key is configured
     const hasOpenAIKey = !!process.env.OPENAI_API_KEY;
-    
+
     res.json({
       success: true,
       status: 'healthy',

@@ -391,7 +391,7 @@ model MemoryEntry {
   tags        String[]   // Array of tags for categorization
   
   // Vector search support
-  embedding   Float[]?   // Vector embedding for semantic search
+  embedding   Float[]   @default([])   // Vector embedding for semantic search
   
   // Relations
   userId      String?

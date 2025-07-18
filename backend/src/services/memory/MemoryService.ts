@@ -70,7 +70,11 @@ export class MemoryService {
         model: 'text-embedding-3-small',
         input: params.content,
       });
-      const embedding = embeddingResponse.data[0].embedding;
+      const embedding = embeddingResponse.data[0]?.embedding;
+      
+      if (!embedding) {
+        throw new Error('Failed to generate embedding');
+      }
       
       // Calculate importance score if not provided
       const importance = params.importance || await this.calculateImportance(params.content);
@@ -132,7 +136,11 @@ export class MemoryService {
         model: 'text-embedding-3-small',
         input: params.query,
       });
-      const queryEmbedding = queryEmbeddingResponse.data[0].embedding;
+      const queryEmbedding = queryEmbeddingResponse.data[0]?.embedding;
+      
+      if (!queryEmbedding) {
+        throw new Error('Failed to generate query embedding');
+      }
       
       // Build filter conditions
       const whereConditions: Prisma.MemoryEntryWhereInput = {
@@ -141,7 +149,7 @@ export class MemoryService {
 
       if (params.sessionId) whereConditions.sessionId = params.sessionId;
       if (params.userId) whereConditions.userId = params.userId;
-      if (params.category) whereConditions.category = params.category;
+      if (params.category) whereConditions.category = params.category as any;
       if (params.minImportance) whereConditions.importance = { gte: params.minImportance };
 
       // Get all matching memories
@@ -197,7 +205,7 @@ export class MemoryService {
       const memories = await this.prisma.memoryEntry.findMany({
         where: {
           sessionId: params.sessionId,
-          category: params.category,
+          category: params.category as any,
           isActive: true,
         },
         orderBy: [
@@ -393,9 +401,11 @@ export class MemoryService {
     let normB = 0;
 
     for (let i = 0; i < a.length; i++) {
-      dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
+      const aVal = a[i] || 0;
+      const bVal = b[i] || 0;
+      dotProduct += aVal * bVal;
+      normA += aVal * aVal;
+      normB += bVal * bVal;
     }
 
     const magnitude = Math.sqrt(normA) * Math.sqrt(normB);
@@ -421,7 +431,7 @@ export class MemoryService {
         where: {
           sessionId: params.sessionId,
           isActive: true,
-          ...(params.categories && { category: { in: params.categories } }),
+          ...(params.categories && { category: { in: params.categories as any } }),
         },
         orderBy: [
           { importance: 'desc' },
@@ -535,7 +545,11 @@ export class MemoryService {
         model: 'text-embedding-3-small',
         input: 'test',
       });
-      const testEmbedding = testEmbeddingResponse.data[0].embedding;
+      const testEmbedding = testEmbeddingResponse.data[0]?.embedding;
+      
+      if (!testEmbedding) {
+        throw new Error('Failed to generate test embedding');
+      }
       
       return {
         status: 'healthy',

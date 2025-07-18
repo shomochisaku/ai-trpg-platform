@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: backend
+      run: npm ci
+
+    - name: Generate Prisma Client
+      working-directory: backend
+      run: npx prisma generate
+
+    - name: Run database migrations
+      working-directory: backend
+      run: npx prisma migrate deploy
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+
+    - name: Run TypeScript type checking
+      working-directory: backend
+      run: npm run typecheck
+
+    - name: Run linting
+      working-directory: backend
+      run: npm run lint
+
+    - name: Run tests
+      working-directory: backend
+      run: npm test
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+        OPENAI_API_KEY: test-key
+        ANTHROPIC_API_KEY: test-key
+        PINECONE_API_KEY: test-key
+        PINECONE_ENVIRONMENT: test-env
+        JWT_SECRET: test-secret
+        NODE_ENV: test
+
+    - name: Build project
+      working-directory: backend
+      run: npm run build
