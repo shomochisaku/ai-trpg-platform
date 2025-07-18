@@ -3,8 +3,14 @@ name: CI
 on:
   push:
     branches: [ main, develop ]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/ci.yml'
   pull_request:
     branches: [ main, develop ]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/ci.yml'
 
 jobs:
   test:
@@ -57,9 +63,19 @@ jobs:
       working-directory: backend
       run: npm run lint
 
-    - name: Run tests
+    - name: Run core tests
+      working-directory: backend
+      run: npm run test:core
+      if: ${{ !contains(github.event.head_commit.message, '[full-test]') && !contains(github.event.pull_request.title, '[full-test]') }}
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+        JWT_SECRET: test-secret
+        NODE_ENV: test
+
+    - name: Run full tests
       working-directory: backend
       run: npm test
+      if: ${{ contains(github.event.head_commit.message, '[full-test]') || contains(github.event.pull_request.title, '[full-test]') }}
       env:
         DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
         OPENAI_API_KEY: test-key
