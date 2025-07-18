@@ -8,12 +8,17 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "jest",
+    "test:db": "jest tests/database.test.ts",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
     "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:migrate:reset": "prisma migrate reset",
+    "prisma:seed": "ts-node prisma/seed.ts",
+    "prisma:studio": "prisma studio",
+    "db:setup": "prisma migrate dev && prisma db seed",
+    "db:reset": "prisma migrate reset --force && prisma db seed"
   },
   "keywords": ["ai", "trpg", "platform", "express", "typescript"],
   "author": "",
@@ -54,5 +59,8 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
   }
 }
