@@ -41,6 +41,18 @@ npm run prisma:generate
 
 # Run database migrations
 npm run prisma:migrate
+
+# Seed database with test data
+npm run prisma:seed
+```
+
+For a complete database setup, you can also use:
+```bash
+# Full setup (migrate + seed)
+npm run db:setup
+
+# Or reset and rebuild everything
+npm run db:reset
 ```
 
 ### Development
@@ -58,12 +70,17 @@ The server will start on `http://localhost:3000`
 - `npm run build` - Build for production
 - `npm run start` - Start production server
 - `npm run test` - Run tests
+- `npm run test:db` - Run database integration tests
 - `npm run lint` - Run ESLint
 - `npm run lint:fix` - Fix ESLint errors
 - `npm run typecheck` - Run TypeScript type checking
 - `npm run prisma:generate` - Generate Prisma client
 - `npm run prisma:migrate` - Run database migrations
+- `npm run prisma:migrate:reset` - Reset database and run migrations
+- `npm run prisma:seed` - Seed database with test data
 - `npm run prisma:studio` - Open Prisma Studio
+- `npm run db:setup` - Full setup (migrate + seed)
+- `npm run db:reset` - Full reset (reset + seed)
 
 ### API Endpoints
 
@@ -112,7 +129,17 @@ npm run test -- --coverage
 
 ### Database
 
-This project uses Prisma as the ORM. The database schema is defined in `prisma/schema.prisma`.
+This project uses Prisma as the ORM with PostgreSQL. The database schema is defined in `prisma/schema.prisma`.
+
+The database design includes comprehensive models for:
+- User management and preferences
+- Game sessions and player management
+- Character sheets with inventory and progression
+- AI conversations and memory management
+- Story elements and narrative structure
+- Vector search support for RAG system
+
+For detailed database documentation, see [DATABASE.md](./DATABASE.md).
 
 ### Logging
 
