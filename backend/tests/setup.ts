@@ -11,9 +11,23 @@ jest.mock('../src/utils/logger', () => ({
 }));
 
 // Mock PrismaClient to use test database
+// In CI environment, use regular PrismaClient with PostgreSQL
+// In local environment, may use SQLite fallback
 jest.mock('@prisma/client', () => {
-  const { PrismaClient } = require('../node_modules/.prisma/client-test');
-  return { PrismaClient };
+  if (process.env.CI) {
+    // Use regular PrismaClient in CI
+    const { PrismaClient } = require('@prisma/client');
+    return { PrismaClient };
+  } else {
+    // Try SQLite client locally, fallback to regular if not available
+    try {
+      const { PrismaClient } = require('../node_modules/.prisma/client-test');
+      return { PrismaClient };
+    } catch (error) {
+      const { PrismaClient } = require('@prisma/client');
+      return { PrismaClient };
+    }
+  }
 });
 
 // Set test environment variables
