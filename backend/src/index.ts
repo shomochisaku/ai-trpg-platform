@@ -10,8 +10,11 @@ import { authRoutes } from '@/routes/auth';
 import { healthRoutes } from '@/routes/health';
 import { aiRoutes } from '@/routes/ai';
 import memoryRoutes from '@/routes/memory';
+import { ragRoutes } from '@/routes/rag';
+import { campaignRoutes } from '@/routes/campaigns';
 import { aiService } from '@/ai/aiService';
 import { memoryService } from '@/services/memory';
+import { ragService } from '@/services/ragService';
 
 // Load environment variables
 dotenv.config();
@@ -43,6 +46,8 @@ app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/memory', memoryRoutes);
+app.use('/api/rag', ragRoutes);
+app.use('/api/campaigns', campaignRoutes);
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
@@ -70,6 +75,15 @@ async function startServer() {
     } catch (error) {
       logger.error('Failed to initialize memory service:', error);
       // Continue without memory service for now
+    }
+    
+    // Initialize RAG service
+    try {
+      await ragService.initialize();
+      logger.info('RAG service initialized successfully');
+    } catch (error) {
+      logger.error('Failed to initialize RAG service:', error);
+      // Continue without RAG service for now
     }
     
     // Start server
