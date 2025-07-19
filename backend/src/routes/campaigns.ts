@@ -212,12 +212,12 @@ router.get('/:id/stats', async (req: Request, res: Response) => {
 
 /**
  * @route POST /api/campaigns/:id/action
- * @desc Process player action (integration point for game flow)
+ * @desc Process player action using workflow system
  */
 router.post('/:id/action', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { action } = req.body;
+    const { action, playerId } = req.body;
 
     if (!id) {
       return res.status(400).json({
@@ -233,6 +233,13 @@ router.post('/:id/action', async (req: Request, res: Response) => {
       });
     }
 
+    if (!playerId) {
+      return res.status(400).json({
+        success: false,
+        error: 'playerId is required',
+      });
+    }
+
     // Get campaign to verify it exists
     const campaign = await campaignService.getCampaign(id);
     if (!campaign) {
@@ -242,24 +249,29 @@ router.post('/:id/action', async (req: Request, res: Response) => {
       });
     }
 
-    // TODO: Integrate with Mastra AI agent to process the action
-    // For now, return a placeholder response
+    // Process player action through workflow system
+    const result = await campaignService.processPlayerAction(id, playerId, action);
+
     res.json({
       success: true,
-      message: 'Action processing will be integrated with Mastra AI',
       data: {
         campaignId: id,
+        playerId,
         action,
-        // This will be replaced with actual AI response
-        response:
-          'This feature will process player actions through the Mastra AI framework',
+        narrative: result.narrative,
+        gameState: result.gameState,
+        suggestedActions: result.suggestedActions,
+        diceResults: result.diceResults,
+        workflowSuccess: result.success,
+        error: result.error
       },
     });
   } catch (error) {
     logger.error('Failed to process action:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to process action',
+      error: 'Failed to process player action',
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
