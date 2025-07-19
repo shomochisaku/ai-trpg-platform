@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
 import { z } from 'zod';
-import { mastraInstance } from '../ai/config';
+import { OpenAI } from 'openai';
 
 const prisma = new PrismaClient();
 
@@ -86,7 +86,6 @@ export class RAGService {
       // Currently using direct OpenAI for reliability
 
       // Fallback to direct OpenAI API
-      const OpenAI = require('openai');
       const openai = new OpenAI({
         apiKey: process.env.OPENAI_API_KEY,
       });

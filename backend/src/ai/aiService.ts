@@ -35,7 +35,7 @@ export class AIService {
       } else {
         logger.warn('Mastra framework not available, using fallback mode');
       }
-      
+
       // Start periodic cleanup of expired status tags
       this.startCleanupInterval();
 

@@ -7,7 +7,9 @@ import { mastraInstance, mastraConfig } from '../config';
 // Import Mastra types conditionally
 let Agent: any = null;
 try {
-  Agent = require('@mastra/core').Agent;
+  import('@mastra/core').then((mastraCore) => {
+    Agent = mastraCore.Agent;
+  });
 } catch (error) {
   logger.warn('Mastra core not available, using fallback implementation');
 }
