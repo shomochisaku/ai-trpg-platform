@@ -1,5 +1,7 @@
 # Database Design and Setup Guide
 
+> 📋 **関連ドキュメント**: [プロジェクト概要](../docs/PROJECT_OVERVIEW.md) | [設計文書](../.kiro/specs/ai-trpg-platform/design.md) | [バックエンドREADME](./README.md)
+
 ## Overview
 
 This document describes the comprehensive database design for the AI-TRPG platform. The database is designed to support all aspects of an AI-driven tabletop RPG experience, including user management, game sessions, characters, AI interactions, and story management.

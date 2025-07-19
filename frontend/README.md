@@ -1,5 +1,7 @@
 # AI TRPG Platform Frontend
 
+> 📋 **関連ドキュメント**: [プロジェクト概要](../docs/PROJECT_OVERVIEW.md) | [設計文書](../.kiro/specs/ai-trpg-platform/design.md) | [開発ガイド](../CLAUDE.md)
+
 React + TypeScript + Vite フロントエンドアプリケーション
 
 ## 開発

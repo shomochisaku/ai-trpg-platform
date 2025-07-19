@@ -1,5 +1,15 @@
 # AI-TRPG Platform 開発ガイド
 
+## 📋 ドキュメント構造
+
+このガイドはClaude AI向けの開発指針です。プロジェクト全体の理解には以下を参照してください：
+
+- **[📋 プロジェクト概要](docs/PROJECT_OVERVIEW.md)** - 全体像とドキュメント索引
+- **[📋 要件定義](.kiro/specs/ai-trpg-platform/requirements.md)** - システム要件とユーザーストーリー
+- **[📐 設計文書](.kiro/specs/ai-trpg-platform/design.md)** - アーキテクチャと技術設計
+- **[✅ 実装計画](.kiro/specs/ai-trpg-platform/tasks.md)** - 段階的実装タスクリスト
+- **[🔄 開発ワークフロー](docs/development-workflow.md)** - Issue作成から実装完了まで
+
 ## プロジェクト概要
 
 このプロジェクトは、プレイヤーが「物語の主人公」になる体験に完全に没入できる、次世代のAI駆動型TRPGプラットフォームです。従来のツールが要求する複雑な事前設定を排除し、プレイヤーが創造的なロールプレイそのものに集中できるシームレスな環境を提供します。
@@ -62,50 +72,6 @@ Mastra AI フレームワーク中心アプローチを採用：
 - **フロントエンド**: Vercel or Netlify
 - **バックエンド**: Render or Fly.io
 - **CI/CD**: GitHub Actions
-
-## プロジェクト管理方針
-
-### Issues中心+Tasks参照方式
-
-効率的なプロジェクト管理のため、以下の方針を採用しています：
-
-#### 管理構造
-
-1. **Tasks.md（Read Only - 全体設計書）**
-   - 全体設計書として維持
-   - 実装の詳細要件を記載
-   - 更新しない（参照のみ）
-   - 244項目の実装タスクを体系的に整理
-
-2. **GitHub Issues（Master - 実装管理）**
-   - 実装管理の中心
-   - 進捗管理（Open/Closed）
-   - 実装者への具体的指示
-   - @claudeコマンドによる自動実装
-
-#### 実装フロー
-
-1. **現状分析**
-   - Tasks.mdの項目レビュー
-   - コードベース分析
-   - 完了/未完了の把握
-
-2. **Issue作成**
-   - タイトル：[Tasks項目番号] 機能名
-   - 説明：Tasks該当項目を引用
-   - 実装タスク：具体的なチェックリスト
-   - 受け入れ基準：明確な完了条件
-
-3. **進捗管理**
-   - Milestoneでフェーズ管理
-   - Labelで優先度・種類を分類
-   - 並列実行可能な項目の特定
-
-#### メリット
-
-- **効率性**: 一元管理で更新コスト最小
-- **透明性**: 全体像（Tasks）と実装状況（Issues）が両方見える
-- **実装しやすさ**: Issueベースで Claude GitHub Actions が動作
 
 ## 開発フロー
 
@@ -197,178 +163,7 @@ GitHub Actions経由でClaudeに実装を依頼する際の形式：
 @claude フロントエンドのチャットログコンポーネントを実装してください。Reactで作成し、適切なスタイリングを適用してください。
 ```
 
-## Conflict予防ガイドライン
-
-### 並列実装時のConflict回避戦略
-
-#### 🎯 基本原則
-
-1. **ファイル影響範囲ベースの分離**
-   - 同じファイルを変更するIssueは並列実行しない
-   - 特に`App.tsx`、`package.json`、設定ファイルは要注意
-
-2. **依存関係優先順位の徹底**
-   - **Layer 1**: 基盤システム（state management, API service）
-   - **Layer 2**: 独立コンポーネント（ChatLog, ActionInput, StatusDisplay）
-   - **Layer 3**: 統合・テスト
-
-3. **段階的並列実行**
-   - **Phase 1**: 1つの基盤Issue完了 → mainにmerge
-   - **Phase 2**: 複数の独立Issue並列実行（同一baseから分岐）
-   - **Phase 3**: 統合Issue実行
-
-#### 🔧 Issue作成前チェックフロー
-
-**必須手順** - 以下の順序で実行してください：
-
-1. **現状分析フェーズ**
-   ```bash
-   # 全体状況の把握
-   ./scripts/project-status-dashboard.sh --detailed --recommend-next
-   ```
-   - Tasks.mdの進捗確認
-   - Issue状況確認（`gh issue list --state all`）
-   - PR状況確認（`gh pr list --state open`）
-   - 完了済み機能の把握
-
-2. **実装対象選定フェーズ**
-   ```bash
-   # 安全な並列実行可能Issueの特定
-   ./scripts/select-parallel-safe-issues.sh --recommend --max-parallel 3
-   ```
-   - 依存関係分析：前提条件が満たされているタスクを特定
-   - 優先度評価：milestone、priority labelに基づく優先順位
-   - 実装可能性判定：現在のコードベース状況との整合性
-
-3. **Conflict予防フェーズ**
-   ```bash
-   # 具体的なファイル変更のconflictチェック
-   ./scripts/check-issue-conflicts.sh --files "frontend/src/App.tsx,backend/package.json" --existing-prs --analyze-deps
-   ```
-   - 影響範囲分析：変更予定ファイルをリストアップ  
-   - Conflictチェック：既存PRとの重複確認
-   - 並列可能性判定：ファイル重複と依存関係を総合評価
-
-4. **Issue作成・実行フェーズ**
-   - Issue作成：安全が確認されたもののみ作成
-   - 実装指示：@claudeコマンドで実装依頼
-   - 進捗追跡：PR作成後の状況モニタリング
-
-#### ✅ 推奨並列実行パターン
-
-**安全な組み合わせ例:**
-```bash
-# Group A: 独立UIコンポーネント（state management完了後）
-- ChatLogコンポーネント実装
-- StatusDisplayコンポーネント実装  
-- DiceRollコンポーネント実装
-
-# Group B: Backend APIエンドポイント（DB schema完了後）
-- User management API
-- Session management API
-- Character management API
-
-# Group C: テスト実装（機能実装完了後）
-- Frontend component tests
-- Backend API tests
-- Integration tests
-```
-
-**避けるべき組み合わせ:**
-```bash
-❌ 危険な並列実行:
-- 同一ファイル変更Issues（App.tsx、package.json等）
-- 依存関係のあるIssues（基盤→UI の順序）
-- 共通設定ファイル変更Issues
-```
-
-#### 🛠️ 利用可能ツール
-
-```bash
-# 1. プロジェクト全体ダッシュボード
-./scripts/project-status-dashboard.sh [--detailed] [--recommend-next]
-
-# 2. ファイルconflictチェック
-./scripts/check-issue-conflicts.sh --files "path1,path2" [--existing-prs] [--simulate]
-
-# 3. 並列実行可能Issue選定
-./scripts/select-parallel-safe-issues.sh [--recommend] [--max-parallel N] [--focus AREA]
-
-# 4. 全PRブランチ健全性チェック
-./scripts/check-all-prs.sh
-```
-
-#### 📊 実行例
-
-```bash
-# ステップ1: 現状把握
-./scripts/project-status-dashboard.sh --detailed --recommend-next
-
-# ステップ2: 並列安全性分析
-./scripts/select-parallel-safe-issues.sh --recommend --max-parallel 3 --focus frontend
-
-# ステップ3: 具体的conflict確認
-./scripts/check-issue-conflicts.sh --files "frontend/src/components/NewComponent.tsx,frontend/src/hooks/useNewHook.ts" --existing-prs
-
-# ステップ4: Issue作成（安全確認後）
-# GitHub WebUI または gh CLI でIssue作成
-
-# ステップ5: 実装指示
-# @claude このIssueの実装をお願いします
-```
-
-#### 🔄 継続的モニタリング
-
-**実装中の監視項目:**
-1. **PR状況の定期確認**
-   ```bash
-   gh pr list --state open --json number,title,mergeable
-   ```
-
-2. **Conflictの早期発見**
-   ```bash
-   ./scripts/check-all-prs.sh  # 全PRの健全性を一括確認
-   ```
-
-3. **Ready PRの積極的マージ**
-   - `MERGEABLE`状態のPRを優先的にマージ
-   - パイプラインの清浄化を維持
-
-#### 📈 成功のメトリクス
-
-- **Conflict発生率**: 並列PR中のconflict件数
-- **マージ効率**: PR作成からマージまでの平均時間
-- **実装速度**: 並列実行による開発速度向上
-- **手戻り削減**: rebaseやconflict解決の手間削減
-
-この戦略により、効率的で安全な並列開発が実現できます。
-
 ## コマンドとテスト
-
-### 開発効率化ツール
-
-#### 全PRブランチ一括チェック
-```bash
-# 全PRブランチの健全性を一括チェック
-./scripts/check-all-prs.sh
-
-# バックエンドのみチェック
-CHECK_FRONTEND=false ./scripts/check-all-prs.sh
-
-# フロントエンドのみチェック  
-CHECK_BACKEND=false ./scripts/check-all-prs.sh
-```
-
-**機能:**
-- 全PRブランチを自動検出
-- TypeScript型チェック、テスト、ビルドを並列実行
-- 問題の早期発見でCI失敗を事前回避
-- 結果レポート生成（pr-check-report.txt）
-
-**利点:** 
-- CI実行前にローカルで問題検出
-- 長期化するデバッグセッションを防止
-- 複数PRの状況を一目で把握
 
 ### バックエンド
 ```bash
@@ -380,9 +175,6 @@ npm run build
 
 # テスト実行
 npm test
-
-# 軽量テスト（CI用）
-npm run test:core
 
 # Lint実行
 npm run lint
@@ -401,9 +193,6 @@ npm run build
 
 # テスト実行
 npm test
-
-# 一回実行モード
-npm run test:run
 
 # Lint実行
 npm run lint
@@ -486,4 +275,3 @@ A: Claude Code CLIで相談してください。最適な選択肢を提案し�
 
 - 2025-01-18: 初版作成
 - 2025-01-18: Mastra AI フレームワーク採用に伴う大幅更新（Inworld AI→Mastra AI）
-- 2025-01-18: プロジェクト管理方針（Issues中心+Tasks参照方式）を追加

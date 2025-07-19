@@ -1,5 +1,7 @@
 # RAG (Retrieval-Augmented Generation) System Documentation
 
+> 📋 **関連ドキュメント**: [プロジェクト概要](../../docs/PROJECT_OVERVIEW.md) | [設計文書](../../.kiro/specs/ai-trpg-platform/design.md) | [Mastra AI統合](../MASTRA_AI_INTEGRATION.md) | [データベース設計](../DATABASE.md)
+
 ## Overview
 
 The RAG system provides semantic search and knowledge management capabilities for the AI-TRPG platform. It uses OpenAI embeddings and PostgreSQL's pgvector extension to enable efficient similarity search across campaign-specific knowledge bases.

@@ -1,5 +1,7 @@
 # AI-TRPG Platform Backend
 
+> 📋 **関連ドキュメント**: [プロジェクト概要](../docs/PROJECT_OVERVIEW.md) | [設計文書](../.kiro/specs/ai-trpg-platform/design.md) | [データベース設計](./DATABASE.md) | [Mastra AI統合](./MASTRA_AI_INTEGRATION.md)
+
 Backend API for the AI-driven TRPG platform built with Node.js, TypeScript, and Express.
 
 ## Features

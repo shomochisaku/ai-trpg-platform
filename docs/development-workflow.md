@@ -334,8 +334,14 @@ gh pr create --title "Title" --body "Description"
 
 ## 📚 参考資料
 
-- [CLAUDE.md - Conflict予防ガイドライン](../CLAUDE.md#conflict予防ガイドライン)
-- [Tasks.md - 実装計画](../.kiro/specs/ai-trpg-platform/tasks.md)
+### プロジェクト内ドキュメント
+- [📋 プロジェクト概要](./PROJECT_OVERVIEW.md) - 全体像とドキュメント索引
+- [🛠️ 開発ガイド](../CLAUDE.md) - Claude向け開発指針
+- [✅ 実装計画](../.kiro/specs/ai-trpg-platform/tasks.md) - 段階的実装タスクリスト
+- [📐 設計文書](../.kiro/specs/ai-trpg-platform/design.md) - アーキテクチャと技術設計
+- [🚀 CI戦略](../CI-STRATEGY.md) - 継続的インテグレーション戦略
+
+### 外部リソース
 - [GitHub Flow Documentation](https://docs.github.com/en/get-started/quickstart/github-flow)
 - [Conventional Commits](https://www.conventionalcommits.org/)
 
