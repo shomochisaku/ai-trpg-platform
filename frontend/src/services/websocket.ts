@@ -141,13 +141,13 @@ export class WebSocketService {
   // Event listeners
   on<K extends keyof WebSocketEvents>(event: K, listener: WebSocketEvents[K]): void {
     if (this.socket) {
-      this.socket.on(event, listener);
+      this.socket.on(event as string, listener as (...args: any[]) => void);
     }
   }
 
   off<K extends keyof WebSocketEvents>(event: K, listener: WebSocketEvents[K]): void {
     if (this.socket) {
-      this.socket.off(event, listener);
+      this.socket.off(event as string, listener as (...args: any[]) => void);
     }
   }
 

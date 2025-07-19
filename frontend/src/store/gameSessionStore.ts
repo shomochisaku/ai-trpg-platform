@@ -12,7 +12,7 @@ const initialGameSession: GameSession = {
 
 export const useGameSessionStore = create<GameSessionStore>()(
   devtools(
-    (set, get) => ({
+    (set) => ({
       session: initialGameSession,
       
       updateSession: (updates) => {

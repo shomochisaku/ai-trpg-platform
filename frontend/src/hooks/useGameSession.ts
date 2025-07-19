@@ -1,7 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import { useGameSessionStore, useWebSocketStore } from '../store';
 import { api, webSocketService } from '../services';
-import { GameSession } from '../types';
 
 export const useGameSession = () => {
   const gameSessionStore = useGameSessionStore();

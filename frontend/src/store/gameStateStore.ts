@@ -20,7 +20,7 @@ const initialGameState: GameState = {
 
 export const useGameStateStore = create<GameStateStore>()(
   devtools(
-    (set, get) => ({
+    (set) => ({
       gameState: initialGameState,
       
       updateGameState: (updates) => {

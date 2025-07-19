@@ -12,7 +12,7 @@ const initialWebSocketState: WebSocketState = {
 
 export const useWebSocketStore = create<WebSocketStore>()(
   devtools(
-    (set, get) => ({
+    (set) => ({
       websocket: initialWebSocketState,
       
       setConnected: (connected) => {

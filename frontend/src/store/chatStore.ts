@@ -11,7 +11,7 @@ const initialChatLog: ChatLog = {
 
 export const useChatStore = create<ChatStore>()(
   devtools(
-    (set, get) => ({
+    (set) => ({
       chat: initialChatLog,
       
       addMessage: (messageData) => {
