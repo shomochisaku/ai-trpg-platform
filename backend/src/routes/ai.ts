@@ -58,11 +58,12 @@ const checkInitialized = (
   next: NextFunction
 ): void => {
   if (!aiService.isInitialized()) {
-    return res.status(503).json({
+    res.status(503).json({
       error: 'AI service not initialized',
       message:
         'The AI service is still starting up. Please try again in a moment.',
     });
+    return;
   }
   next();
 };

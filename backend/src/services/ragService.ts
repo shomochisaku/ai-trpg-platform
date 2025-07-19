@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, MemoryType } from '@prisma/client';
 import { logger } from '../utils/logger';
 import { z } from 'zod';
 import { OpenAI } from 'openai';
@@ -62,12 +62,12 @@ export interface KnowledgeEntry {
 export const createKnowledgeSchema = z.object({
   campaignId: z.string(),
   category: z.enum([
-    'characters',
-    'locations',
-    'events',
-    'rules',
-    'lore',
-    'other',
+    'CHARACTER',
+    'LOCATION',
+    'EVENT',
+    'RULE',
+    'STORY_BEAT',
+    'GENERAL',
   ]),
   title: z.string().min(1).max(200),
   content: z.string().min(1).max(10000),
@@ -80,7 +80,7 @@ export const searchSchema = z.object({
   campaignId: z.string(),
   query: z.string().min(1).max(1000),
   category: z
-    .enum(['characters', 'locations', 'events', 'rules', 'lore', 'other'])
+    .enum(['CHARACTER', 'LOCATION', 'EVENT', 'RULE', 'STORY_BEAT', 'GENERAL'])
     .optional(),
   limit: z.number().min(1).max(100).default(10),
   threshold: z.number().min(0).max(1).default(0.7),
@@ -158,7 +158,7 @@ export class RAGService {
       data: {
         sessionId: validated.campaignId,
         content: validated.content,
-        category: validated.category,
+        category: validated.category as MemoryType,
         tags: validated.tags || [],
         importance,
         embedding,
@@ -217,7 +217,7 @@ export class RAGService {
     const entries = await prisma.memoryEntry.findMany({
       where: {
         sessionId: campaignId,
-        category: category,
+        category: category as MemoryType,
       },
       orderBy: [{ importance: 'desc' }, { createdAt: 'desc' }],
       take: limit,
@@ -248,7 +248,7 @@ export class RAGService {
       where: { id },
       data: {
         content: data.content,
-        category: data.category,
+        category: data.category as MemoryType,
         tags: data.tags,
         importance: data.importance,
         ...(embedding && { embedding }),
@@ -348,9 +348,9 @@ export class RAGService {
     if (data.content.length > 500) importance += 0.1;
     if (data.content.length > 1000) importance += 0.1;
 
-    if (data.category === 'characters' || data.category === 'rules') {
+    if (data.category === 'CHARACTER' || data.category === 'RULE') {
       importance += 0.2;
-    } else if (data.category === 'events') {
+    } else if (data.category === 'EVENT') {
       importance += 0.1;
     }
 
@@ -359,8 +359,8 @@ export class RAGService {
 
   private formatKnowledgeEntry(entry: {
     id: string;
-    sessionId: string;
-    category: string | null;
+    sessionId: string | null;
+    category: MemoryType | null;
     title?: string;
     content: string;
     importance: number;
@@ -370,8 +370,8 @@ export class RAGService {
   }): KnowledgeEntry {
     return {
       id: entry.id,
-      campaignId: entry.sessionId,
-      category: entry.category || 'other',
+      campaignId: entry.sessionId || '',
+      category: entry.category || 'GENERAL',
       title: entry.title || '',
       content: entry.content,
       metadata: {} as KnowledgeMetadata,
