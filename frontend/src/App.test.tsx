@@ -9,9 +9,9 @@ describe('App', () => {
     expect(heading).toBeInTheDocument()
   })
 
-  it('renders the count button', () => {
+  it('renders the sample message button', () => {
     render(<App />)
-    const button = screen.getByRole('button', { name: /count is 0/i })
+    const button = screen.getByRole('button', { name: /Add Sample Message/i })
     expect(button).toBeInTheDocument()
   })
 })

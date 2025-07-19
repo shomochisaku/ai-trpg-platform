@@ -6,8 +6,7 @@ const ChatLog: React.FC<ChatLogProps> = ({
   messages, 
   currentUserId, 
   autoScroll = true, 
-  className = '',
-  onNewMessage 
+  className = ''
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -15,7 +14,9 @@ const ChatLog: React.FC<ChatLogProps> = ({
   const [showScrollButton, setShowScrollButton] = useState(false);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesEndRef.current && typeof messagesEndRef.current.scrollIntoView === 'function') {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   const handleScroll = () => {
