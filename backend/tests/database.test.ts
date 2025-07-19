@@ -1,7 +1,16 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
-const prisma = new PrismaClient();
+// Skip this test file if CI is not set (local development)
+const testCondition = process.env.CI || process.env.DATABASE_URL?.includes('test.db');
+
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL || 'file:./test.db'
+    }
+  }
+});
 
 describe('Database Integration Tests', () => {
   beforeAll(async () => {
