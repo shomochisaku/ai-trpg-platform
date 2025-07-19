@@ -9,9 +9,9 @@ describe('App', () => {
     expect(heading).toBeInTheDocument()
   })
 
-  it('renders the sample message button', () => {
+  it('renders the action input form', () => {
     render(<App />)
-    const button = screen.getByRole('button', { name: /Add Sample Message/i })
-    expect(button).toBeInTheDocument()
+    const textarea = screen.getByRole('textbox')
+    expect(textarea).toBeInTheDocument()
   })
 })

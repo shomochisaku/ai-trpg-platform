@@ -1,220 +1,135 @@
 import { useState } from 'react'
 import './App.css'
-import ChatLog from './components/ChatLog'
-import { Message } from './types/message'
+import ActionInput from './components/ActionInput'
 
 function App() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      content: 'Welcome to the AI TRPG Platform! Your adventure begins now...',
-      timestamp: new Date(Date.now() - 300000),
-      sender: {
-        id: 'system',
-        name: 'System',
-        role: 'system'
-      },
-      type: 'system',
-      metadata: {
-        systemEventType: 'info'
-      }
-    },
-    {
-      id: '2',
-      content: 'You find yourself standing at the entrance of a mysterious dungeon. The air is thick with magic and danger.',
-      timestamp: new Date(Date.now() - 240000),
-      sender: {
-        id: 'gm-1',
-        name: 'Game Master',
-        role: 'gm'
-      },
-      type: 'normal'
-    },
-    {
-      id: '3',
-      content: 'I want to examine the entrance for any traps or magical auras.',
-      timestamp: new Date(Date.now() - 180000),
-      sender: {
-        id: 'player-1',
-        name: 'Aelindra',
-        role: 'player'
-      },
-      type: 'action'
-    },
-    {
-      id: '4',
-      content: 'Roll for Investigation!',
-      timestamp: new Date(Date.now() - 120000),
-      sender: {
-        id: 'gm-1',
-        name: 'Game Master',
-        role: 'gm'
-      },
-      type: 'normal'
-    },
-    {
-      id: '5',
-      content: 'Rolling for Investigation...',
-      timestamp: new Date(Date.now() - 60000),
-      sender: {
-        id: 'player-1',
-        name: 'Aelindra',
-        role: 'player'
-      },
-      type: 'dice_roll',
-      metadata: {
-        diceResult: {
-          formula: '1d20 + 5',
-          result: 18,
-          rolls: [13]
-        }
-      }
-    },
-    {
-      id: '6',
-      content: 'Excellent roll! You notice faint magical glyphs carved into the stone archway. They seem to be some kind of ward.',
-      timestamp: new Date(),
-      sender: {
-        id: 'gm-1',
-        name: 'Game Master',
-        role: 'gm'
-      },
-      type: 'normal'
-    }
-  ])
+  const [actions, setActions] = useState<string[]>([])
+  const [currentInput, setCurrentInput] = useState('')
 
-  const handleNewMessage = (message: Message) => {
-    setMessages(prev => [...prev, message])
+  const handleSubmit = async (action: string) => {
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    // Add the action to the list
+    setActions(prev => [...prev, action])
+    
+    // Simulate potential error (10% chance)
+    if (Math.random() < 0.1) {
+      throw new Error('Failed to process action. Please try again.')
+    }
   }
 
-  const addSampleMessage = () => {
-    const sampleMessages = [
-      {
-        id: `msg-${Date.now()}`,
-        content: 'I cast Detect Magic to get a better understanding of these glyphs.',
-        timestamp: new Date(),
-        sender: {
-          id: 'player-1',
-          name: 'Aelindra',
-          role: 'player' as const
-        },
-        type: 'action' as const
-      },
-      {
-        id: `msg-${Date.now() + 1}`,
-        content: 'The glyphs pulse with a soft blue light as your spell takes effect. You sense protective magic.',
-        timestamp: new Date(),
-        sender: {
-          id: 'gm-1',
-          name: 'Game Master',
-          role: 'gm' as const
-        },
-        type: 'normal' as const
-      }
-    ]
-    
-    const randomMessage = sampleMessages[Math.floor(Math.random() * sampleMessages.length)]
-    handleNewMessage(randomMessage)
+  const handleInputChange = (value: string) => {
+    setCurrentInput(value)
+  }
+
+  const appStyles: React.CSSProperties = {
+    minHeight: '100vh',
+    backgroundColor: '#111827',
+    color: '#f3f4f6',
+    padding: '20px',
+    fontFamily: 'Inter, system-ui, sans-serif',
+  }
+
+  const containerStyles: React.CSSProperties = {
+    maxWidth: '800px',
+    margin: '0 auto',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '32px',
+  }
+
+  const headerStyles: React.CSSProperties = {
+    textAlign: 'center',
+    marginBottom: '32px',
+  }
+
+  const titleStyles: React.CSSProperties = {
+    fontSize: '3rem',
+    fontWeight: 'bold',
+    marginBottom: '16px',
+    background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+  }
+
+  const subtitleStyles: React.CSSProperties = {
+    fontSize: '1.2rem',
+    color: '#9ca3af',
+    marginBottom: '8px',
+  }
+
+  const actionsListStyles: React.CSSProperties = {
+    backgroundColor: '#1f2937',
+    borderRadius: '8px',
+    padding: '16px',
+    minHeight: '200px',
+    border: '1px solid #374151',
+  }
+
+  const actionItemStyles: React.CSSProperties = {
+    padding: '12px',
+    marginBottom: '8px',
+    backgroundColor: '#374151',
+    borderRadius: '6px',
+    borderLeft: '4px solid #3b82f6',
+  }
+
+  const noActionsStyles: React.CSSProperties = {
+    textAlign: 'center',
+    color: '#6b7280',
+    fontStyle: 'italic',
+    padding: '40px 20px',
   }
 
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      backgroundColor: '#f3f4f6', 
-      padding: '20px',
-      fontFamily: 'Inter, system-ui, sans-serif'
-    }}>
-      <div style={{
-        maxWidth: '800px',
-        margin: '0 auto',
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-        overflow: 'hidden'
-      }}>
-        {/* Header */}
-        <div style={{
-          padding: '20px',
-          backgroundColor: '#1f2937',
-          color: 'white',
-          textAlign: 'center'
-        }}>
-          <h1 style={{ 
-            margin: 0, 
-            fontSize: '24px', 
-            fontWeight: 'bold',
-            marginBottom: '8px'
-          }}>
-            AI TRPG Platform
-          </h1>
-          <p style={{ 
-            margin: 0, 
-            fontSize: '14px', 
-            opacity: 0.8 
-          }}>
-            Experience immersive AI-driven storytelling
+    <div style={appStyles}>
+      <div style={containerStyles}>
+        <header style={headerStyles}>
+          <h1 style={titleStyles}>AI TRPG Platform</h1>
+          <p style={subtitleStyles}>
+            React + TypeScript + Vite frontend is ready!
           </p>
-        </div>
+          <p style={{ color: '#6b7280', fontSize: '1rem' }}>
+            Begin your AI-driven TRPG adventure
+          </p>
+        </header>
 
-        {/* Main Content */}
-        <div style={{ padding: '20px' }}>
-          <div style={{ marginBottom: '20px' }}>
-            <h2 style={{ 
-              fontSize: '18px', 
-              fontWeight: 'bold', 
-              marginBottom: '8px',
-              color: '#374151'
-            }}>
-              Live Chat Demo
-            </h2>
-            <p style={{ 
-              fontSize: '14px', 
-              color: '#6b7280',
-              marginBottom: '16px'
-            }}>
-              Interactive chat log with GM, player, and system messages
-            </p>
-            
-            <button
-              onClick={addSampleMessage}
-              style={{
-                backgroundColor: '#3b82f6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '8px 16px',
-                fontSize: '14px',
-                cursor: 'pointer',
-                marginBottom: '16px',
-                transition: 'background-color 0.2s'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
-            >
-              Add Sample Message
-            </button>
+        <section>
+          <h2 style={{ marginBottom: '16px', fontSize: '1.5rem' }}>Game Actions</h2>
+          <div style={actionsListStyles}>
+            {actions.length === 0 ? (
+              <div style={noActionsStyles}>
+                No actions taken yet. Use the input below to start your adventure!
+              </div>
+            ) : (
+              actions.map((action, index) => (
+                <div key={index} style={actionItemStyles}>
+                  <strong>Action {index + 1}:</strong> {action}
+                </div>
+              ))
+            )}
           </div>
+        </section>
 
-          {/* Chat Log Component */}
-          <ChatLog 
-            messages={messages}
-            currentUserId="player-1"
-            autoScroll={true}
-            onNewMessage={handleNewMessage}
+        <section>
+          <h2 style={{ marginBottom: '16px', fontSize: '1.5rem' }}>Your Action</h2>
+          <ActionInput
+            onSubmit={handleSubmit}
+            onInputChange={handleInputChange}
+            placeholder="Describe what you want to do in the game... (Shift+Enter to submit, Ctrl+↑/↓ for history)"
+            maxLength={500}
           />
-        </div>
+        </section>
 
-        {/* Footer */}
-        <div style={{
-          padding: '16px 20px',
-          backgroundColor: '#f9fafb',
-          borderTop: '1px solid #e5e7eb',
-          textAlign: 'center',
-          fontSize: '12px',
-          color: '#6b7280'
-        }}>
-          React + TypeScript + Vite • Chat Log Component Demo
-        </div>
+        <section style={{ textAlign: 'center', marginTop: '32px' }}>
+          <p style={{ color: '#6b7280', fontSize: '0.9rem' }}>
+            <strong>Current Input:</strong> {currentInput.length > 0 ? `"${currentInput}"` : 'None'}
+          </p>
+          <p style={{ color: '#6b7280', fontSize: '0.9rem', marginTop: '8px' }}>
+            <strong>Actions Count:</strong> {actions.length}
+          </p>
+        </section>
       </div>
     </div>
   )
