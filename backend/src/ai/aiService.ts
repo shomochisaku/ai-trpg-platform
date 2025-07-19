@@ -1,5 +1,6 @@
 import { GMAgent, GMSession } from './agents/gmAgent';
 import { logger } from '../utils/logger';
+import { mastraInstance } from './config';
 import {
   rollDice,
   updateStatusTags,
@@ -28,6 +29,16 @@ export class AIService {
    */
   async initialize(): Promise<void> {
     try {
+      // Initialize Mastra instance if available
+      if (mastraInstance) {
+        try {
+          await mastraInstance.init();
+          logger.info('Mastra framework initialized successfully');
+        } catch (error) {
+          logger.warn('Mastra framework initialization failed, using fallback mode:', error);
+        }
+      }
+      
       // Start periodic cleanup of expired status tags
       this.startCleanupInterval();
 

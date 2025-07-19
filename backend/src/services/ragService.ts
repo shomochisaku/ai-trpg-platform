@@ -1,12 +1,9 @@
 import { PrismaClient } from '@prisma/client';
-import OpenAI from 'openai';
-import { logger } from '@/utils/logger';
+import { logger } from '../utils/logger';
 import { z } from 'zod';
+import { mastraInstance } from '../ai/config';
 
 const prisma = new PrismaClient();
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 // Types
 export interface EmbeddingResult {
@@ -81,10 +78,39 @@ export class RAGService {
   }
 
   /**
-   * Generate embeddings for text using OpenAI
+   * Generate embeddings for text using Mastra LLM or OpenAI fallback
    */
   async generateEmbedding(text: string): Promise<EmbeddingResult> {
     try {
+      // Try Mastra first if available
+      if (mastraInstance) {
+        try {
+          const llm = mastraInstance.llm('openai');
+          
+          const response = await llm.embedding({
+            model: 'text-embedding-3-small',
+            input: text,
+          });
+
+          const embedding = response.embedding;
+
+          if (embedding) {
+            return {
+              embedding,
+              tokenCount: response.usage?.total_tokens || 0,
+            };
+          }
+        } catch (error) {
+          logger.warn('Mastra embedding failed, falling back to OpenAI:', error);
+        }
+      }
+
+      // Fallback to direct OpenAI API
+      const OpenAI = require('openai');
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+
       const response = await openai.embeddings.create({
         model: 'text-embedding-3-small',
         input: text,
