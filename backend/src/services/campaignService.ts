@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, SessionStatus } from '@prisma/client';
 import { logger } from '@/utils/logger';
 import { ragService } from './ragService';
 import { z } from 'zod';
@@ -52,7 +52,7 @@ export interface Campaign {
   title: string;
   description: string;
   settings: CampaignSettings;
-  status: string;
+  status: SessionStatus;
   metadata: CampaignMetadata;
   createdAt: Date;
   updatedAt: Date;
@@ -108,7 +108,7 @@ export const updateCampaignSchema = z.object({
         .optional(),
     })
     .optional(),
-  status: z.enum(['active', 'paused', 'completed', 'archived']).optional(),
+  status: z.enum(['ACTIVE', 'PAUSED', 'COMPLETED', 'ARCHIVED']).optional(),
   metadata: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
 });
 
@@ -128,7 +128,7 @@ export class CampaignService {
         name: validated.title,
         description: validated.description || '',
         status: 'ACTIVE',
-        setting: validated.settings,
+        setting: JSON.stringify(validated.settings),
         systemType: 'AI_TRPG',
         maxPlayers: 1,
         isActive: true,
@@ -167,7 +167,7 @@ export class CampaignService {
   ): Promise<{ campaigns: Campaign[]; total: number }> {
     const where = {
       createdBy: userId,
-      ...(options.status && { status: options.status }),
+      ...(options.status && { status: options.status as SessionStatus }),
     };
 
     const [campaigns, total] = await Promise.all([
@@ -202,8 +202,10 @@ export class CampaignService {
         ...(validated.description !== undefined && {
           description: validated.description,
         }),
-        ...(validated.settings && { setting: validated.settings }),
-        ...(validated.status && { status: validated.status }),
+        ...(validated.settings && {
+          setting: JSON.stringify(validated.settings),
+        }),
+        ...(validated.status && { status: validated.status as SessionStatus }),
       },
     });
 
@@ -239,7 +241,7 @@ export class CampaignService {
     // Store GM profile as knowledge
     await ragService.storeKnowledge({
       campaignId,
-      category: 'rules',
+      category: 'RULE',
       title: 'Game Master Profile',
       content: `The Game Master has the following characteristics: Personality - ${settings.gmProfile.personality}. Speech Style - ${settings.gmProfile.speechStyle}. Guiding Principles: ${settings.gmProfile.guidingPrinciples.join(', ')}.`,
       importance: 1.0,
@@ -249,7 +251,7 @@ export class CampaignService {
     // Store world settings
     await ragService.storeKnowledge({
       campaignId,
-      category: 'lore',
+      category: 'STORY_BEAT',
       title: 'World Setting',
       content: `The world has the following tone and manner: ${settings.worldSettings.toneAndManner}. Key concepts include: ${settings.worldSettings.keyConcepts.join(', ')}.`,
       importance: 0.9,
@@ -259,7 +261,7 @@ export class CampaignService {
     // Store opening/prologue
     await ragService.storeKnowledge({
       campaignId,
-      category: 'events',
+      category: 'EVENT',
       title: 'Campaign Opening',
       content: settings.opening.prologue,
       importance: 0.8,
@@ -270,7 +272,7 @@ export class CampaignService {
     if (settings.opening.initialStatusTags.length > 0) {
       await ragService.storeKnowledge({
         campaignId,
-        category: 'characters',
+        category: 'CHARACTER',
         title: 'Initial Character Status',
         content: `The character begins with the following status tags: ${settings.opening.initialStatusTags.join(', ')}.`,
         importance: 0.7,
@@ -281,7 +283,7 @@ export class CampaignService {
     if (settings.opening.initialInventory.length > 0) {
       await ragService.storeKnowledge({
         campaignId,
-        category: 'characters',
+        category: 'CHARACTER',
         title: 'Initial Inventory',
         content: `The character starts with the following items: ${settings.opening.initialInventory.join(', ')}.`,
         importance: 0.7,
@@ -331,18 +333,48 @@ export class CampaignService {
     id: string;
     createdBy: string;
     name: string;
-    description: string;
-    setting: CampaignSettings;
-    status: string;
+    description: string | null;
+    setting: string | null;
+    status: SessionStatus;
     createdAt: Date;
     updatedAt: Date;
   }): Campaign {
+    let settings: CampaignSettings;
+    try {
+      settings = session.setting
+        ? JSON.parse(session.setting)
+        : {
+            gmProfile: {
+              personality: 'balanced',
+              speechStyle: 'narrative',
+              guidingPrinciples: [],
+            },
+            worldSettings: { toneAndManner: 'fantasy', keyConcepts: [] },
+            opening: {
+              prologue: '',
+              initialStatusTags: [],
+              initialInventory: [],
+            },
+          };
+    } catch (error) {
+      logger.warn('Failed to parse campaign settings, using defaults:', error);
+      settings = {
+        gmProfile: {
+          personality: 'balanced',
+          speechStyle: 'narrative',
+          guidingPrinciples: [],
+        },
+        worldSettings: { toneAndManner: 'fantasy', keyConcepts: [] },
+        opening: { prologue: '', initialStatusTags: [], initialInventory: [] },
+      };
+    }
+
     return {
       id: session.id,
       userId: session.createdBy,
       title: session.name,
-      description: session.description,
-      settings: session.setting,
+      description: session.description || '',
+      settings,
       status: session.status,
       metadata: {} as CampaignMetadata,
       createdAt: session.createdAt,
