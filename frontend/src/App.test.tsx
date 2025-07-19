@@ -23,7 +23,7 @@ describe('App', () => {
 
   it('renders the action input form', () => {
     render(<App />)
-    const textarea = screen.getByRole('textbox')
+    const textarea = screen.getByPlaceholderText(/Describe what you want to do in the game/i)
     expect(textarea).toBeInTheDocument()
   })
 })
