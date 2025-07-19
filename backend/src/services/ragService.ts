@@ -11,10 +11,35 @@ export interface EmbeddingResult {
   tokenCount: number;
 }
 
+// Knowledge metadata interface
+export interface KnowledgeMetadata {
+  category?: string;
+  title?: string;
+  originalId?: string;
+  source?: string;
+  [key: string]: string | number | boolean | undefined;
+}
+
+// Statistics result interface
+export interface KnowledgeStats {
+  total: number;
+  byCategory: Record<string, number>;
+  lastUpdated: Date;
+}
+
+// Raw query result interface
+interface RawSearchResult {
+  id: string;
+  content: string;
+  metadata: KnowledgeMetadata;
+  importance: number;
+  similarity: number;
+}
+
 export interface SearchResult {
   id: string;
   content: string;
-  metadata: any;
+  metadata: KnowledgeMetadata;
   similarity: number;
   importance: number;
 }
@@ -25,7 +50,7 @@ export interface KnowledgeEntry {
   category: string;
   title: string;
   content: string;
-  metadata: any;
+  metadata: KnowledgeMetadata;
   embedding?: number[];
   importance: number;
   tags: string[];
@@ -46,7 +71,7 @@ export const createKnowledgeSchema = z.object({
   ]),
   title: z.string().min(1).max(200),
   content: z.string().min(1).max(10000),
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
   tags: z.array(z.string()).optional(),
   importance: z.number().min(0).max(1).optional(),
 });
@@ -133,7 +158,7 @@ export class RAGService {
       data: {
         sessionId: validated.campaignId,
         content: validated.content,
-        category: validated.category as any,
+        category: validated.category,
         tags: validated.tags || [],
         importance,
         embedding,
@@ -155,7 +180,7 @@ export class RAGService {
     const { embedding } = await this.generateEmbedding(validated.query);
 
     // Perform vector similarity search
-    const results = await prisma.$queryRaw<any[]>`
+    const results = await prisma.$queryRaw<RawSearchResult[]>`
       SELECT 
         id,
         content,
@@ -192,7 +217,7 @@ export class RAGService {
     const entries = await prisma.memoryEntry.findMany({
       where: {
         sessionId: campaignId,
-        category: category as any,
+        category: category,
       },
       orderBy: [{ importance: 'desc' }, { createdAt: 'desc' }],
       take: limit,
@@ -223,7 +248,7 @@ export class RAGService {
       where: { id },
       data: {
         content: data.content,
-        category: data.category as any,
+        category: data.category,
         tags: data.tags,
         importance: data.importance,
         ...(embedding && { embedding }),
@@ -245,7 +270,7 @@ export class RAGService {
   /**
    * Get knowledge statistics
    */
-  async getKnowledgeStats(campaignId: string): Promise<any> {
+  async getKnowledgeStats(campaignId: string): Promise<KnowledgeStats> {
     const stats = await prisma.memoryEntry.groupBy({
       by: ['category'],
       where: {
@@ -258,7 +283,7 @@ export class RAGService {
     stats.forEach(stat => {
       const category = stat.category || 'other';
       categoryCounts[category] =
-        (categoryCounts[category] || 0) + (stat._count as any);
+        (categoryCounts[category] || 0) + Number(stat._count);
     });
 
     const total = await prisma.memoryEntry.count({
@@ -314,7 +339,9 @@ export class RAGService {
     return context.trim();
   }
 
-  private calculateImportance(data: any): number {
+  private calculateImportance(
+    data: z.infer<typeof createKnowledgeSchema>
+  ): number {
     // Base importance on content length and category
     let importance = 0.5;
 
@@ -330,14 +357,24 @@ export class RAGService {
     return Math.min(importance, 1.0);
   }
 
-  private formatKnowledgeEntry(entry: any): KnowledgeEntry {
+  private formatKnowledgeEntry(entry: {
+    id: string;
+    sessionId: string;
+    category: string | null;
+    title?: string;
+    content: string;
+    importance: number;
+    tags: string[];
+    createdAt: Date;
+    updatedAt: Date;
+  }): KnowledgeEntry {
     return {
       id: entry.id,
       campaignId: entry.sessionId,
       category: entry.category || 'other',
       title: entry.title || '',
       content: entry.content,
-      metadata: {},
+      metadata: {} as KnowledgeMetadata,
       importance: entry.importance,
       tags: entry.tags || [],
       createdAt: entry.createdAt,

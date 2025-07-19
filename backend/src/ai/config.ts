@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import dotenv from 'dotenv';
 import { Mastra } from '@mastra/core';
+import { logger } from '../utils/logger';
 
 // Load environment variables
 dotenv.config();
@@ -46,11 +47,11 @@ export const mastraConfig = {
 };
 
 // Mastra framework configuration
-export const createMastraInstance = () => {
+export const createMastraInstance = (): Mastra | null => {
   try {
     return new Mastra({});
   } catch (error) {
-    console.warn('Failed to create Mastra instance:', error);
+    logger.warn('Failed to create Mastra instance:', error);
     return null;
   }
 };

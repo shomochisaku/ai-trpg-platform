@@ -16,6 +16,18 @@ import {
 /**
  * Main AI Service for managing GM agents and game sessions
  */
+// Health check details interface
+interface HealthCheckDetails {
+  initialized?: boolean;
+  stats?: {
+    totalSessions: number;
+    activeSessions: number;
+    initialized: boolean;
+  };
+  error?: string;
+  timestamp: string;
+}
+
 export class AIService {
   private gmAgent: GMAgent;
   private initialized: boolean = false;
@@ -214,7 +226,7 @@ export class AIService {
    */
   async healthCheck(): Promise<{
     status: 'healthy' | 'unhealthy';
-    details: any;
+    details: HealthCheckDetails;
   }> {
     try {
       const stats = this.getStats();

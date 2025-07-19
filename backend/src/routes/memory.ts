@@ -112,7 +112,7 @@ const handleResponse = <T>(res: express.Response, data: T): void => {
 
 const handleError = (
   res: express.Response,
-  error: any,
+  error: unknown,
   message = 'Internal server error'
 ): void => {
   logger.error(message, error);

@@ -52,7 +52,11 @@ const getKnowledgeSchema = z.object({
 });
 
 // Middleware to check if AI service is initialized
-const checkInitialized = (req: Request, res: Response, next: NextFunction) => {
+const checkInitialized = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void => {
   if (!aiService.isInitialized()) {
     return res.status(503).json({
       error: 'AI service not initialized',

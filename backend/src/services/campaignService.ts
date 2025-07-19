@@ -6,14 +6,54 @@ import { z } from 'zod';
 const prisma = new PrismaClient();
 
 // Types
+export interface CampaignSettings {
+  gmProfile: {
+    personality: string;
+    speechStyle: string;
+    guidingPrinciples: string[];
+  };
+  worldSettings: {
+    toneAndManner: string;
+    keyConcepts: string[];
+  };
+  opening: {
+    prologue: string;
+    initialStatusTags: string[];
+    initialInventory: string[];
+  };
+}
+
+export interface CampaignMetadata {
+  [key: string]: string | number | boolean | undefined;
+}
+
+export interface CampaignStats {
+  campaign: {
+    id: string;
+    title: string;
+    status: string;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+  statistics: {
+    characters: number;
+    conversations: number;
+    knowledge: {
+      total: number;
+      byCategory: Record<string, number>;
+      lastUpdated: Date;
+    };
+  };
+}
+
 export interface Campaign {
   id: string;
   userId: string;
   title: string;
   description: string;
-  settings: any;
+  settings: CampaignSettings;
   status: string;
-  metadata: any;
+  metadata: CampaignMetadata;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -44,9 +84,32 @@ export const createCampaignSchema = z.object({
 export const updateCampaignSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().max(1000).optional(),
-  settings: z.any().optional(),
+  settings: z
+    .object({
+      gmProfile: z
+        .object({
+          personality: z.string(),
+          speechStyle: z.string(),
+          guidingPrinciples: z.array(z.string()),
+        })
+        .optional(),
+      worldSettings: z
+        .object({
+          toneAndManner: z.string(),
+          keyConcepts: z.array(z.string()),
+        })
+        .optional(),
+      opening: z
+        .object({
+          prologue: z.string(),
+          initialStatusTags: z.array(z.string()),
+          initialInventory: z.array(z.string()),
+        })
+        .optional(),
+    })
+    .optional(),
   status: z.enum(['active', 'paused', 'completed', 'archived']).optional(),
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
 });
 
 export class CampaignService {
@@ -65,7 +128,7 @@ export class CampaignService {
         name: validated.title,
         description: validated.description || '',
         status: 'ACTIVE',
-        setting: validated.settings as any,
+        setting: validated.settings,
         systemType: 'AI_TRPG',
         maxPlayers: 1,
         isActive: true,
@@ -104,7 +167,7 @@ export class CampaignService {
   ): Promise<{ campaigns: Campaign[]; total: number }> {
     const where = {
       createdBy: userId,
-      ...(options.status && { status: options.status as any }),
+      ...(options.status && { status: options.status }),
     };
 
     const [campaigns, total] = await Promise.all([
@@ -140,7 +203,7 @@ export class CampaignService {
           description: validated.description,
         }),
         ...(validated.settings && { setting: validated.settings }),
-        ...(validated.status && { status: validated.status as any }),
+        ...(validated.status && { status: validated.status }),
       },
     });
 
@@ -169,7 +232,7 @@ export class CampaignService {
    */
   private async initializeCampaignKnowledge(
     campaignId: string,
-    settings: any
+    settings: CampaignSettings
   ): Promise<void> {
     logger.info(`Initializing knowledge base for campaign ${campaignId}`);
 
@@ -232,7 +295,7 @@ export class CampaignService {
   /**
    * Get campaign statistics
    */
-  async getCampaignStats(campaignId: string): Promise<any> {
+  async getCampaignStats(campaignId: string): Promise<CampaignStats> {
     const campaign = await this.getCampaign(campaignId);
     if (!campaign) throw new Error('Campaign not found');
 
@@ -264,7 +327,16 @@ export class CampaignService {
     };
   }
 
-  private formatCampaign(session: any): Campaign {
+  private formatCampaign(session: {
+    id: string;
+    createdBy: string;
+    name: string;
+    description: string;
+    setting: CampaignSettings;
+    status: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }): Campaign {
     return {
       id: session.id,
       userId: session.createdBy,
@@ -272,7 +344,7 @@ export class CampaignService {
       description: session.description,
       settings: session.setting,
       status: session.status,
-      metadata: {},
+      metadata: {} as CampaignMetadata,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
     };
