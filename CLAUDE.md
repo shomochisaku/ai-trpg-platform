@@ -199,6 +199,31 @@ GitHub Actions経由でClaudeに実装を依頼する際の形式：
 
 ## コマンドとテスト
 
+### 開発効率化ツール
+
+#### 全PRブランチ一括チェック
+```bash
+# 全PRブランチの健全性を一括チェック
+./scripts/check-all-prs.sh
+
+# バックエンドのみチェック
+CHECK_FRONTEND=false ./scripts/check-all-prs.sh
+
+# フロントエンドのみチェック  
+CHECK_BACKEND=false ./scripts/check-all-prs.sh
+```
+
+**機能:**
+- 全PRブランチを自動検出
+- TypeScript型チェック、テスト、ビルドを並列実行
+- 問題の早期発見でCI失敗を事前回避
+- 結果レポート生成（pr-check-report.txt）
+
+**利点:** 
+- CI実行前にローカルで問題検出
+- 長期化するデバッグセッションを防止
+- 複数PRの状況を一目で把握
+
 ### バックエンド
 ```bash
 # 開発サーバー起動
@@ -209,6 +234,9 @@ npm run build
 
 # テスト実行
 npm test
+
+# 軽量テスト（CI用）
+npm run test:core
 
 # Lint実行
 npm run lint
@@ -227,6 +255,9 @@ npm run build
 
 # テスト実行
 npm test
+
+# 一回実行モード
+npm run test:run
 
 # Lint実行
 npm run lint
