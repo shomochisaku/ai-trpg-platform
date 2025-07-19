@@ -16,16 +16,16 @@ jest.mock('../src/utils/logger', () => ({
 jest.mock('@prisma/client', () => {
   if (process.env.CI) {
     // Use regular PrismaClient in CI
-    const { PrismaClient } = require('@prisma/client');
-    return { PrismaClient };
+    const actualPrisma = jest.requireActual('@prisma/client');
+    return actualPrisma;
   } else {
     // Try SQLite client locally, fallback to regular if not available
     try {
       const { PrismaClient } = require('../node_modules/.prisma/client-test');
       return { PrismaClient };
     } catch (error) {
-      const { PrismaClient } = require('@prisma/client');
-      return { PrismaClient };
+      const actualPrisma = jest.requireActual('@prisma/client');
+      return actualPrisma;
     }
   }
 });
@@ -33,7 +33,15 @@ jest.mock('@prisma/client', () => {
 // Set test environment variables
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test-secret';
-process.env.DATABASE_URL = 'file:./test.db';
+
+// Use PostgreSQL in CI, SQLite locally
+if (process.env.CI) {
+  // CI environment already has DATABASE_URL set, don't override
+} else {
+  // Local environment uses SQLite
+  process.env.DATABASE_URL = 'file:./test.db';
+}
+
 process.env.OPENAI_API_KEY = 'test-openai-key';
 process.env.ANTHROPIC_API_KEY = 'test-anthropic-key';
 process.env.PINECONE_API_KEY = 'test-pinecone-key';

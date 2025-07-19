@@ -1,0 +1,159 @@
+name: Full Test Suite
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_scope:
+        description: 'Test scope'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+        - all
+        - backend-only
+        - ai-only
+  schedule:
+    # Run full tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+jobs:
+  backend-full:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.test_scope == 'all' || github.event.inputs.test_scope == 'backend-only' || github.event_name == 'schedule' }}
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: backend
+      run: npm ci
+
+    - name: Generate Prisma Client
+      working-directory: backend
+      run: npx prisma generate
+
+    - name: Run database migrations
+      working-directory: backend
+      run: npx prisma db push
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+
+    - name: Run TypeScript type checking
+      working-directory: backend
+      run: npm run typecheck
+
+    - name: Run linting
+      working-directory: backend
+      run: npm run lint
+
+    - name: Run core tests
+      working-directory: backend
+      run: npm run test:core
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+        JWT_SECRET: test-secret
+        NODE_ENV: test
+
+    - name: Run AI integration tests
+      working-directory: backend
+      run: npm run test:ai
+      if: ${{ github.event.inputs.test_scope == 'all' || github.event.inputs.test_scope == 'ai-only' || github.event_name == 'schedule' }}
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+        PINECONE_ENVIRONMENT: ${{ secrets.PINECONE_ENVIRONMENT }}
+        JWT_SECRET: test-secret
+        NODE_ENV: test
+
+    - name: Run full test suite
+      working-directory: backend
+      run: npm test
+      if: ${{ github.event.inputs.test_scope == 'all' || github.event_name == 'schedule' }}
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+        PINECONE_ENVIRONMENT: ${{ secrets.PINECONE_ENVIRONMENT }}
+        JWT_SECRET: test-secret
+        NODE_ENV: test
+
+    - name: Generate test coverage
+      working-directory: backend
+      run: npm run test:coverage
+      if: ${{ github.event.inputs.test_scope == 'all' || github.event_name == 'schedule' }}
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+        PINECONE_ENVIRONMENT: ${{ secrets.PINECONE_ENVIRONMENT }}
+        JWT_SECRET: test-secret
+        NODE_ENV: test
+
+    - name: Build project
+      working-directory: backend
+      run: npm run build
+
+  frontend-full:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.test_scope == 'all' || github.event_name == 'schedule' }}
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: frontend/package.json
+
+    - name: Install dependencies
+      working-directory: frontend
+      run: |
+        if [ -f "package-lock.json" ]; then
+          npm ci
+        else
+          npm install
+        fi
+
+    - name: Run TypeScript type checking
+      working-directory: frontend
+      run: npm run type-check
+
+    - name: Run linting
+      working-directory: frontend
+      run: npm run lint
+
+    - name: Run tests
+      working-directory: frontend
+      run: npm test
+
+    - name: Build project
+      working-directory: frontend
+      run: npm run build

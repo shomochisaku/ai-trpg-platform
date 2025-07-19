@@ -133,3 +133,10 @@ export interface ConversationStats {
   messagesPerHour: number;
   mostActiveHour: string;
 }
+
+// AI Role types for database storage
+export enum AIRole {
+  USER = 'USER',
+  ASSISTANT = 'ASSISTANT',
+  SYSTEM = 'SYSTEM',
+}

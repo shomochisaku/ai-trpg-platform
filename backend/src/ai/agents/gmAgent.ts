@@ -2,7 +2,15 @@ import { z } from 'zod';
 import { OpenAI } from 'openai';
 import { Anthropic } from '@anthropic-ai/sdk';
 import { logger } from '../../utils/logger';
-import { mastraConfig } from '../config';
+import { mastraInstance, mastraConfig } from '../config';
+
+// Import Mastra types conditionally
+let Agent: any = null;
+try {
+  Agent = require('@mastra/core').Agent;
+} catch (error) {
+  logger.warn('Mastra core not available, using fallback implementation');
+}
 import { 
   rollDice, 
   updateStatusTags, 
@@ -77,10 +85,12 @@ const storeKnowledgeSchema = z.object({
  * GM Agent class for handling TRPG game sessions
  */
 export class GMAgent {
+  private mastraAgent: any;
   private openai: OpenAI;
   private anthropic: Anthropic;
   private sessions: Map<string, GMSession>;
   private config: GMAgentConfig;
+  private useMastra: boolean = false;
 
   constructor(config: GMAgentConfig = { provider: 'openai' }) {
     this.config = {
@@ -91,18 +101,33 @@ export class GMAgent {
       systemPrompt: config.systemPrompt || this.getDefaultSystemPrompt(),
     };
 
-    // Initialize AI clients
-    this.openai = new OpenAI({
-      apiKey: mastraConfig.openai.apiKey,
-    });
+    // Try to initialize Mastra Agent
+    try {
+      if (mastraInstance && Agent) {
+        const agentId = config.provider === 'openai' ? 'gmAgent' : 'gmAgentClaude';
+        this.mastraAgent = mastraInstance.agent(agentId);
+        this.useMastra = true;
+        logger.info(`GM Agent initialized with Mastra framework (provider: ${this.config.provider})`);
+      } else {
+        throw new Error('Mastra not available');
+      }
+    } catch (error) {
+      logger.warn('Mastra initialization failed, using fallback implementation:', error);
+      this.useMastra = false;
+      
+      // Initialize fallback AI clients
+      this.openai = new OpenAI({
+        apiKey: mastraConfig.openai.apiKey,
+      });
 
-    this.anthropic = new Anthropic({
-      apiKey: mastraConfig.anthropic.apiKey,
-    });
+      this.anthropic = new Anthropic({
+        apiKey: mastraConfig.anthropic.apiKey,
+      });
+      
+      logger.info(`GM Agent initialized with fallback implementation (provider: ${this.config.provider})`);
+    }
 
     this.sessions = new Map();
-    
-    logger.info(`GM Agent initialized with provider: ${this.config.provider}`);
   }
 
   /**
@@ -183,11 +208,16 @@ Always respond in character as the GM, describing scenes vividly and asking for 
     let response: string;
 
     try {
-      // Get response from AI provider
-      if (this.config.provider === 'openai') {
-        response = await this.chatWithOpenAI(session);
+      // Get response based on available implementation
+      if (this.useMastra) {
+        response = await this.chatWithMastra(session);
       } else {
-        response = await this.chatWithAnthropic(session);
+        // Fallback to direct API calls
+        if (this.config.provider === 'openai') {
+          response = await this.chatWithOpenAI(session);
+        } else {
+          response = await this.chatWithAnthropic(session);
+        }
       }
 
       // Add assistant response to session
@@ -210,7 +240,32 @@ Always respond in character as the GM, describing scenes vividly and asking for 
   }
 
   /**
-   * Chat with OpenAI GPT-4
+   * Chat with Mastra Agent
+   */
+  private async chatWithMastra(session: GMSession): Promise<string> {
+    try {
+      // Convert messages to Mastra format
+      const messages = session.messages.map(msg => ({
+        role: msg.role as 'system' | 'user' | 'assistant',
+        content: msg.content,
+      }));
+
+      // Simple message generation with Mastra
+      const response = await this.mastraAgent.generate({
+        messages,
+        temperature: this.config.temperature,
+        maxTokens: this.config.maxTokens,
+      });
+
+      return response.text || response.content || 'I apologize, but I was unable to generate a response.';
+    } catch (error) {
+      logger.error('Mastra chat failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Chat with OpenAI GPT-4 (fallback)
    */
   private async chatWithOpenAI(session: GMSession): Promise<string> {
     const messages = session.messages.map(msg => ({
@@ -223,73 +278,6 @@ Always respond in character as the GM, describing scenes vividly and asking for 
       messages,
       temperature: this.config.temperature,
       max_tokens: this.config.maxTokens,
-      tools: [
-        {
-          type: 'function',
-          function: {
-            name: 'rollDice',
-            description: 'Roll dice with specified configuration',
-            parameters: {
-              type: 'object',
-              properties: {
-                dice: { type: 'string', description: 'Dice notation (e.g., "1d20", "3d6+2")' },
-                difficulty: { type: 'number', description: 'Difficulty class for success/failure' },
-                advantage: { type: 'boolean', description: 'Roll with advantage (d20 only)' },
-                disadvantage: { type: 'boolean', description: 'Roll with disadvantage (d20 only)' },
-              },
-              required: ['dice'],
-            },
-          },
-        },
-        {
-          type: 'function',
-          function: {
-            name: 'updateStatusTags',
-            description: 'Update status tags for a character or entity',
-            parameters: {
-              type: 'object',
-              properties: {
-                entityId: { type: 'string', description: 'ID of the entity to update' },
-                tags: {
-                  type: 'array',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      name: { type: 'string' },
-                      description: { type: 'string' },
-                      value: { type: 'number' },
-                      duration: { type: 'number' },
-                      type: { type: 'string', enum: ['buff', 'debuff', 'condition', 'injury', 'attribute'] },
-                      action: { type: 'string', enum: ['add', 'update', 'remove'] },
-                    },
-                    required: ['name', 'description', 'type', 'action'],
-                  },
-                },
-              },
-              required: ['entityId', 'tags'],
-            },
-          },
-        },
-        {
-          type: 'function',
-          function: {
-            name: 'storeKnowledge',
-            description: 'Store knowledge entries for the GM knowledge base',
-            parameters: {
-              type: 'object',
-              properties: {
-                category: { type: 'string', description: 'Category of knowledge' },
-                title: { type: 'string', description: 'Title of the knowledge entry' },
-                content: { type: 'string', description: 'Content of the knowledge entry' },
-                tags: { type: 'array', items: { type: 'string' }, description: 'Tags for categorization' },
-                relevance: { type: 'number', description: 'Relevance score (0-1)' },
-              },
-              required: ['category', 'title', 'content', 'tags'],
-            },
-          },
-        },
-      ],
-      tool_choice: 'auto',
     });
 
     const choice = response.choices[0];
@@ -297,21 +285,12 @@ Always respond in character as the GM, describing scenes vividly and asking for 
     if (!choice) {
       throw new Error('No response choices received from OpenAI');
     }
-    
-    // Handle tool calls
-    if (choice.message.tool_calls) {
-      for (const toolCall of choice.message.tool_calls) {
-        const result = await this.handleToolCall(toolCall.function.name, toolCall.function.arguments);
-        // In a more complete implementation, you would pass the tool result back to the AI
-        logger.info(`Tool ${toolCall.function.name} called with result: ${JSON.stringify(result)}`);
-      }
-    }
 
     return choice.message.content || 'I apologize, but I was unable to generate a response.';
   }
 
   /**
-   * Chat with Anthropic Claude
+   * Chat with Anthropic Claude (fallback)
    */
   private async chatWithAnthropic(session: GMSession): Promise<string> {
     const messages = session.messages.filter(msg => msg.role !== 'system').map(msg => ({
@@ -335,6 +314,7 @@ Always respond in character as the GM, describing scenes vividly and asking for 
     }
     return firstContent.type === 'text' ? firstContent.text : 'I apologize, but I was unable to generate a response.';
   }
+
 
   /**
    * Handle tool function calls

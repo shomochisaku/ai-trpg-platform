@@ -8,8 +8,12 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "jest",
+    "test:core": "jest tests/health.test.ts",
+    "test:ai": "jest tests/memory.test.ts tests/ai/ tests/rag.test.ts",
     "test:db": "jest tests/database.test.ts",
     "test:integration": "ts-node src/testRunner.ts",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
     "demo": "ts-node src/examples/gmAgentExample.ts",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
@@ -71,7 +75,7 @@
     "typescript": "^5.3.3"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
