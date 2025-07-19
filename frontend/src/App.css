@@ -1,14 +1,123 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
+.app {
+  display: flex;
+  min-height: 100vh;
+  background: #0f0f0f;
+}
+
+.main-content {
+  flex: 1;
   padding: 2rem;
-  text-align: center;
+  margin-right: 320px; /* Space for StatusPanel */
+  text-align: left;
+  overflow-y: auto;
 }
 
 .card {
   padding: 2em;
+  background: #1a1a1a;
+  border-radius: 8px;
+  border: 1px solid #333;
+  margin-bottom: 2rem;
+}
+
+.card button {
+  background: #10b981;
+  border: none;
+  color: white;
+  padding: 0.8em 1.6em;
+  border-radius: 6px;
+  font-size: 1em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin: 1rem 0;
+}
+
+.card button:hover {
+  background: #059669;
+  transform: translateY(-1px);
+}
+
+.demo-section {
+  background: #1a1a1a;
+  border-radius: 8px;
+  border: 1px solid #333;
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.demo-section h2 {
+  color: #10b981;
+  margin-bottom: 1rem;
+}
+
+.demo-section p {
+  color: #ccc;
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+
+.demo-section ul {
+  color: #ccc;
+  line-height: 1.6;
+  margin-left: 1rem;
+}
+
+.demo-section li {
+  margin-bottom: 0.5rem;
+}
+
+.demo-section ul ul {
+  margin-top: 0.5rem;
 }
 
 .read-the-docs {
   color: #888;
+  font-style: italic;
+}
+
+h1 {
+  color: #fff;
+  margin-bottom: 2rem;
+  font-size: 2.5rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .main-content {
+    margin-right: 0;
+    padding: 1rem;
+  }
+  
+  .card, .demo-section {
+    padding: 1rem;
+  }
+  
+  h1 {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .main-content {
+    padding: 0.5rem;
+  }
+  
+  .card, .demo-section {
+    padding: 0.5rem;
+  }
+  
+  h1 {
+    font-size: 1.5rem;
+  }
+}
+
+/* Ensure proper scrolling */
+html, body {
+  overflow-x: hidden;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
 }

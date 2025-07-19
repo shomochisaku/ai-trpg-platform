@@ -1,13 +1,18 @@
 import { useState } from 'react'
 import './App.css'
 import ActionInput from './components/ActionInput'
+import StatusPanel from './components/StatusPanel'
 import { useGameSession, useChat, useGameState } from './hooks'
+import { mockGameState, mockGameStateMinimal } from './types/mockData'
+import { GameState } from './types/status'
 
 function App() {
   const [characterName, setCharacterName] = useState('')
   const [sessionId, setSessionId] = useState('')
   const [actions, setActions] = useState<string[]>([])
   const [currentInput, setCurrentInput] = useState('')
+  const [useMockData, setUseMockData] = useState(true)
+  const [mockState, setMockState] = useState<GameState>(mockGameState)
   
   const { 
     session, 
@@ -88,6 +93,11 @@ function App() {
     }
   }
 
+  const toggleMockData = () => {
+    setUseMockData(!useMockData)
+    setMockState(useMockData ? mockGameStateMinimal : mockGameState)
+  }
+
   const appStyles: React.CSSProperties = {
     minHeight: '100vh',
     backgroundColor: '#111827',
@@ -125,12 +135,19 @@ function App() {
   }
 
   return (
-    <div style={appStyles}>
-      <div style={containerStyles}>
-        <header style={headerStyles}>
-          <h1 style={titleStyles}>AI TRPG Platform</h1>
-          <p style={subtitleStyles}>
-            Advanced ActionInput + Zustand State Management
+    <div className="app">
+      <div className="main-content">
+        <header style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <h1 style={{ 
+            fontSize: '3rem', 
+            fontWeight: 'bold', 
+            marginBottom: '16px',
+            background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent'
+          }}>AI TRPG Platform</h1>
+          <p style={{ fontSize: '1.2rem', color: '#9ca3af', marginBottom: '8px' }}>
+            Advanced ActionInput + Status Display + Zustand State Management
           </p>
           <p style={{ color: '#6b7280', fontSize: '1rem' }}>
             Begin your AI-driven TRPG adventure
@@ -138,7 +155,7 @@ function App() {
         </header>
 
         {/* Connection Status */}
-        <section style={{ backgroundColor: '#1f2937', padding: '16px', borderRadius: '8px' }}>
+        <section style={{ backgroundColor: '#1f2937', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>
           <h2 style={{ marginBottom: '16px', fontSize: '1.5rem' }}>Connection Status</h2>
           <p>Session: {session.sessionId || 'Not connected'}</p>
           <p>Character: {session.characterName || 'None'}</p>
@@ -147,7 +164,7 @@ function App() {
 
         {/* Session Management */}
         {!session.isConnected && (
-          <section style={{ backgroundColor: '#1f2937', padding: '16px', borderRadius: '8px' }}>
+          <section style={{ backgroundColor: '#1f2937', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>
             <h2 style={{ marginBottom: '16px', fontSize: '1.5rem' }}>Create or Join Session</h2>
             <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
               <input
@@ -173,7 +190,7 @@ function App() {
         )}
 
         {/* Action Input */}
-        <section>
+        <section style={{ marginBottom: '24px' }}>
           <h2 style={{ marginBottom: '16px', fontSize: '1.5rem' }}>Your Action</h2>
           <ActionInput
             onSubmit={handleActionSubmit}
@@ -185,7 +202,7 @@ function App() {
 
         {/* Game Controls */}
         {session.isConnected && (
-          <section style={{ backgroundColor: '#1f2937', padding: '16px', borderRadius: '8px' }}>
+          <section style={{ backgroundColor: '#1f2937', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>
             <h2 style={{ marginBottom: '16px', fontSize: '1.5rem' }}>Game Controls</h2>
             <div style={{ display: 'flex', gap: '16px' }}>
               <button onClick={handleRollDice} style={{ padding: '8px 16px', borderRadius: '4px', border: 'none', backgroundColor: '#10b981', color: 'white' }}>Roll d20</button>
@@ -194,6 +211,17 @@ function App() {
             </div>
           </section>
         )}
+
+        {/* Mock Data Toggle */}
+        <section style={{ backgroundColor: '#1f2937', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>
+          <h2 style={{ marginBottom: '16px', fontSize: '1.5rem' }}>Status Panel Demo</h2>
+          <button onClick={toggleMockData} style={{ padding: '8px 16px', borderRadius: '4px', border: 'none', backgroundColor: '#8b5cf6', color: 'white' }}>
+            {useMockData ? 'Show Minimal Data' : 'Show Full Mock Data'}
+          </button>
+          <p style={{ color: '#9ca3af', marginTop: '8px', fontSize: '0.9rem' }}>
+            Toggle to see different status panel states. The panel shows player stats, status tags, and inventory.
+          </p>
+        </section>
 
         {/* Status */}
         <section style={{ textAlign: 'center', marginTop: '32px' }}>
@@ -204,10 +232,14 @@ function App() {
             <strong>Actions Count:</strong> {actions.length} | <strong>Chat Messages:</strong> {chat.messages.length}
           </p>
           <p style={{ color: '#6b7280', fontSize: '0.9rem', marginTop: '8px' }}>
-            State management system powered by Zustand
+            Full-featured TRPG platform with Zustand + StatusPanel integration
           </p>
         </section>
       </div>
+      <StatusPanel 
+        gameState={mockState}
+        onUpdateGameState={(newState) => setMockState(prev => ({ ...prev, ...newState }))}
+      />
     </div>
   )
 }

@@ -1,0 +1,311 @@
+.statusPanel {
+  width: 320px;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #1a1a1a 0%, #0f0f0f 100%);
+  border-right: 2px solid #333;
+  padding: 16px;
+  overflow-y: auto;
+  position: fixed;
+  right: 0;
+  top: 0;
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+}
+
+.statusPanelCollapsed {
+  width: 48px;
+  height: 100vh;
+  background: #1a1a1a;
+  border-right: 2px solid #333;
+  padding: 16px 8px;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.expandButton, .collapseButton {
+  background: #333;
+  border: none;
+  color: #fff;
+  font-size: 16px;
+  padding: 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.expandButton:hover, .collapseButton:hover {
+  background: #444;
+  transform: scale(1.1);
+}
+
+.panelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #333;
+}
+
+.panelTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0;
+}
+
+.playerInfo {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #222;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.playerHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.playerName {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0;
+}
+
+.playerClass {
+  background: #444;
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.playerLevel {
+  background: #10b981;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.statusBar {
+  margin-bottom: 12px;
+}
+
+.statusBarLabel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: #ccc;
+}
+
+.statusBarBg {
+  background: #333;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.statusBarFill {
+  height: 100%;
+  transition: width 0.3s ease;
+  border-radius: 4px;
+}
+
+.healthBar {
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+.manaBar {
+  background: linear-gradient(90deg, #3b82f6, #2563eb);
+}
+
+.staminaBar {
+  background: linear-gradient(90deg, #10b981, #059669);
+}
+
+.expBar {
+  background: linear-gradient(90deg, #f59e0b, #d97706);
+}
+
+.sceneInfo {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #222;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.sectionTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0 0 12px 0;
+}
+
+.sceneDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sceneName {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.sceneLocation {
+  font-size: 14px;
+  color: #10b981;
+  font-weight: 500;
+}
+
+.sceneWeather, .sceneTime {
+  font-size: 12px;
+  color: #888;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sceneDescription {
+  font-size: 12px;
+  color: #ccc;
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
+.tabNavigation {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+
+.tabButton {
+  flex: 1;
+  padding: 8px 12px;
+  background: #333;
+  border: none;
+  color: #ccc;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tabButton:hover {
+  background: #444;
+  color: #fff;
+}
+
+.tabButton.active {
+  background: #10b981;
+  color: white;
+}
+
+.statusTagsSection, .inventorySection {
+  flex: 1;
+  min-height: 200px;
+}
+
+.statusTagsContainer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.inventoryContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.emptyState {
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+  padding: 32px 16px;
+  font-style: italic;
+}
+
+.lastUpdated {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid #333;
+  font-size: 11px;
+  color: #666;
+  text-align: center;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .statusPanel {
+    width: 100%;
+    position: relative;
+    min-height: auto;
+    box-shadow: none;
+    border-right: none;
+    border-bottom: 2px solid #333;
+  }
+  
+  .statusPanelCollapsed {
+    width: 100%;
+    height: 48px;
+    position: relative;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+    padding: 8px 16px;
+    border-right: none;
+    border-bottom: 2px solid #333;
+  }
+}
+
+@media (max-width: 480px) {
+  .statusPanel {
+    padding: 12px;
+  }
+  
+  .playerInfo, .sceneInfo {
+    padding: 12px;
+  }
+  
+  .statusTagsContainer {
+    justify-content: center;
+  }
+}
+
+/* Scrollbar Styling */
+.statusPanel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.statusPanel::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+.statusPanel::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 3px;
+}
+
+.statusPanel::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
