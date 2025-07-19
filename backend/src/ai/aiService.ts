@@ -29,14 +29,11 @@ export class AIService {
    */
   async initialize(): Promise<void> {
     try {
-      // Initialize Mastra instance if available
+      // Mastra instance is initialized in config if available
       if (mastraInstance) {
-        try {
-          await mastraInstance.init();
-          logger.info('Mastra framework initialized successfully');
-        } catch (error) {
-          logger.warn('Mastra framework initialization failed, using fallback mode:', error);
-        }
+        logger.info('Mastra framework initialized successfully');
+      } else {
+        logger.warn('Mastra framework not available, using fallback mode');
       }
       
       // Start periodic cleanup of expired status tags

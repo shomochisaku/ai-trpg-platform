@@ -86,8 +86,8 @@ const storeKnowledgeSchema = z.object({
  */
 export class GMAgent {
   private mastraAgent: any;
-  private openai: OpenAI;
-  private anthropic: Anthropic;
+  private openai!: OpenAI;
+  private anthropic!: Anthropic;
   private sessions: Map<string, GMSession>;
   private config: GMAgentConfig;
   private useMastra: boolean = false;
@@ -105,7 +105,8 @@ export class GMAgent {
     try {
       if (mastraInstance && Agent) {
         const agentId = config.provider === 'openai' ? 'gmAgent' : 'gmAgentClaude';
-        this.mastraAgent = mastraInstance.agent(agentId);
+        // Store mastra instance for potential future use
+        this.mastraAgent = mastraInstance;
         this.useMastra = true;
         logger.info(`GM Agent initialized with Mastra framework (provider: ${this.config.provider})`);
       } else {

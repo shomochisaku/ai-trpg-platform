@@ -82,28 +82,8 @@ export class RAGService {
    */
   async generateEmbedding(text: string): Promise<EmbeddingResult> {
     try {
-      // Try Mastra first if available
-      if (mastraInstance) {
-        try {
-          const llm = mastraInstance.llm('openai');
-          
-          const response = await llm.embedding({
-            model: 'text-embedding-3-small',
-            input: text,
-          });
-
-          const embedding = response.embedding;
-
-          if (embedding) {
-            return {
-              embedding,
-              tokenCount: response.usage?.total_tokens || 0,
-            };
-          }
-        } catch (error) {
-          logger.warn('Mastra embedding failed, falling back to OpenAI:', error);
-        }
-      }
+      // TODO: Use Mastra embedding when API is stable
+      // Currently using direct OpenAI for reliability
 
       // Fallback to direct OpenAI API
       const OpenAI = require('openai');

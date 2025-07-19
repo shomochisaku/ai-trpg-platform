@@ -98,41 +98,6 @@ function App() {
     setMockState(useMockData ? mockGameStateMinimal : mockGameState)
   }
 
-  const appStyles: React.CSSProperties = {
-    minHeight: '100vh',
-    backgroundColor: '#111827',
-    color: '#f3f4f6',
-    padding: '20px',
-    fontFamily: 'Inter, system-ui, sans-serif',
-  }
-
-  const containerStyles: React.CSSProperties = {
-    maxWidth: '800px',
-    margin: '0 auto',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '32px',
-  }
-
-  const headerStyles: React.CSSProperties = {
-    textAlign: 'center',
-    marginBottom: '32px',
-  }
-
-  const titleStyles: React.CSSProperties = {
-    fontSize: '3rem',
-    fontWeight: 'bold',
-    marginBottom: '16px',
-    background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-  }
-
-  const subtitleStyles: React.CSSProperties = {
-    fontSize: '1.2rem',
-    color: '#9ca3af',
-    marginBottom: '8px',
-  }
 
   return (
     <div className="app">

@@ -9,7 +9,7 @@ interface StatusPanelProps {
   onUpdateGameState?: (newState: Partial<GameState>) => void;
 }
 
-const StatusPanel: React.FC<StatusPanelProps> = ({ gameState, onUpdateGameState }) => {
+const StatusPanel: React.FC<StatusPanelProps> = ({ gameState }) => {
   const [activeTab, setActiveTab] = useState<'status' | 'inventory'>('status');
   const [isCollapsed, setIsCollapsed] = useState(false);
 

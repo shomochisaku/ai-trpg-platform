@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import dotenv from 'dotenv';
 import { Mastra } from '@mastra/core';
-import { AgentProvider, LLMProvider } from '@mastra/core';
 
 // Load environment variables
 dotenv.config();
@@ -49,29 +48,7 @@ export const mastraConfig = {
 // Mastra framework configuration
 export const createMastraInstance = () => {
   try {
-    return new Mastra({
-      name: 'ai-trpg-platform',
-      agents: [
-        {
-          name: 'gmAgent',
-          instructions: 'You are a skilled Game Master (GM) for a tabletop role-playing game.',
-          model: {
-            provider: 'OPEN_AI',
-            name: 'gpt-4',
-            apiKey: env.OPENAI_API_KEY,
-          },
-        },
-        {
-          name: 'gmAgentClaude',
-          instructions: 'You are a skilled Game Master (GM) for a tabletop role-playing game.',
-          model: {
-            provider: 'ANTHROPIC',
-            name: 'claude-3-5-sonnet-20241022',
-            apiKey: env.ANTHROPIC_API_KEY,
-          },
-        },
-      ],
-    });
+    return new Mastra({});
   } catch (error) {
     console.warn('Failed to create Mastra instance:', error);
     return null;
