@@ -41,7 +41,7 @@ export const useChat = () => {
     } finally {
       chatStore.setLoading(false);
     }
-  }, [chatStore, gameSessionStore.session.sessionId]);
+  }, [chatStore, gameSessionStore.session]);
 
   // Roll dice
   const rollDice = useCallback(async (diceExpression: string) => {
@@ -67,7 +67,7 @@ export const useChat = () => {
     } finally {
       chatStore.setLoading(false);
     }
-  }, [chatStore, gameSessionStore.session.sessionId]);
+  }, [chatStore, gameSessionStore.session]);
 
   // Load chat history
   const loadChatHistory = useCallback(async (limit: number = 50, offset: number = 0) => {
@@ -100,7 +100,7 @@ export const useChat = () => {
     } finally {
       chatStore.setLoading(false);
     }
-  }, [chatStore, gameSessionStore.session.sessionId]);
+  }, [chatStore, gameSessionStore.session]);
 
   // Set up WebSocket event listeners
   useEffect(() => {

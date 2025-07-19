@@ -37,7 +37,7 @@ export const useGameState = () => {
       // Note: In a real app, you might want to keep track of previous state
       throw error;
     }
-  }, [gameStateStore, gameSessionStore.session.sessionId]);
+  }, [gameStateStore, gameSessionStore.session]);
 
   // Update status tags
   const updateStatusTags = useCallback(async (statusTags: string[]) => {
@@ -57,7 +57,7 @@ export const useGameState = () => {
       console.error('Failed to update status tags:', error);
       throw error;
     }
-  }, [gameStateStore, gameSessionStore.session.sessionId]);
+  }, [gameStateStore, gameSessionStore.session]);
 
   // Update inventory
   const updateInventory = useCallback(async (inventory: string[]) => {
@@ -77,7 +77,7 @@ export const useGameState = () => {
       console.error('Failed to update inventory:', error);
       throw error;
     }
-  }, [gameStateStore, gameSessionStore.session.sessionId]);
+  }, [gameStateStore, gameSessionStore.session]);
 
   // Update notes
   const updateNotes = useCallback(async (notes: string) => {
@@ -97,7 +97,7 @@ export const useGameState = () => {
       console.error('Failed to update notes:', error);
       throw error;
     }
-  }, [gameStateStore, gameSessionStore.session.sessionId]);
+  }, [gameStateStore, gameSessionStore.session]);
 
   // Load game state from server
   const loadGameState = useCallback(async () => {
@@ -117,7 +117,7 @@ export const useGameState = () => {
       console.error('Failed to load game state:', error);
       throw error;
     }
-  }, [gameStateStore, gameSessionStore.session.sessionId]);
+  }, [gameStateStore, gameSessionStore.session]);
 
   // Set up WebSocket event listeners
   useEffect(() => {

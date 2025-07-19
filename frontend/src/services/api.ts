@@ -8,7 +8,7 @@ class ApiError extends Error {
   constructor(
     public status: number,
     public message: string,
-    public response?: any
+    public response?: Record<string, unknown>
   ) {
     super(message);
     this.name = 'ApiError';
