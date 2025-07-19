@@ -28,6 +28,10 @@ BOLD='\033[1m'
 TASKS_FILE=".kiro/specs/ai-trpg-platform/tasks.md"
 REPORT_FILE="project-status-report.md"
 
+# Global variables for cross-function access
+TOTAL_TASKS=0
+COMPLETED_TASKS=0
+
 # Flags
 DETAILED=false
 RECOMMEND_NEXT=false
@@ -83,22 +87,35 @@ collect_tasks_info() {
     
     echo -e "${GREEN}✅ Tasks file found${NC}"
     
-    # Count total tasks
-    TOTAL_TASKS=$(grep -c "^- \[ \]" "$TASKS_FILE" 2>/dev/null || echo "0")
-    COMPLETED_TASKS=$(grep -c "^- \[x\]" "$TASKS_FILE" 2>/dev/null || echo "0")
+    # Count total tasks with improved regex patterns
+    # Pattern for uncompleted tasks: - [ ] with optional whitespace
+    local uncompleted_count
+    uncompleted_count=$(grep -c "^[[:space:]]*-[[:space:]]*\[[[:space:]]*\]" "$TASKS_FILE" 2>/dev/null || echo "0")
     
-    # Remove any whitespace/newlines
-    TOTAL_TASKS=${TOTAL_TASKS// /}
-    COMPLETED_TASKS=${COMPLETED_TASKS// /}
+    # Pattern for completed tasks: - [x] or - [X] with optional whitespace  
+    local completed_count
+    completed_count=$(grep -c "^[[:space:]]*-[[:space:]]*\[[xX]\]" "$TASKS_FILE" 2>/dev/null || echo "0")
     
-    echo "Total tasks: $TOTAL_TASKS"
-    echo "Completed tasks: $COMPLETED_TASKS"
+    # Clean and validate the results
+    TOTAL_TASKS=$(echo "$uncompleted_count" | tr -d '\n\r\t ' | grep -E '^[0-9]+$' || echo "0")
+    COMPLETED_TASKS=$(echo "$completed_count" | tr -d '\n\r\t ' | grep -E '^[0-9]+$' || echo "0")
     
-    # Safe arithmetic
+    # Calculate total (uncompleted + completed)
     if [[ "$TOTAL_TASKS" =~ ^[0-9]+$ ]] && [[ "$COMPLETED_TASKS" =~ ^[0-9]+$ ]]; then
-        echo "Remaining tasks: $((TOTAL_TASKS - COMPLETED_TASKS))"
+        local all_tasks=$((TOTAL_TASKS + COMPLETED_TASKS))
+        echo "Total tasks: $all_tasks"
+        echo "Completed tasks: $COMPLETED_TASKS"
+        echo "Remaining tasks: $TOTAL_TASKS"
+        
+        # Update global variable for total
+        TOTAL_TASKS=$all_tasks
     else
-        echo "Remaining tasks: Cannot calculate (invalid numbers)"
+        echo "Total tasks: Cannot calculate (pattern matching failed)"
+        echo "Completed tasks: $COMPLETED_TASKS"
+        echo "Remaining tasks: $TOTAL_TASKS"
+        # Set safe defaults
+        TOTAL_TASKS=0
+        COMPLETED_TASKS=0
     fi
     
     # Extract milestones
@@ -229,13 +246,26 @@ generate_report() {
         echo "## Executive Summary"
         echo ""
         echo "### Tasks Overview"
-        echo "- Total Tasks: $TOTAL_TASKS"
-        echo "- Completed: $COMPLETED_TASKS"
-        echo "- Remaining: $((TOTAL_TASKS - COMPLETED_TASKS))"
-        if [ "$TOTAL_TASKS" -gt 0 ]; then
-            echo "- Progress: $(( COMPLETED_TASKS * 100 / TOTAL_TASKS ))%"
+        echo "- Total Tasks: ${TOTAL_TASKS:-0}"
+        echo "- Completed: ${COMPLETED_TASKS:-0}"
+        
+        # Safe arithmetic with fallback
+        local total_val=${TOTAL_TASKS:-0}
+        local completed_val=${COMPLETED_TASKS:-0}
+        
+        if [[ "$total_val" =~ ^[0-9]+$ ]] && [[ "$completed_val" =~ ^[0-9]+$ ]]; then
+            local remaining=$((total_val - completed_val))
+            echo "- Remaining: $remaining"
+            
+            if [ "$total_val" -gt 0 ]; then
+                local progress=$((completed_val * 100 / total_val))
+                echo "- Progress: ${progress}%"
+            else
+                echo "- Progress: 0%"
+            fi
         else
-            echo "- Progress: 0%"
+            echo "- Remaining: Unable to calculate"
+            echo "- Progress: Unable to calculate"
         fi
         echo ""
         

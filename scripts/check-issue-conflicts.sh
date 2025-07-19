@@ -20,7 +20,8 @@
 #
 # ==============================================================================
 
-set -euo pipefail
+set -uo pipefail
+# Note: set -e is intentionally NOT used to allow functions to return non-zero status codes
 
 # Color definitions
 RED='\033[0;31m'
@@ -157,7 +158,10 @@ expand_file_patterns() {
         fi
     done
     
-    printf '%s\n' "${expanded_files[@]}" | sort -u
+    # Handle empty array case
+    if [ ${#expanded_files[@]} -gt 0 ]; then
+        printf '%s\n' "${expanded_files[@]}" | sort -u
+    fi
 }
 
 check_file_conflicts_with_prs() {
@@ -440,17 +444,24 @@ main() {
     local overall_status=0
     
     if [ "$CHECK_EXISTING_PRS" = true ]; then
-        if ! check_file_conflicts_with_prs "$FILES_TO_CHECK"; then
-            overall_status=$?
+        check_file_conflicts_with_prs "$FILES_TO_CHECK"
+        local conflict_status=$?
+        if [ $conflict_status -gt $overall_status ]; then
+            overall_status=$conflict_status
         fi
     fi
     
     if [ "$SIMULATE_MERGE" = true ]; then
         simulate_merge_conflicts "$FILES_TO_CHECK"
+        local merge_status=$?
+        if [ $merge_status -gt $overall_status ]; then
+            overall_status=$merge_status
+        fi
     fi
     
     if [ "$ANALYZE_DEPS" = true ]; then
         analyze_dependency_impact "$FILES_TO_CHECK"
+        # Dependency analysis is informational, doesn't affect overall status
     fi
     
     # Always generate basic report
