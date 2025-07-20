@@ -6,7 +6,7 @@ import { logger } from '@/utils/logger';
 interface SearchResult {
   id: string;
   content: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 import { aiService } from '../ai/aiService';
 import {
@@ -245,10 +245,13 @@ export class CampaignService {
    */
   private async initializeCampaignKnowledge(
     campaignId: string,
-    settings: CampaignSettings
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _settings: CampaignSettings
   ): Promise<void> {
     // MVP: Knowledge base initialization disabled for minimal schema
-    logger.info(`MVP: Skipping knowledge base initialization for campaign ${campaignId}`);
+    logger.info(
+      `MVP: Skipping knowledge base initialization for campaign ${campaignId}`
+    );
   }
 
   /**
@@ -332,7 +335,9 @@ export class CampaignService {
       playerId,
       playerAction,
       gameState: {
-        currentScene: campaign.settings.opening.prologue.split('\n')[0] || 'The adventure begins',
+        currentScene:
+          campaign.settings.opening.prologue.split('\n')[0] ||
+          'The adventure begins',
         playerStatus: campaign.settings.opening.initialStatusTags,
         npcs: [],
         environment: {
@@ -353,12 +358,17 @@ export class CampaignService {
    */
   private async storeActionResult(
     campaignId: string,
-    playerId: string,
-    playerAction: string,
-    result: ProcessGameActionResult
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _playerId: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _playerAction: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _result: ProcessGameActionResult
   ): Promise<void> {
     // MVP: Action result storage disabled for minimal schema
-    logger.info(`MVP: Skipping action result storage for campaign ${campaignId}`);
+    logger.info(
+      `MVP: Skipping action result storage for campaign ${campaignId}`
+    );
   }
 
   // Helper methods for extracting information from knowledge content
@@ -433,21 +443,22 @@ export class CampaignService {
   }): Campaign {
     let settings: CampaignSettings;
     try {
-      settings = session.aiSettings && session.aiSettings !== '{}'
-        ? JSON.parse(session.aiSettings)
-        : {
-            gmProfile: {
-              personality: 'balanced',
-              speechStyle: 'narrative',
-              guidingPrinciples: [],
-            },
-            worldSettings: { toneAndManner: 'fantasy', keyConcepts: [] },
-            opening: {
-              prologue: '',
-              initialStatusTags: [],
-              initialInventory: [],
-            },
-          };
+      settings =
+        session.aiSettings && session.aiSettings !== '{}'
+          ? JSON.parse(session.aiSettings)
+          : {
+              gmProfile: {
+                personality: 'balanced',
+                speechStyle: 'narrative',
+                guidingPrinciples: [],
+              },
+              worldSettings: { toneAndManner: 'fantasy', keyConcepts: [] },
+              opening: {
+                prologue: '',
+                initialStatusTags: [],
+                initialInventory: [],
+              },
+            };
     } catch (error) {
       logger.warn('Failed to parse campaign settings, using defaults:', error);
       settings = {
