@@ -1,6 +1,6 @@
 // Export API services
 export { default as api } from './api';
-export { gameSessionApi, chatApi, gameStateApi, healthApi } from './api';
+export { campaignApi, actionApi, gameStateApi, healthApi } from './api';
 
 // Export WebSocket service
 export { WebSocketService, webSocketService } from './websocket';

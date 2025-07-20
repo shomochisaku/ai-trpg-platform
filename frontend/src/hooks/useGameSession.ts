@@ -1,88 +1,109 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { useGameSessionStore, useWebSocketStore } from '../store';
 import { api, webSocketService } from '../services';
+import { Campaign, CreateCampaignData } from '../services/api';
 
+// Backward compatibility alias
 export const useGameSession = () => {
+  return useCampaign();
+};
+
+export const useCampaign = () => {
   const gameSessionStore = useGameSessionStore();
   const webSocketStore = useWebSocketStore();
+  const [currentCampaign, setCurrentCampaign] = useState<Campaign | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Connect to a game session
-  const connectToSession = useCallback(async (
-    sessionId: string,
+  // Connect to a campaign
+  const connectToCampaign = useCallback(async (
+    campaignId: string,
     playerId: string,
     characterName: string
   ) => {
     try {
-      // Update local state
-      gameSessionStore.connect(sessionId, playerId, characterName);
+      setIsLoading(true);
+      
+      // Update local state to use campaign ID as session ID
+      gameSessionStore.connect(campaignId, playerId, characterName);
       
       // Connect to WebSocket
       webSocketStore.setConnecting(true);
-      await webSocketService.connect(sessionId, playerId);
+      await webSocketService.connect(campaignId, playerId);
       webSocketStore.setConnected(true);
       
-      // Get session details from API
-      const response = await api.gameSession.getSession(sessionId);
+      // Get campaign details from API
+      const response = await api.campaign.getCampaign(campaignId);
       if (response.success && response.data) {
-        gameSessionStore.updateSession(response.data);
+        setCurrentCampaign(response.data);
+        // Convert campaign to session format for backward compatibility
+        gameSessionStore.updateSession({
+          sessionId: campaignId,
+          playerId,
+          characterName,
+          isConnected: true,
+          lastActivity: new Date(),
+        });
       }
     } catch (error) {
-      console.error('Failed to connect to session:', error);
+      console.error('Failed to connect to campaign:', error);
       webSocketStore.setError(error instanceof Error ? error.message : 'Connection failed');
       gameSessionStore.disconnect();
+    } finally {
+      setIsLoading(false);
     }
   }, [gameSessionStore, webSocketStore]);
 
-  // Create a new game session
-  const createSession = useCallback(async (characterName: string) => {
+  // Create a new campaign
+  const createCampaign = useCallback(async (data: CreateCampaignData, playerId: string) => {
     try {
-      const response = await api.gameSession.createSession(characterName);
-      if (response.success && response.data) {
-        const session = response.data;
-        await connectToSession(session.sessionId!, session.playerId!, characterName);
-        return session;
-      }
-      throw new Error(response.error || 'Failed to create session');
-    } catch (error) {
-      console.error('Failed to create session:', error);
-      throw error;
-    }
-  }, [connectToSession]);
-
-  // Join an existing session
-  const joinSession = useCallback(async (sessionId: string, playerId: string) => {
-    try {
-      const response = await api.gameSession.joinSession(sessionId, playerId);
-      if (response.success && response.data) {
-        const session = response.data;
-        await connectToSession(sessionId, playerId, session.characterName || '');
-        return session;
-      }
-      throw new Error(response.error || 'Failed to join session');
-    } catch (error) {
-      console.error('Failed to join session:', error);
-      throw error;
-    }
-  }, [connectToSession]);
-
-  // Disconnect from session
-  const disconnectFromSession = useCallback(async () => {
-    try {
-      const { sessionId } = gameSessionStore.session;
+      setIsLoading(true);
       
+      const response = await api.campaign.createCampaign(data);
+      if (response.success && response.data) {
+        const campaign = response.data;
+        await connectToCampaign(campaign.id, playerId, 'Player');
+        return campaign;
+      }
+      throw new Error(response.error || 'Failed to create campaign');
+    } catch (error) {
+      console.error('Failed to create campaign:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [connectToCampaign]);
+
+  // Join an existing campaign (simplified for MVP)
+  const joinCampaign = useCallback(async (campaignId: string, playerId: string) => {
+    try {
+      setIsLoading(true);
+      
+      const response = await api.campaign.getCampaign(campaignId);
+      if (response.success && response.data) {
+        await connectToCampaign(campaignId, playerId, 'Player');
+        return response.data;
+      }
+      throw new Error(response.error || 'Failed to join campaign');
+    } catch (error) {
+      console.error('Failed to join campaign:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [connectToCampaign]);
+
+  // Disconnect from campaign
+  const disconnectFromCampaign = useCallback(async () => {
+    try {
       // Disconnect WebSocket
       webSocketService.disconnect();
       webSocketStore.setConnected(false);
       
-      // End session via API if we have a session ID
-      if (sessionId) {
-        await api.gameSession.endSession(sessionId);
-      }
-      
       // Clear local state
       gameSessionStore.disconnect();
+      setCurrentCampaign(null);
     } catch (error) {
-      console.error('Failed to disconnect from session:', error);
+      console.error('Failed to disconnect from campaign:', error);
     }
   }, [gameSessionStore, webSocketStore]);
 
@@ -94,7 +115,7 @@ export const useGameSession = () => {
         if (!webSocketService.isConnected()) {
           const { sessionId, playerId, characterName } = gameSessionStore.session;
           if (sessionId && playerId && characterName) {
-            connectToSession(sessionId, playerId, characterName);
+            connectToCampaign(sessionId, playerId, characterName);
           }
         }
       }
@@ -102,16 +123,45 @@ export const useGameSession = () => {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [gameSessionStore.session, connectToSession]);
+  }, [gameSessionStore.session, connectToCampaign]);
 
   return {
     session: gameSessionStore.session,
     websocketState: webSocketStore.websocket,
-    createSession,
-    joinSession,
-    connectToSession,
-    disconnectFromSession,
+    currentCampaign,
+    isLoading,
+    createCampaign,
+    joinCampaign,
+    connectToCampaign,
+    disconnectFromCampaign,
     updateSession: gameSessionStore.updateSession,
     resetSession: gameSessionStore.resetSession,
+    
+    // Backward compatibility
+    createSession: (characterName: string) => {
+      const defaultCampaignData: CreateCampaignData = {
+        userId: 'default-user',
+        title: `${characterName}'s Adventure`,
+        settings: {
+          gmProfile: {
+            personality: 'Friendly and engaging',
+            speechStyle: 'Casual but immersive',
+            guidingPrinciples: ['Fair', 'Fun', 'Engaging'],
+          },
+          worldSettings: {
+            toneAndManner: 'Fantasy adventure',
+            keyConcepts: ['Magic', 'Adventure', 'Exploration'],
+          },
+          opening: {
+            prologue: 'Your adventure begins in a mysterious land...',
+            initialStatusTags: ['Healthy', 'Eager'],
+            initialInventory: ['Basic sword', 'Simple clothes', 'Small pouch'],
+          },
+        },
+      };
+      return createCampaign(defaultCampaignData, 'player-1');
+    },
+    joinSession: joinCampaign,
+    disconnectFromSession: disconnectFromCampaign,
   };
 };

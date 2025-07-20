@@ -2,7 +2,7 @@ import { useState } from 'react'
 import './App.css'
 import ActionInput from './components/ActionInput'
 import StatusPanel from './components/StatusPanel'
-import { useGameSession, useChat, useGameState } from './hooks'
+import { useCampaign, useChat, useGameState } from './hooks'
 import { mockGameState, mockGameStateMinimal } from './types/mockData'
 import { GameState } from './types/status'
 
@@ -18,13 +18,15 @@ function App() {
     session, 
     websocketState, 
     createSession, 
-    joinSession, 
-    disconnectFromSession 
-  } = useGameSession()
+    joinCampaign, 
+    disconnectFromCampaign,
+    currentCampaign,
+    isLoading: campaignLoading 
+  } = useCampaign()
   
   const { 
     chat, 
-    sendMessage, 
+    processAction,
     rollDice 
   } = useChat()
   
@@ -38,36 +40,29 @@ function App() {
     try {
       await createSession(characterName)
     } catch (error) {
-      console.error('Failed to create session:', error)
+      console.error('Failed to create campaign:', error)
     }
   }
 
   const handleJoinSession = async () => {
     if (!sessionId.trim()) return
     try {
-      await joinSession(sessionId, `player_${Date.now()}`)
+      await joinCampaign(sessionId, `player_${Date.now()}`)
     } catch (error) {
-      console.error('Failed to join session:', error)
+      console.error('Failed to join campaign:', error)
     }
   }
 
   const handleActionSubmit = async (action: string) => {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    // Add the action to the list
+    // Add the action to the list for display
     setActions(prev => [...prev, action])
     
-    // Send message via Zustand store
+    // Process action via new API
     try {
-      await sendMessage(action)
+      await processAction(action)
     } catch (error) {
-      console.error('Failed to send action:', error)
-    }
-    
-    // Simulate potential error (10% chance)
-    if (Math.random() < 0.1) {
-      throw new Error('Failed to process action. Please try again.')
+      console.error('Failed to process action:', error)
+      // Error is already handled in processAction hook
     }
   }
 
@@ -121,16 +116,20 @@ function App() {
 
         {/* Connection Status */}
         <section style={{ backgroundColor: '#1f2937', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>
-          <h2 style={{ marginBottom: '16px', fontSize: '1.5rem' }}>Connection Status</h2>
-          <p>Session: {session.sessionId || 'Not connected'}</p>
+          <h2 style={{ marginBottom: '16px', fontSize: '1.5rem' }}>Campaign Status</h2>
+          <p>Campaign: {session.sessionId || 'Not connected'}</p>
           <p>Character: {session.characterName || 'None'}</p>
           <p>WebSocket: {websocketState.isConnected ? 'Connected' : 'Disconnected'}</p>
+          {currentCampaign && (
+            <p>Title: {currentCampaign.title}</p>
+          )}
+          {campaignLoading && <p>Loading...</p>}
         </section>
 
-        {/* Session Management */}
+        {/* Campaign Management */}
         {!session.isConnected && (
           <section style={{ backgroundColor: '#1f2937', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>
-            <h2 style={{ marginBottom: '16px', fontSize: '1.5rem' }}>Create or Join Session</h2>
+            <h2 style={{ marginBottom: '16px', fontSize: '1.5rem' }}>Create or Join Campaign</h2>
             <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
               <input
                 type="text"
@@ -138,18 +137,44 @@ function App() {
                 value={characterName}
                 onChange={(e) => setCharacterName(e.target.value)}
                 style={{ flex: 1, padding: '8px', borderRadius: '4px', border: 'none' }}
+                disabled={campaignLoading}
               />
-              <button onClick={handleCreateSession} style={{ padding: '8px 16px', borderRadius: '4px', border: 'none', backgroundColor: '#3b82f6', color: 'white' }}>Create Session</button>
+              <button 
+                onClick={handleCreateSession} 
+                disabled={campaignLoading}
+                style={{ 
+                  padding: '8px 16px', 
+                  borderRadius: '4px', 
+                  border: 'none', 
+                  backgroundColor: campaignLoading ? '#6b7280' : '#3b82f6', 
+                  color: 'white' 
+                }}
+              >
+                {campaignLoading ? 'Creating...' : 'Create Campaign'}
+              </button>
             </div>
             <div style={{ display: 'flex', gap: '16px' }}>
               <input
                 type="text"
-                placeholder="Session ID"
+                placeholder="Campaign ID"
                 value={sessionId}
                 onChange={(e) => setSessionId(e.target.value)}
                 style={{ flex: 1, padding: '8px', borderRadius: '4px', border: 'none' }}
+                disabled={campaignLoading}
               />
-              <button onClick={handleJoinSession} style={{ padding: '8px 16px', borderRadius: '4px', border: 'none', backgroundColor: '#3b82f6', color: 'white' }}>Join Session</button>
+              <button 
+                onClick={handleJoinSession} 
+                disabled={campaignLoading}
+                style={{ 
+                  padding: '8px 16px', 
+                  borderRadius: '4px', 
+                  border: 'none', 
+                  backgroundColor: campaignLoading ? '#6b7280' : '#3b82f6', 
+                  color: 'white' 
+                }}
+              >
+                {campaignLoading ? 'Joining...' : 'Join Campaign'}
+              </button>
             </div>
           </section>
         )}
@@ -172,7 +197,7 @@ function App() {
             <div style={{ display: 'flex', gap: '16px' }}>
               <button onClick={handleRollDice} style={{ padding: '8px 16px', borderRadius: '4px', border: 'none', backgroundColor: '#10b981', color: 'white' }}>Roll d20</button>
               <button onClick={handleUpdateHealth} style={{ padding: '8px 16px', borderRadius: '4px', border: 'none', backgroundColor: '#ef4444', color: 'white' }}>Take Damage (-10 HP)</button>
-              <button onClick={disconnectFromSession} style={{ padding: '8px 16px', borderRadius: '4px', border: 'none', backgroundColor: '#6b7280', color: 'white' }}>Disconnect</button>
+              <button onClick={disconnectFromCampaign} style={{ padding: '8px 16px', borderRadius: '4px', border: 'none', backgroundColor: '#6b7280', color: 'white' }}>Disconnect</button>
             </div>
           </section>
         )}
