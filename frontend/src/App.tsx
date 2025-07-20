@@ -119,7 +119,7 @@ function App() {
         type: 'system',
       });
     }
-  }, [processAction, currentCampaign, characterName, joinCampaign]) // Add dependencies for recovery
+  }, [processAction, currentCampaign, characterName, joinCampaign, session]) // Include session dependency
 
   const handleInputChange = useCallback((value: string) => {
     setCurrentInput(value)

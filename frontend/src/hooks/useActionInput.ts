@@ -94,7 +94,7 @@ export const useActionInput = (
         error: null,
       };
     });
-  }, [addToHistory]); // Only depend on addToHistory
+  }, [addToHistory, callbacks]); // Include callbacks dependency
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && event.shiftKey) {

@@ -109,8 +109,8 @@ export const useChat = () => {
       }
       if (response && response.success && response.data) {
         // API response is double-wrapped: response.data.data contains the actual data
-        const responseData = response.data as any; // {success: true, data: {...}}
-        const result = (responseData.data || responseData) as PlayerActionResult; // {campaignId: ..., narrative: ...}
+        const responseData = response.data as unknown as Record<string, unknown>; // {success: true, data: {...}}
+        const result = (responseData.data || responseData) as unknown as PlayerActionResult; // {campaignId: ..., narrative: ...}
         const narrativeContent = result.narrative;
         
         // Add GM response to chat
@@ -172,7 +172,7 @@ export const useChat = () => {
     } finally {
       chatStore.setLoading(false);
     }
-  }, []); // Remove session dependencies to prevent stale closures
+  }, [session, chatStore, gameStateStore]); // Include necessary dependencies
 
   // Send a simple message (for non-action messages)
   const sendMessage = useCallback(async (
@@ -190,7 +190,7 @@ export const useChat = () => {
         type,
       });
     }
-  }, [processAction]);
+  }, [processAction, chatStore]);
 
   // Roll dice as an action
   const rollDice = useCallback(async (diceExpression: string) => {
@@ -209,7 +209,7 @@ export const useChat = () => {
       sender: 'gm',
       type: 'system',
     });
-  }, []); // Empty dependency array - store methods are stable
+  }, [chatStore]); // Include chatStore dependency
 
   // Set up WebSocket event listeners
   useEffect(() => {
@@ -245,7 +245,7 @@ export const useChat = () => {
       webSocketService.off('system:notification', handleSystemNotification);
       webSocketService.off('system:error', handleSystemError);
     };
-  }, []); // Empty dependency array - WebSocket handlers are stable
+  }, [chatStore]); // Include chatStore dependency
 
   // Load chat history when session changes
   useEffect(() => {

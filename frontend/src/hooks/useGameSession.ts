@@ -60,8 +60,9 @@ export const useCampaign = () => {
       const response = await api.campaign.getCampaign(campaignId);
       if (response.success && response.data) {
         // Handle double-wrapped response
-        const campaignData = (response.data as any).data || response.data;
-        setCurrentCampaign(campaignData as Campaign);
+        const responseRecord = response.data as unknown as Record<string, unknown>;
+        const campaignData = responseRecord.data || response.data;
+        setCurrentCampaign(campaignData as unknown as Campaign);
         
         // Final verification and forced update
         console.log('[useCampaign] Final session verification...');
@@ -97,7 +98,7 @@ export const useCampaign = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []); // Empty dependency array - store methods are stable
+  }, [connect, disconnect, updateSession, webSocketStore]); // Include store dependencies
 
   // Create a new campaign
   const createCampaign = useCallback(async (data: CreateCampaignData, playerId: string, characterName?: string) => {
@@ -107,7 +108,8 @@ export const useCampaign = () => {
       const response = await api.campaign.createCampaign(data);
       if (response.success && response.data) {
         // Handle double-wrapped response
-        const campaign = ((response.data as any).data || response.data) as Campaign;
+        const responseRecord = response.data as unknown as Record<string, unknown>;
+        const campaign = (responseRecord.data || response.data) as unknown as Campaign;
         // Use provided characterName or extract from title
         const charName = characterName || data.title.replace(/'s Adventure$/, '') || 'Player';
         await connectToCampaign(campaign.id, playerId, charName);
@@ -131,8 +133,9 @@ export const useCampaign = () => {
       if (response.success && response.data) {
         await connectToCampaign(campaignId, playerId, 'Player');
         // Handle double-wrapped response
-        const campaignData = (response.data as any).data || response.data;
-        return campaignData as Campaign;
+        const responseRecord = response.data as unknown as Record<string, unknown>;
+        const campaignData = responseRecord.data || response.data;
+        return campaignData as unknown as Campaign;
       }
       throw new Error(response.error || 'Failed to join campaign');
     } catch (error) {
@@ -156,7 +159,7 @@ export const useCampaign = () => {
     } catch (error) {
       console.error('Failed to disconnect from campaign:', error);
     }
-  }, []); // Empty dependency array - store methods are stable
+  }, [disconnect, webSocketStore]); // Include store dependencies
 
   // Simplified auto-reconnect effect
   useEffect(() => {
@@ -171,7 +174,7 @@ export const useCampaign = () => {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, []); // Empty dependency array to prevent infinite loops
+  }, [session, connectToCampaign]); // Include necessary dependencies
 
   return {
     session,
