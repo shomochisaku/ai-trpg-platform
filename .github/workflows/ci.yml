@@ -16,21 +16,21 @@ jobs:
   test:
     runs-on: ubuntu-latest
     
-    # PostgreSQL service temporarily disabled for SQLite MVP
-    # services:
-    #   postgres:
-    #     image: postgres:15
-    #     env:
-    #       POSTGRES_USER: test_user
-    #       POSTGRES_PASSWORD: test_password
-    #       POSTGRES_DB: test_db
-    #     options: >-
-    #       --health-cmd pg_isready
-    #       --health-interval 10s
-    #       --health-timeout 5s
-    #       --health-retries 5
-    #     ports:
-    #       - 5432:5432
+    # PostgreSQL service with pgvector extension
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
 
     steps:
     - uses: actions/checkout@v4
@@ -50,11 +50,28 @@ jobs:
       working-directory: backend
       run: npx prisma generate
 
+    - name: Setup pgvector extension
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y postgresql-client git build-essential postgresql-server-dev-14
+        # Wait for PostgreSQL to be ready
+        until pg_isready -h localhost -p 5432 -U test_user; do
+          echo "Waiting for PostgreSQL to be ready..."
+          sleep 2
+        done
+        # Clone and install pgvector
+        git clone --branch v0.8.0 https://github.com/pgvector/pgvector.git
+        cd pgvector
+        make
+        sudo make install PG_CONFIG=/usr/lib/postgresql/14/bin/pg_config
+        # Create vector extension in database
+        PGPASSWORD=test_password psql -h localhost -p 5432 -U test_user -d test_db -c "CREATE EXTENSION IF NOT EXISTS vector;"
+
     - name: Run database migrations
       working-directory: backend
       run: npx prisma db push
       env:
-        DATABASE_URL: file:./test.db
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
 
     - name: Run TypeScript type checking
       working-directory: backend
@@ -69,7 +86,7 @@ jobs:
       run: npm run test:core
       if: ${{ !contains(github.event.head_commit.message, '[full-test]') && !contains(github.event.pull_request.title, '[full-test]') }}
       env:
-        DATABASE_URL: file:./test.db
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
         JWT_SECRET: test-secret
         NODE_ENV: test
 
@@ -78,7 +95,7 @@ jobs:
       run: npm test
       if: ${{ contains(github.event.head_commit.message, '[full-test]') || contains(github.event.pull_request.title, '[full-test]') }}
       env:
-        DATABASE_URL: file:./test.db
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
         OPENAI_API_KEY: test-key
         ANTHROPIC_API_KEY: test-key
         PINECONE_API_KEY: test-key
