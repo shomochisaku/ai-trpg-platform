@@ -9,15 +9,15 @@ describe('App', () => {
     expect(heading).toBeInTheDocument()
   })
 
-  it('renders the create session button', () => {
+  it('renders the create campaign button', () => {
     render(<App />)
-    const button = screen.getByRole('button', { name: /Create Session/i })
+    const button = screen.getByRole('button', { name: /Create Campaign/i })
     expect(button).toBeInTheDocument()
   })
 
-  it('renders the join session button', () => {
+  it('renders the join campaign button', () => {
     render(<App />)
-    const button = screen.getByRole('button', { name: /Join Session/i })
+    const button = screen.getByRole('button', { name: /Join Campaign/i })
     expect(button).toBeInTheDocument()
   })
 
