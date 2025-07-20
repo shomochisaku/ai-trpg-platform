@@ -10,8 +10,6 @@ const initialGameSession: GameSession = {
   lastActivity: null,
 };
 
-// Global store reference for direct access
-let storeRef: any = null;
 
 export const useGameSessionStore = create<GameSessionStore>()(
   devtools(
@@ -19,7 +17,7 @@ export const useGameSessionStore = create<GameSessionStore>()(
       const store = {
         session: initialGameSession,
       
-        updateSession: (updates) => {
+        updateSession: (updates: Partial<GameSession>) => {
           console.log('[GameSessionStore] updateSession called with:', updates);
           console.log('[GameSessionStore] Current state before update:', get().session);
           
@@ -63,7 +61,7 @@ export const useGameSessionStore = create<GameSessionStore>()(
         );
       },
       
-        connect: (sessionId, playerId, characterName) => {
+        connect: (sessionId: string, playerId: string, characterName: string) => {
           console.log('[GameSessionStore] connect() called with:', { sessionId, playerId, characterName });
           console.log('[GameSessionStore] Current state before connect:', get().session);
           
@@ -124,8 +122,6 @@ export const useGameSessionStore = create<GameSessionStore>()(
       },
       };
       
-      // Store reference for direct access
-      storeRef = store;
       return store;
     },
     {

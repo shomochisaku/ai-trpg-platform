@@ -58,8 +58,10 @@ export const useCampaign = () => {
       
       // Get campaign details from API
       const response = await api.campaign.getCampaign(campaignId);
-      if (response.success && response.data && response.data.data) {
-        setCurrentCampaign(response.data.data);
+      if (response.success && response.data) {
+        // Handle double-wrapped response
+        const campaignData = (response.data as any).data || response.data;
+        setCurrentCampaign(campaignData as Campaign);
         
         // Final verification and forced update
         console.log('[useCampaign] Final session verification...');
@@ -103,8 +105,9 @@ export const useCampaign = () => {
       setIsLoading(true);
       
       const response = await api.campaign.createCampaign(data);
-      if (response.success && response.data && response.data.data) {
-        const campaign = response.data.data;
+      if (response.success && response.data) {
+        // Handle double-wrapped response
+        const campaign = ((response.data as any).data || response.data) as Campaign;
         // Use provided characterName or extract from title
         const charName = characterName || data.title.replace(/'s Adventure$/, '') || 'Player';
         await connectToCampaign(campaign.id, playerId, charName);
@@ -125,9 +128,11 @@ export const useCampaign = () => {
       setIsLoading(true);
       
       const response = await api.campaign.getCampaign(campaignId);
-      if (response.success && response.data && response.data.data) {
+      if (response.success && response.data) {
         await connectToCampaign(campaignId, playerId, 'Player');
-        return response.data.data;
+        // Handle double-wrapped response
+        const campaignData = (response.data as any).data || response.data;
+        return campaignData as Campaign;
       }
       throw new Error(response.error || 'Failed to join campaign');
     } catch (error) {

@@ -3,6 +3,7 @@ import { useChatStore, useGameSessionStore, useGameStateStore } from '../store';
 import { api, webSocketService } from '../services';
 import { ChatMessage } from '../types';
 import { getGameSessionState } from '../store/gameSessionStore';
+import type { PlayerActionResult } from '../services/api';
 
 export const useChat = () => {
   const chatStore = useChatStore();
@@ -11,7 +12,6 @@ export const useChat = () => {
     console.log('[useChat] Selector executed, session state:', state.session);
     return state.session;
   });
-  const updateSession = useGameSessionStore((state) => state.updateSession);
   const gameStateStore = useGameStateStore();
 
   // Process player action (replaces sendMessage)
@@ -107,10 +107,10 @@ export const useChat = () => {
           await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
         }
       }
-      if (response.success && response.data) {
+      if (response && response.success && response.data) {
         // API response is double-wrapped: response.data.data contains the actual data
-        const responseData = response.data; // {success: true, data: {...}}
-        const result = responseData.data; // {campaignId: ..., narrative: ...}
+        const responseData = response.data as any; // {success: true, data: {...}}
+        const result = (responseData.data || responseData) as PlayerActionResult; // {campaignId: ..., narrative: ...}
         const narrativeContent = result.narrative;
         
         // Add GM response to chat
@@ -155,7 +155,7 @@ export const useChat = () => {
 
         return result;
       } else {
-        throw new Error(response.error || 'Failed to process action');
+        throw new Error(response?.error || 'Failed to process action');
       }
     } catch (error) {
       console.error('Failed to process action:', error);

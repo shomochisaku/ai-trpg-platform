@@ -62,7 +62,7 @@ export const convertChatMessagesToMessages = (
  * プレイヤーIDからキャラクター名を取得
  * セッション情報が利用可能な場合はキャラクター名を使用
  */
-export const getCharacterName = (playerId: string, characterName?: string): string => {
+export const getCharacterName = (_playerId: string, characterName?: string): string => {
   return characterName || 'Player';
 };
 

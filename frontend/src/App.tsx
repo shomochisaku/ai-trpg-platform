@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import './App.css'
 import ActionInput from './components/ActionInput'
 import StatusPanel from './components/StatusPanel'
