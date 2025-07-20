@@ -53,13 +53,13 @@ export const useGameSessionStore = create<GameSessionStore>()(
           }, 0);
         },
       
-      resetSession: () => {
-        set(
-          { session: initialGameSession },
-          false,
-          'resetSession'
-        );
-      },
+        resetSession: () => {
+          set(
+            { session: initialGameSession },
+            false,
+            'resetSession'
+          );
+        },
       
         connect: (sessionId: string, playerId: string, characterName: string) => {
           console.log('[GameSessionStore] connect() called with:', { sessionId, playerId, characterName });
@@ -107,19 +107,19 @@ export const useGameSessionStore = create<GameSessionStore>()(
           setTimeout(verifyConnection, 0);
         },
       
-      disconnect: () => {
-        set(
-          (state) => ({
-            session: {
-              ...state.session,
-              isConnected: false,
-              lastActivity: new Date(),
-            },
-          }),
-          false,
-          'disconnect'
-        );
-      },
+        disconnect: () => {
+          set(
+            (state) => ({
+              session: {
+                ...state.session,
+                isConnected: false,
+                lastActivity: new Date(),
+              },
+            }),
+            false,
+            'disconnect'
+          );
+        },
       };
       
       return store;
