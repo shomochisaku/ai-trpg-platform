@@ -146,11 +146,9 @@ export class GameWorkflow {
         Respond in JSON format.
       `;
 
-      const response = await agent.text({ 
-        messages: [{ role: 'user', content: prompt }] 
-      });
+      const response = await agent.generate([{ role: 'user', content: prompt }]);
 
-      return JSON.parse(response.text);
+      return JSON.parse(response.text || '{}');
     },
 
     validate: (result: ActionAnalysisResult): boolean => {
@@ -187,14 +185,20 @@ export class GameWorkflow {
       // Execute dice roll if required
       if (analysis.requiresDiceRoll) {
         const agent = this.mastra.getAgent('gm-agent');
-        const rollResult = await agent.callTool('rollDice', {
-          sides: 20,
-          modifier: 0,
-          difficulty: analysis.difficulty || 15,
-          reason: `${analysis.actionType} check`
+        const { rollDice } = await import('../tools/gameTools');
+        const rollResult = await rollDice({
+          dice: '1d20',
+          difficulty: analysis.difficulty || 15
         });
 
-        result.diceResults = rollResult;
+        result.diceResults = {
+          roll: rollResult.rolls[0] || rollResult.finalTotal,
+          modifier: rollResult.modifier,
+          total: rollResult.finalTotal,
+          success: rollResult.success || false,
+          criticalSuccess: rollResult.criticalSuccess,
+          criticalFailure: rollResult.criticalFailure
+        };
         result.toolsExecuted.push({
           tool: 'rollDice',
           result: rollResult,
@@ -206,13 +210,21 @@ export class GameWorkflow {
       if (result.diceResults?.success || !analysis.requiresDiceRoll) {
         // Success path - positive status changes
         if (analysis.actionType === 'combat' && result.diceResults?.criticalSuccess) {
-          const statusResult = await this.mastra.getAgent('gm-agent').callTool('updateStatusTags', {
-            target: 'player',
-            tagsToAdd: ['empowered', 'confident'],
-            tagsToRemove: ['frightened']
+          const { updateStatusTags } = await import('../tools/gameTools');
+          const statusResult = await updateStatusTags({
+            entityId: 'player',
+            tags: [
+              { name: 'empowered', description: 'Feeling powerful', type: 'buff', action: 'add' },
+              { name: 'confident', description: 'Confident in abilities', type: 'buff', action: 'add' },
+              { name: 'frightened', description: 'Removed fear', type: 'debuff', action: 'remove' }
+            ]
           });
           
-          result.statusChanges.push(statusResult);
+          result.statusChanges.push({
+            target: 'player',
+            added: statusResult.filter(t => t.name === 'empowered' || t.name === 'confident').map(t => t.name),
+            removed: statusResult.filter(t => t.name === 'frightened').map(t => t.name)
+          });
           result.toolsExecuted.push({
             tool: 'updateStatusTags',
             result: statusResult,
@@ -222,13 +234,21 @@ export class GameWorkflow {
       } else {
         // Failure path - negative status changes
         if (analysis.actionType === 'combat' && result.diceResults?.criticalFailure) {
-          const statusResult = await this.mastra.getAgent('gm-agent').callTool('updateStatusTags', {
-            target: 'player',
-            tagsToAdd: ['vulnerable', 'shaken'],
-            tagsToRemove: ['confident']
+          const { updateStatusTags } = await import('../tools/gameTools');
+          const statusResult = await updateStatusTags({
+            entityId: 'player',
+            tags: [
+              { name: 'vulnerable', description: 'Exposed to attacks', type: 'debuff', action: 'add' },
+              { name: 'shaken', description: 'Mentally disturbed', type: 'debuff', action: 'add' },
+              { name: 'confident', description: 'Removed confidence', type: 'buff', action: 'remove' }
+            ]
           });
           
-          result.statusChanges.push(statusResult);
+          result.statusChanges.push({
+            target: 'player',
+            added: statusResult.filter(t => t.name === 'vulnerable' || t.name === 'shaken').map(t => t.name),
+            removed: statusResult.filter(t => t.name === 'confident').map(t => t.name)
+          });
           result.toolsExecuted.push({
             tool: 'updateStatusTags',
             result: statusResult,
@@ -245,9 +265,13 @@ export class GameWorkflow {
         consequences: analysis.possibleConsequences
       };
 
-      const knowledgeResult = await this.mastra.getAgent('gm-agent').callTool('storeKnowledge', {
-        key: knowledgeKey,
-        value: JSON.stringify(knowledgeValue)
+      const { storeKnowledge } = await import('../tools/gameTools');
+      const knowledgeResult = await storeKnowledge({
+        category: 'GENERAL',
+        title: knowledgeKey,
+        content: JSON.stringify(knowledgeValue),
+        tags: [analysis.actionType, 'action_result'],
+        relevance: 0.8
       });
 
       result.knowledgeStored.push({
@@ -282,11 +306,9 @@ export class GameWorkflow {
       const { analysis, judgment } = previousResults;
       const agent = this.mastra.getAgent('gm-agent');
 
-      // Retrieve relevant memories via RAG
-      const memories = await this.mastra.rag?.query({
-        text: context.playerAction,
-        limit: 5
-      });
+      // Retrieve relevant memories (RAG not directly available in Mastra)
+      // Using context memories instead
+      const memories = context.memories || [];
 
       const prompt = `
         Generate an immersive narrative response for the following game action:
@@ -299,7 +321,7 @@ export class GameWorkflow {
         Current Scene: ${context.gameState.currentScene}
         
         Recent Memories:
-        ${memories?.results.map((m: any) => m.content).join('\n') || 'None'}
+        ${memories.map((m: any) => m.content).join('\n') || 'None'}
         
         Status Changes:
         ${judgment.statusChanges.map((sc: any) => 
@@ -315,11 +337,9 @@ export class GameWorkflow {
         Respond in JSON format.
       `;
 
-      const response = await agent.text({ 
-        messages: [{ role: 'user', content: prompt }] 
-      });
+      const response = await agent.generate([{ role: 'user', content: prompt }]);
 
-      return JSON.parse(response.text);
+      return JSON.parse(response.text || '{}');
     },
 
     validate: (result: NarrativeGenerationResult): boolean => {
@@ -374,7 +394,7 @@ export class GameWorkflow {
       // Create new memories
       const newMemories = [
         {
-          type: MemoryType.ACTION,
+          type: MemoryType.EVENT,
           content: `Player action: ${context.playerAction}`,
           metadata: {
             actionType: analysis.actionType,
@@ -383,7 +403,7 @@ export class GameWorkflow {
           }
         },
         {
-          type: MemoryType.NARRATIVE,
+          type: MemoryType.STORY_BEAT,
           content: narrative.narrative,
           metadata: {
             mood: narrative.mood,

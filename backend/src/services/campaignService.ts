@@ -1,6 +1,6 @@
 import { PrismaClient, SessionStatus, MemoryType } from '@prisma/client';
 import { logger } from '@/utils/logger';
-import { ragService } from './ragService';
+import { ragService, SearchResult } from './ragService';
 import { aiService } from '../ai/aiService';
 import { GameActionContext, ProcessGameActionResult } from '../ai/workflows/types';
 import { z } from 'zod';
@@ -385,43 +385,46 @@ export class CampaignService {
     const recentActions = await prisma.aIMessage.findMany({
       where: { 
         conversationId: campaignId,
-        role: 'user'
+        role: 'USER'
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { timestamp: 'desc' },
       take: 5,
     });
 
     // Build game state from current knowledge
-    const worldKnowledge = await ragService.queryKnowledge(
+    const worldKnowledge = await ragService.searchKnowledge({
       campaignId,
-      'current scene location environment',
-      { limit: 5 }
-    );
+      query: 'current scene location environment',
+      limit: 5,
+      threshold: 0.5
+    });
 
-    const characterKnowledge = await ragService.queryKnowledge(
+    const characterKnowledge = await ragService.searchKnowledge({
       campaignId,
-      'player character status inventory',
-      { limit: 5 }
-    );
+      query: 'player character status inventory',
+      limit: 5,
+      threshold: 0.5
+    });
 
-    const npcKnowledge = await ragService.queryKnowledge(
+    const npcKnowledge = await ragService.searchKnowledge({
       campaignId,
-      'npc character allies enemies',
-      { limit: 3 }
-    );
+      query: 'npc character allies enemies',
+      limit: 3,
+      threshold: 0.5
+    });
 
     // Extract current scene from knowledge or use default
-    const currentScene = worldKnowledge.results.length > 0 
-      ? worldKnowledge.results[0].content.split('\n')[0] 
+    const currentScene = worldKnowledge.length > 0 && worldKnowledge[0]?.content
+      ? worldKnowledge[0].content.split('\n')[0] || 'The adventure begins'
       : campaign.settings.opening.prologue.split('\n')[0] || 'The adventure begins';
 
     // Extract player status from knowledge or use initial tags
-    const playerStatus = characterKnowledge.results.length > 0
-      ? this.extractStatusTags(characterKnowledge.results[0].content)
+    const playerStatus = characterKnowledge.length > 0 && characterKnowledge[0]?.content
+      ? this.extractStatusTags(characterKnowledge[0].content)
       : campaign.settings.opening.initialStatusTags;
 
     // Extract NPCs from knowledge
-    const npcs = npcKnowledge.results.map(npc => ({
+    const npcs = npcKnowledge.map((npc: SearchResult) => ({
       name: this.extractNPCName(npc.content),
       role: this.extractNPCRole(npc.content),
       status: this.extractStatusTags(npc.content)
@@ -437,20 +440,20 @@ export class CampaignService {
         playerStatus,
         npcs,
         environment: {
-          location: this.extractLocation(worldKnowledge.results),
-          timeOfDay: this.extractTimeOfDay(worldKnowledge.results) || 'day',
-          weather: this.extractWeather(worldKnowledge.results)
+          location: this.extractLocation(worldKnowledge),
+          timeOfDay: this.extractTimeOfDay(worldKnowledge) || 'day',
+          weather: this.extractWeather(worldKnowledge)
         }
       },
       previousActions: recentActions.map(action => ({
         action: action.content,
         result: 'Stored in memory',
-        timestamp: action.createdAt
+        timestamp: new Date()
       })),
       memories: recentMemories.map(memory => ({
-        type: memory.type as MemoryType,
+        type: memory.category,
         content: memory.content,
-        metadata: memory.metadata as any
+        metadata: {}
       }))
     };
 
@@ -470,13 +473,8 @@ export class CampaignService {
     await prisma.aIMessage.create({
       data: {
         conversationId: campaignId,
-        role: 'user',
-        content: playerAction,
-        metadata: {
-          playerId,
-          timestamp: new Date(),
-          actionType: 'player_action'
-        }
+        role: 'USER',
+        content: playerAction
       }
     });
 
@@ -484,15 +482,8 @@ export class CampaignService {
     await prisma.aIMessage.create({
       data: {
         conversationId: campaignId,
-        role: 'assistant',
-        content: result.narrative,
-        metadata: {
-          success: result.success,
-          suggestedActions: result.suggestedActions,
-          diceResults: result.diceResults || null,
-          gameState: result.gameState,
-          timestamp: new Date()
-        }
+        role: 'ASSISTANT',
+        content: result.narrative
       }
     });
 
@@ -511,38 +502,47 @@ export class CampaignService {
 
   // Helper methods for extracting information from knowledge content
   private extractStatusTags(content: string): string[] {
+    if (!content) return [];
     const statusMatch = content.match(/status.*?:.*?([^\n.]+)/i);
-    return statusMatch 
+    return statusMatch && statusMatch[1]
       ? statusMatch[1].split(',').map(s => s.trim()).filter(s => s.length > 0)
       : [];
   }
 
   private extractNPCName(content: string): string {
+    if (!content) return 'Unknown';
     const nameMatch = content.match(/(?:npc|character|ally|enemy).*?(?:named?|called?)\s+([A-Z][a-z]+)/i);
-    return nameMatch ? nameMatch[1] : 'Unknown';
+    return nameMatch && nameMatch[1] ? nameMatch[1] : 'Unknown';
   }
 
   private extractNPCRole(content: string): string {
+    if (!content) return 'Unknown';
     const roleMatch = content.match(/(?:role|job|profession|class).*?:.*?([^\n.]+)/i);
-    return roleMatch ? roleMatch[1].trim() : 'Unknown';
+    return roleMatch && roleMatch[1] ? roleMatch[1].trim() : 'Unknown';
   }
 
-  private extractLocation(results: any[]): string {
-    if (results.length === 0) return 'Unknown location';
-    const locationMatch = results[0].content.match(/(?:location|place|area).*?:.*?([^\n.]+)/i);
-    return locationMatch ? locationMatch[1].trim() : 'Unknown location';
+  private extractLocation(results: SearchResult[]): string {
+    if (!results || results.length === 0) return 'Unknown location';
+    const content = results[0]?.content;
+    if (!content) return 'Unknown location';
+    const locationMatch = content.match(/(?:location|place|area).*?:.*?([^\n.]+)/i);
+    return locationMatch && locationMatch[1] ? locationMatch[1].trim() : 'Unknown location';
   }
 
-  private extractTimeOfDay(results: any[]): string | undefined {
-    if (results.length === 0) return undefined;
-    const timeMatch = results[0].content.match(/(?:time|hour).*?:.*?(morning|afternoon|evening|night|dawn|dusk)/i);
-    return timeMatch ? timeMatch[1] : undefined;
+  private extractTimeOfDay(results: SearchResult[]): string | undefined {
+    if (!results || results.length === 0) return undefined;
+    const content = results[0]?.content;
+    if (!content) return undefined;
+    const timeMatch = content.match(/(?:time|hour).*?:.*?(morning|afternoon|evening|night|dawn|dusk)/i);
+    return timeMatch && timeMatch[1] ? timeMatch[1] : undefined;
   }
 
-  private extractWeather(results: any[]): string | undefined {
-    if (results.length === 0) return undefined;
-    const weatherMatch = results[0].content.match(/(?:weather|sky|climate).*?:.*?([^\n.]+)/i);
-    return weatherMatch ? weatherMatch[1].trim() : undefined;
+  private extractWeather(results: SearchResult[]): string | undefined {
+    if (!results || results.length === 0) return undefined;
+    const content = results[0]?.content;
+    if (!content) return undefined;
+    const weatherMatch = content.match(/(?:weather|sky|climate).*?:.*?([^\n.]+)/i);
+    return weatherMatch && weatherMatch[1] ? weatherMatch[1].trim() : undefined;
   }
 
   private formatCampaign(session: {
