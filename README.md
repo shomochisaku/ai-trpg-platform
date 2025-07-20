@@ -80,7 +80,7 @@ ai-trpg-platform/
 
 ### 前提条件
 - Node.js 18+
-- PostgreSQL 12+
+- PostgreSQL 14+
 - OpenAI/Anthropic API キー
 
 ### セットアップ手順
