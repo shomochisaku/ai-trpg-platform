@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useActionInput } from '../hooks/useActionInput';
 import { ActionInputProps } from '../types/action';
 
@@ -10,8 +10,13 @@ const ActionInput: React.FC<ActionInputProps> = ({
   maxLength = 500,
   className = '',
 }) => {
+  const callbacks = useMemo(() => ({
+    onSubmit,
+    onInputChange
+  }), [onSubmit, onInputChange]);
+
   const { state, actions, textareaRef } = useActionInput(
-    { onSubmit, onInputChange },
+    callbacks,
     20
   );
 
