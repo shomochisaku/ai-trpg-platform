@@ -9,12 +9,12 @@ import { errorHandler } from '@/middleware/errorHandler';
 import { authRoutes } from '@/routes/auth';
 import { healthRoutes } from '@/routes/health';
 import { aiRoutes } from '@/routes/ai';
-import memoryRoutes from '@/routes/memory';
-import { ragRoutes } from '@/routes/rag';
+// import memoryRoutes from '@/routes/memory'; // MVP: Disabled for minimal schema
+// import { ragRoutes } from '@/routes/rag'; // MVP: Disabled for minimal schema
 import { campaignRoutes } from '@/routes/campaigns';
 import { aiService } from '@/ai/aiService';
-import { memoryService } from '@/services/memory';
-import { ragService } from '@/services/ragService';
+// import { memoryService } from '@/services/memory'; // MVP: Disabled for minimal schema
+// import { ragService } from '@/services/ragService'; // MVP: Disabled for minimal schema
 
 // Load environment variables
 dotenv.config();
@@ -45,8 +45,8 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/ai', aiRoutes);
-app.use('/api/memory', memoryRoutes);
-app.use('/api/rag', ragRoutes);
+// app.use('/api/memory', memoryRoutes); // MVP: Disabled for minimal schema
+// app.use('/api/rag', ragRoutes); // MVP: Disabled for minimal schema
 app.use('/api/campaigns', campaignRoutes);
 
 // Socket.IO connection handling
@@ -78,13 +78,14 @@ async function startServer() {
     // }
     
     // Initialize RAG service
-    try {
-      await ragService.initialize();
-      logger.info('RAG service initialized successfully');
-    } catch (error) {
-      logger.error('Failed to initialize RAG service:', error);
-      // Continue without RAG service for now
-    }
+    // MVP: Disabled for minimal schema
+    // try {
+    //   await ragService.initialize();
+    //   logger.info('RAG service initialized successfully');
+    // } catch (error) {
+    //   logger.error('Failed to initialize RAG service:', error);
+    //   // Continue without RAG service for now
+    // }
     
     // Start server
     server.listen(PORT, () => {

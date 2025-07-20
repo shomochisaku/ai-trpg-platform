@@ -97,6 +97,40 @@
   - エージェントメモリの取得
   - _要件: 1.3_
 
+### 緊急挿入タスク: PostgreSQL環境移行（Mastra AI統合前提）
+
+#### 0.5 データベース基盤整備（最優先・期間: 3-4時間）
+
+**背景**: MVP先行実装により、本来のマイルストーン1（Mastra AI統合）実施前にPostgreSQL環境への移行が必須となった。特にRAGシステム実装にはpgvectorが必要不可欠。
+
+- [ ] 0.5.1 PostgreSQL + pgvector開発環境構築
+  - Docker Compose設定ファイル作成
+  - PostgreSQL 15 + pgvector拡張インストール
+  - 開発用データベース初期化スクリプト
+  - 接続設定と環境変数整備
+  - _移行理由: RAGシステム（2.1）にpgvector必須_
+
+- [ ] 0.5.2 Prismaスキーマ完全移行
+  - schema.prismaのprovider変更（sqlite → postgresql）
+  - データ型の最適化（String → Json, Text型活用）
+  - pgvector用の型定義追加
+  - マイグレーションファイル生成と実行
+  - _影響範囲: 全データベース操作_
+
+- [ ] 0.5.3 CI環境PostgreSQL対応
+  - GitHub Actions workflowのPostgreSQL設定
+  - テスト用データベース環境構築
+  - CI-STRATEGYに基づく段階的テスト設定
+  - SQLiteフォールバック設定（ローカル開発用）
+  - _要件: CI安定性確保_
+
+- [ ] 0.5.4 既存機能の移行検証
+  - キャンペーン作成APIの動作確認
+  - アクション処理APIの動作確認
+  - データ永続化の整合性テスト
+  - パフォーマンス比較（SQLite vs PostgreSQL）
+  - _検証項目: 全MVP機能の回帰テスト_
+
 ### マイルストーン2: MVP開発
 
 #### 並列実行グループ2: フロントエンド・バックエンド統合（マイルストーン1完了後）

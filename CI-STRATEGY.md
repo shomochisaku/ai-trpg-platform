@@ -160,3 +160,83 @@ When working on this project:
 4. **Major changes**: Run full test suite before merging
 
 This strategy ensures rapid development velocity while maintaining code quality and reliability.
+
+## 🔄 Phase 1.5: PostgreSQL Migration Period
+
+### Overview
+
+During the transition from SQLite (MVP) to PostgreSQL (Production), the CI strategy supports both database environments to ensure smooth migration.
+
+### Migration CI Configuration
+
+#### Backend CI Updates
+```yaml
+# Dual Database Support
+- SQLite: Default for quick local development
+- PostgreSQL: Required for RAG/Vector features
+```
+
+#### Environment Detection
+```javascript
+// Auto-detect database based on features
+const usePostgreSQL = process.env.ENABLE_VECTOR_SEARCH || 
+                      process.env.DATABASE_URL?.includes('postgresql');
+```
+
+### Test Strategy During Migration
+
+#### Core Tests (Modified)
+- **SQLite Mode**: Basic CRUD operations (2-3 min)
+- **PostgreSQL Mode**: Full features including vector (3-5 min)
+- **Auto-switch**: Based on DATABASE_URL environment
+
+#### New Test Categories
+```bash
+# PostgreSQL-specific tests
+npm run test:pg      # PostgreSQL features only
+npm run test:vector  # pgvector functionality
+npm run test:migrate # Migration validation
+```
+
+### CI Workflow Updates
+
+#### Pull Request CI
+```yaml
+strategy:
+  matrix:
+    database: [sqlite, postgresql]
+```
+
+#### Migration Validation
+1. **Dual Testing**: Run tests on both databases
+2. **Schema Sync**: Validate Prisma migrations
+3. **Performance**: Compare query execution times
+
+### Rollback Strategy
+
+#### Local Development
+- SQLite remains default for simplicity
+- PostgreSQL opt-in via environment variable
+
+#### CI Environment  
+- Gradual PostgreSQL adoption
+- Feature flags for database selection
+- Parallel test execution
+
+### Success Criteria
+
+- [ ] All existing tests pass on PostgreSQL
+- [ ] Vector search tests implemented
+- [ ] CI duration remains under 5 minutes
+- [ ] Zero regression in functionality
+- [ ] Clear migration documentation
+
+### Post-Migration Cleanup
+
+Once PostgreSQL migration is complete:
+1. Remove SQLite dependencies
+2. Simplify CI configuration
+3. Update documentation
+4. Archive migration scripts
+
+This phased approach ensures zero downtime and maintains development velocity during the critical database migration.

@@ -1,4 +1,4 @@
-import { SessionStatus, MemoryType } from '@prisma/client';
+// Note: SessionStatus and MemoryType removed for MVP (using minimal schema)
 
 export enum WorkflowPhase {
   ACTION_ANALYSIS = 'ACTION_ANALYSIS',
@@ -39,7 +39,7 @@ export interface GameActionContext {
     timestamp: Date;
   }>;
   memories?: Array<{
-    type: MemoryType;
+    type: string;
     content: string;
     metadata: any;
   }>;
@@ -102,9 +102,9 @@ export interface StateUpdateResult {
       weather?: string;
     };
   };
-  sessionStatus: SessionStatus;
+  sessionStatus: string;
   newMemories: Array<{
-    type: MemoryType;
+    type: string;
     content: string;
     metadata: any;
   }>;
