@@ -112,6 +112,31 @@ h1 {
   }
 }
 
+/* ChatLog responsive styles */
+.main-chat-log {
+  width: 100%;
+  max-width: 100%;
+}
+
+.main-chat-log .chat-container {
+  height: 400px;
+  max-height: 50vh;
+}
+
+@media (max-width: 768px) {
+  .main-chat-log .chat-container {
+    height: 350px;
+    max-height: 45vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .main-chat-log .chat-container {
+    height: 300px;
+    max-height: 40vh;
+  }
+}
+
 /* Ensure proper scrolling */
 html, body {
   overflow-x: hidden;

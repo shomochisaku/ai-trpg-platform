@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import './App.css'
 import ActionInput from './components/ActionInput'
+import ChatLog from './components/ChatLog'
 import StatusPanel from './components/StatusPanel'
 import { useCampaign, useChat, useGameState } from './hooks'
 import { mockGameState, mockGameStateMinimal } from './types/mockData'
 import { GameState } from './types/status'
+import { convertChatMessagesToMessages } from './utils/messageConverter'
 
 function App() {
   const [characterName, setCharacterName] = useState('')
@@ -188,6 +190,40 @@ function App() {
             placeholder="Describe what you want to do in the game... (Shift+Enter to submit, Ctrl+↑/↓ for history)"
             maxLength={500}
           />
+        </section>
+
+        {/* Chat Log */}
+        <section style={{ marginBottom: '24px' }}>
+          <h2 style={{ marginBottom: '16px', fontSize: '1.5rem' }}>Chat History</h2>
+          <ChatLog
+            messages={convertChatMessagesToMessages(chat.messages, session.characterName || 'Player')}
+            currentUserId="current-player"
+            autoScroll={true}
+            className="main-chat-log"
+          />
+          {chat.isLoading && (
+            <div style={{ 
+              textAlign: 'center', 
+              padding: '16px', 
+              color: '#6b7280',
+              fontSize: '0.9rem'
+            }}>
+              <span>🤖 AI is thinking...</span>
+            </div>
+          )}
+          {chat.hasError && chat.errorMessage && (
+            <div style={{ 
+              textAlign: 'center', 
+              padding: '16px', 
+              color: '#ef4444',
+              backgroundColor: '#fef2f2',
+              borderRadius: '8px',
+              marginTop: '8px',
+              fontSize: '0.9rem'
+            }}>
+              Error: {chat.errorMessage}
+            </div>
+          )}
         </section>
 
         {/* Game Controls */}
