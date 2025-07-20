@@ -16,10 +16,10 @@ jobs:
   test:
     runs-on: ubuntu-latest
     
-    # PostgreSQL service with pgvector extension
+    # PostgreSQL service with pgvector pre-installed
     services:
       postgres:
-        image: postgres:14
+        image: ankane/pgvector:v0.8.0
         env:
           POSTGRES_USER: test_user
           POSTGRES_PASSWORD: test_password
@@ -50,22 +50,19 @@ jobs:
       working-directory: backend
       run: npx prisma generate
 
-    - name: Setup pgvector extension
+    - name: Verify pgvector extension
       run: |
         sudo apt-get update
-        sudo apt-get install -y postgresql-client git build-essential postgresql-server-dev-14
+        sudo apt-get install -y postgresql-client
         # Wait for PostgreSQL to be ready
         until pg_isready -h localhost -p 5432 -U test_user; do
           echo "Waiting for PostgreSQL to be ready..."
           sleep 2
         done
-        # Clone and install pgvector
-        git clone --branch v0.8.0 https://github.com/pgvector/pgvector.git
-        cd pgvector
-        make
-        sudo make install PG_CONFIG=/usr/lib/postgresql/14/bin/pg_config
-        # Create vector extension in database
+        # Create vector extension (already pre-installed in ankane/pgvector image)
         PGPASSWORD=test_password psql -h localhost -p 5432 -U test_user -d test_db -c "CREATE EXTENSION IF NOT EXISTS vector;"
+        # Verify vector extension is working
+        PGPASSWORD=test_password psql -h localhost -p 5432 -U test_user -d test_db -c "SELECT extname, extversion FROM pg_extension WHERE extname = 'vector';"
 
     - name: Run database migrations
       working-directory: backend
