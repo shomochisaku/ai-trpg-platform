@@ -44,7 +44,9 @@
   "exclude": [
     "node_modules",
     "dist",
-    "tests"
+    "tests",
+    "**/*.mvp-disabled",
+    "**/*.mvp-disabled/**/*"
   ],
   "ts-node": {
     "require": ["tsconfig-paths/register"]

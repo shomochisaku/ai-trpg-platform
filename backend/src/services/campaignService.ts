@@ -1,6 +1,13 @@
-import { PrismaClient, SessionStatus } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { logger } from '@/utils/logger';
-import { ragService, SearchResult } from './ragService';
+// import { ragService, SearchResult } from './ragService'; // MVP: Disabled for minimal schema
+
+// MVP: Temporary SearchResult type
+interface SearchResult {
+  id: string;
+  content: string;
+  metadata?: any;
+}
 import { aiService } from '../ai/aiService';
 import {
   GameActionContext,
@@ -57,7 +64,7 @@ export interface Campaign {
   title: string;
   description: string;
   settings: CampaignSettings;
-  status: SessionStatus;
+  status: string;
   metadata: CampaignMetadata;
   createdAt: Date;
   updatedAt: Date;
@@ -133,10 +140,9 @@ export class CampaignService {
         name: validated.title,
         description: validated.description || '',
         status: 'ACTIVE',
-        setting: JSON.stringify(validated.settings),
+        aiSettings: JSON.stringify(validated.settings),
         systemType: 'AI_TRPG',
         maxPlayers: 1,
-        isActive: true,
       },
     });
 
@@ -172,7 +178,7 @@ export class CampaignService {
   ): Promise<{ campaigns: Campaign[]; total: number }> {
     const where = {
       createdBy: userId,
-      ...(options.status && { status: options.status as SessionStatus }),
+      ...(options.status && { status: options.status }),
     };
 
     const [campaigns, total] = await Promise.all([
@@ -208,9 +214,9 @@ export class CampaignService {
           description: validated.description,
         }),
         ...(validated.settings && {
-          setting: JSON.stringify(validated.settings),
+          aiSettings: JSON.stringify(validated.settings),
         }),
-        ...(validated.status && { status: validated.status as SessionStatus }),
+        ...(validated.status && { status: validated.status }),
       },
     });
 
@@ -221,10 +227,10 @@ export class CampaignService {
    * Delete campaign
    */
   async deleteCampaign(id: string): Promise<void> {
-    // Delete associated knowledge entries
-    await prisma.memoryEntry.deleteMany({
-      where: { sessionId: id },
-    });
+    // MVP: Skip knowledge entries deletion (memoryEntry table doesn't exist)
+    // await prisma.memoryEntry.deleteMany({
+    //   where: { sessionId: id },
+    // });
 
     // Delete campaign
     await prisma.gameSession.delete({
@@ -241,62 +247,8 @@ export class CampaignService {
     campaignId: string,
     settings: CampaignSettings
   ): Promise<void> {
-    logger.info(`Initializing knowledge base for campaign ${campaignId}`);
-
-    // Store GM profile as knowledge
-    await ragService.storeKnowledge({
-      campaignId,
-      category: 'RULE',
-      title: 'Game Master Profile',
-      content: `The Game Master has the following characteristics: Personality - ${settings.gmProfile.personality}. Speech Style - ${settings.gmProfile.speechStyle}. Guiding Principles: ${settings.gmProfile.guidingPrinciples.join(', ')}.`,
-      importance: 1.0,
-      tags: ['gm', 'system', 'rules'],
-    });
-
-    // Store world settings
-    await ragService.storeKnowledge({
-      campaignId,
-      category: 'STORY_BEAT',
-      title: 'World Setting',
-      content: `The world has the following tone and manner: ${settings.worldSettings.toneAndManner}. Key concepts include: ${settings.worldSettings.keyConcepts.join(', ')}.`,
-      importance: 0.9,
-      tags: ['world', 'setting', 'atmosphere'],
-    });
-
-    // Store opening/prologue
-    await ragService.storeKnowledge({
-      campaignId,
-      category: 'EVENT',
-      title: 'Campaign Opening',
-      content: settings.opening.prologue,
-      importance: 0.8,
-      tags: ['opening', 'prologue', 'start'],
-    });
-
-    // Store initial status and inventory
-    if (settings.opening.initialStatusTags.length > 0) {
-      await ragService.storeKnowledge({
-        campaignId,
-        category: 'CHARACTER',
-        title: 'Initial Character Status',
-        content: `The character begins with the following status tags: ${settings.opening.initialStatusTags.join(', ')}.`,
-        importance: 0.7,
-        tags: ['character', 'status', 'initial'],
-      });
-    }
-
-    if (settings.opening.initialInventory.length > 0) {
-      await ragService.storeKnowledge({
-        campaignId,
-        category: 'CHARACTER',
-        title: 'Initial Inventory',
-        content: `The character starts with the following items: ${settings.opening.initialInventory.join(', ')}.`,
-        importance: 0.7,
-        tags: ['character', 'inventory', 'initial'],
-      });
-    }
-
-    logger.info(`Knowledge base initialized for campaign ${campaignId}`);
+    // MVP: Knowledge base initialization disabled for minimal schema
+    logger.info(`MVP: Skipping knowledge base initialization for campaign ${campaignId}`);
   }
 
   /**
@@ -306,18 +258,7 @@ export class CampaignService {
     const campaign = await this.getCampaign(campaignId);
     if (!campaign) throw new Error('Campaign not found');
 
-    const knowledgeStats = await ragService.getKnowledgeStats(campaignId);
-
-    // Get character count
-    const characters = await prisma.character.count({
-      where: { sessionId: campaignId },
-    });
-
-    // Get total actions/messages
-    const conversations = await prisma.aIMessage.count({
-      where: { conversationId: campaignId },
-    });
-
+    // MVP: Simplified stats without ragService and complex tables
     return {
       campaign: {
         id: campaign.id,
@@ -327,9 +268,13 @@ export class CampaignService {
         updatedAt: campaign.updatedAt,
       },
       statistics: {
-        characters,
-        conversations,
-        knowledge: knowledgeStats,
+        characters: 1, // MVP: Default values
+        conversations: 0,
+        knowledge: {
+          total: 0,
+          byCategory: {},
+          lastUpdated: new Date(),
+        },
       },
     };
   }
@@ -381,90 +326,23 @@ export class CampaignService {
       throw new Error('Campaign not found');
     }
 
-    // Get recent memories/actions
-    const recentMemories = await prisma.memoryEntry.findMany({
-      where: { sessionId: campaignId },
-      orderBy: { createdAt: 'desc' },
-      take: 10,
-    });
-
-    // Get recent player actions
-    const recentActions = await prisma.aIMessage.findMany({
-      where: {
-        conversationId: campaignId,
-        role: 'USER',
-      },
-      orderBy: { timestamp: 'desc' },
-      take: 5,
-    });
-
-    // Build game state from current knowledge
-    const worldKnowledge = await ragService.searchKnowledge({
-      campaignId,
-      query: 'current scene location environment',
-      limit: 5,
-      threshold: 0.5,
-    });
-
-    const characterKnowledge = await ragService.searchKnowledge({
-      campaignId,
-      query: 'player character status inventory',
-      limit: 5,
-      threshold: 0.5,
-    });
-
-    const npcKnowledge = await ragService.searchKnowledge({
-      campaignId,
-      query: 'npc character allies enemies',
-      limit: 3,
-      threshold: 0.5,
-    });
-
-    // Extract current scene from knowledge or use default
-    const currentScene =
-      worldKnowledge.length > 0 && worldKnowledge[0]?.content
-        ? worldKnowledge[0].content.split('\n')[0] || 'The adventure begins'
-        : campaign.settings.opening.prologue.split('\n')[0] ||
-          'The adventure begins';
-
-    // Extract player status from knowledge or use initial tags
-    const playerStatus =
-      characterKnowledge.length > 0 && characterKnowledge[0]?.content
-        ? this.extractStatusTags(characterKnowledge[0].content)
-        : campaign.settings.opening.initialStatusTags;
-
-    // Extract NPCs from knowledge
-    const npcs = npcKnowledge.map((npc: SearchResult) => ({
-      name: this.extractNPCName(npc.content),
-      role: this.extractNPCRole(npc.content),
-      status: this.extractStatusTags(npc.content),
-    }));
-
-    // Build context
+    // MVP: Simplified context without ragService and complex tables
     const context: GameActionContext = {
       campaignId,
       playerId,
       playerAction,
       gameState: {
-        currentScene,
-        playerStatus,
-        npcs,
+        currentScene: campaign.settings.opening.prologue.split('\n')[0] || 'The adventure begins',
+        playerStatus: campaign.settings.opening.initialStatusTags,
+        npcs: [],
         environment: {
-          location: this.extractLocation(worldKnowledge),
-          timeOfDay: this.extractTimeOfDay(worldKnowledge) || 'day',
-          weather: this.extractWeather(worldKnowledge),
+          location: 'Starting location',
+          timeOfDay: 'day',
+          weather: undefined,
         },
       },
-      previousActions: recentActions.map(action => ({
-        action: action.content,
-        result: 'Stored in memory',
-        timestamp: new Date(),
-      })),
-      memories: recentMemories.map(memory => ({
-        type: memory.category,
-        content: memory.content,
-        metadata: {},
-      })),
+      previousActions: [],
+      memories: [],
     };
 
     return context;
@@ -479,35 +357,8 @@ export class CampaignService {
     playerAction: string,
     result: ProcessGameActionResult
   ): Promise<void> {
-    // Store player action
-    await prisma.aIMessage.create({
-      data: {
-        conversationId: campaignId,
-        role: 'USER',
-        content: playerAction,
-      },
-    });
-
-    // Store AI response
-    await prisma.aIMessage.create({
-      data: {
-        conversationId: campaignId,
-        role: 'ASSISTANT',
-        content: result.narrative,
-      },
-    });
-
-    // Store as knowledge for future context
-    await ragService.storeKnowledge({
-      campaignId,
-      category: 'EVENT',
-      title: `Player Action: ${playerAction.substring(0, 50)}...`,
-      content: `Player: ${playerAction}\n\nResult: ${result.narrative}`,
-      importance: 0.8,
-      tags: ['player_action', 'recent_event', playerId],
-    });
-
-    logger.info(`Action result stored for campaign ${campaignId}`);
+    // MVP: Action result storage disabled for minimal schema
+    logger.info(`MVP: Skipping action result storage for campaign ${campaignId}`);
   }
 
   // Helper methods for extracting information from knowledge content
@@ -575,15 +426,15 @@ export class CampaignService {
     createdBy: string;
     name: string;
     description: string | null;
-    setting: string | null;
-    status: SessionStatus;
+    aiSettings: string;
+    status: string;
     createdAt: Date;
     updatedAt: Date;
   }): Campaign {
     let settings: CampaignSettings;
     try {
-      settings = session.setting
-        ? JSON.parse(session.setting)
+      settings = session.aiSettings && session.aiSettings !== '{}'
+        ? JSON.parse(session.aiSettings)
         : {
             gmProfile: {
               personality: 'balanced',

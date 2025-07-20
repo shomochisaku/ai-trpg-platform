@@ -11,7 +11,7 @@ import {
   WorkflowOptions,
   PhaseHandler
 } from './types';
-import { MemoryType, SessionStatus } from '@prisma/client';
+// Note: MemoryType and SessionStatus removed for MVP (using minimal schema)
 
 export class GameWorkflow {
   private mastra: Mastra;
@@ -394,7 +394,7 @@ export class GameWorkflow {
       // Create new memories
       const newMemories = [
         {
-          type: MemoryType.EVENT,
+          type: 'EVENT',
           content: `Player action: ${context.playerAction}`,
           metadata: {
             actionType: analysis.actionType,
@@ -403,7 +403,7 @@ export class GameWorkflow {
           }
         },
         {
-          type: MemoryType.STORY_BEAT,
+          type: 'STORY_BEAT',
           content: narrative.narrative,
           metadata: {
             mood: narrative.mood,
@@ -429,25 +429,25 @@ export class GameWorkflow {
     fallback: async (context: GameActionContext): Promise<StateUpdateResult> => {
       return {
         updatedGameState: context.gameState,
-        sessionStatus: SessionStatus.ACTIVE,
+        sessionStatus: 'ACTIVE',
         newMemories: []
       };
     }
   };
 
-  private determineSessionStatus(gameState: any, narrative: NarrativeGenerationResult): SessionStatus {
+  private determineSessionStatus(gameState: any, narrative: NarrativeGenerationResult): string {
     // Check for completion conditions
     if (narrative.narrative.toLowerCase().includes('quest complete') ||
         narrative.narrative.toLowerCase().includes('mission accomplished')) {
-      return SessionStatus.COMPLETED;
+      return 'COMPLETED';
     }
 
     // Check for pause conditions
     if (narrative.mood === 'calm' && 
         narrative.suggestedNextActions.some(a => a.toLowerCase().includes('rest'))) {
-      return SessionStatus.PAUSED;
+      return 'PAUSED';
     }
 
-    return SessionStatus.ACTIVE;
+    return 'ACTIVE';
   }
 }

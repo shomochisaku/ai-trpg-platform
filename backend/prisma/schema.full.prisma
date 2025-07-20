@@ -1,0 +1,507 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// USER & AUTHENTICATION
+// ============================================================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Profile information
+  displayName String?
+  avatar      String?
+  bio         String?
+  
+  // User preferences
+  preferences UserPreferences?
+
+  // Relations
+  gameSessions     GameSession[]
+  messages         GameMessage[]
+  characters       Character[]
+  sessionPlayers   SessionPlayer[]
+  aiConversations  AIConversation[]
+  memoryEntries    MemoryEntry[]
+
+  @@map("users")
+}
+
+model UserPreferences {
+  id      String @id @default(cuid())
+  userId  String @unique
+  
+  // AI preferences
+  preferredAIModel String @default("gpt-4")
+  aiPersonality    String @default("balanced")
+  
+  // Interface preferences
+  theme           String @default("light")
+  fontSize        String @default("medium")
+  notificationsOn Boolean @default(true)
+  
+  // Game preferences
+  autoSaveInterval Int @default(30) // seconds
+  maxMessageHistory Int @default(1000)
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+// ============================================================================
+// GAME SESSIONS & MANAGEMENT
+// ============================================================================
+
+model GameSession {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean     @default(true)
+  status      SessionStatus @default(ACTIVE)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Game mechanics
+  systemType    String  @default("freeform") // freeform, d20, fate, etc.
+  maxPlayers    Int     @default(6)
+  currentTurn   Int     @default(0)
+  
+  // Story settings
+  genre         String?
+  setting       String?
+  storyGoal     String?
+  
+  // AI settings
+  aiGMEnabled   Boolean @default(true)
+  aiModel       String  @default("gpt-4")
+  aiPersonality String  @default("balanced")
+
+  // Relations
+  createdBy        String
+  creator          User               @relation(fields: [createdBy], references: [id])
+  messages         GameMessage[]
+  players          SessionPlayer[]
+  characters       Character[]
+  storyElements    StoryElement[]
+  aiConversations  AIConversation[]
+  diceRolls        DiceRoll[]
+  gameEvents       GameEvent[]
+
+  @@map("game_sessions")
+}
+
+model SessionPlayer {
+  id        String   @id @default(cuid())
+  userId    String
+  sessionId String
+  joinedAt  DateTime @default(now())
+  
+  // Player status
+  isActive  Boolean @default(true)
+  role      PlayerRole @default(PLAYER)
+  
+  // Relations
+  user    User        @relation(fields: [userId], references: [id])
+  session GameSession @relation(fields: [sessionId], references: [id])
+
+  @@unique([userId, sessionId])
+  @@map("session_players")
+}
+
+// ============================================================================
+// CHARACTERS & PROGRESSION
+// ============================================================================
+
+model Character {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Basic character info
+  race        String?
+  class       String?
+  level       Int     @default(1)
+  experience  Int     @default(0)
+  
+  // Physical attributes
+  age         Int?
+  height      String?
+  weight      String?
+  appearance  String?
+  
+  // Core stats (generic, adaptable to different systems)
+  strength     Int @default(10)
+  dexterity    Int @default(10)
+  constitution Int @default(10)
+  intelligence Int @default(10)
+  wisdom       Int @default(10)
+  charisma     Int @default(10)
+  
+  // Health and resources
+  hitPoints    Int @default(20)
+  maxHitPoints Int @default(20)
+  armorClass   Int @default(10)
+  
+  // Background and personality
+  background   String?
+  personality  String?
+  ideals       String?
+  bonds        String?
+  flaws        String?
+  
+  // Story elements
+  backstory    String?
+  goals        String?
+  motivations  String?
+
+  // Relations
+  ownerId       String
+  owner         User          @relation(fields: [ownerId], references: [id])
+  sessionId     String
+  session       GameSession   @relation(fields: [sessionId], references: [id])
+  inventory     InventoryItem[]
+  statusEffects StatusEffect[]
+
+  @@map("characters")
+}
+
+model InventoryItem {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  quantity    Int      @default(1)
+  weight      Float    @default(0)
+  value       Float    @default(0)
+  
+  // Item properties
+  itemType    ItemType @default(MISC)
+  rarity      Rarity   @default(COMMON)
+  isEquipped  Boolean  @default(false)
+  
+  // Game mechanics
+  bonuses     Json?    // Flexible JSON for various bonuses
+  requirements String? // Requirements to use the item
+  
+  // Relations
+  characterId String
+  character   Character @relation(fields: [characterId], references: [id])
+
+  @@map("inventory_items")
+}
+
+model StatusEffect {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  duration    Int      @default(-1) // -1 for permanent, 0+ for turns
+  
+  // Effect properties
+  effectType  EffectType @default(BUFF)
+  modifiers   Json?      // Flexible JSON for stat modifiers
+  
+  // Relations
+  characterId String
+  character   Character @relation(fields: [characterId], references: [id])
+
+  @@map("status_effects")
+}
+
+// ============================================================================
+// MESSAGING & COMMUNICATION
+// ============================================================================
+
+model GameMessage {
+  id        String      @id @default(cuid())
+  content   String
+  type      MessageType @default(PLAYER)
+  timestamp DateTime    @default(now())
+  
+  // Message metadata
+  isVisible    Boolean @default(true)
+  isNarrative  Boolean @default(false)
+  parentId     String? // For threaded conversations
+  
+  // AI generation metadata
+  aiGenerated  Boolean @default(false)
+  aiModel      String?
+  aiPrompt     String?
+  
+  // Relations
+  userId       String?
+  user         User?        @relation(fields: [userId], references: [id])
+  sessionId    String
+  session      GameSession  @relation(fields: [sessionId], references: [id])
+  parent       GameMessage? @relation("MessageThread", fields: [parentId], references: [id])
+  replies      GameMessage[] @relation("MessageThread")
+  attachments  MessageAttachment[]
+
+  @@map("game_messages")
+}
+
+model MessageAttachment {
+  id        String   @id @default(cuid())
+  filename  String
+  url       String
+  mimeType  String
+  size      Int
+  uploadedAt DateTime @default(now())
+  
+  // Relations
+  messageId String
+  message   GameMessage @relation(fields: [messageId], references: [id])
+
+  @@map("message_attachments")
+}
+
+// ============================================================================
+// STORY & NARRATIVE MANAGEMENT
+// ============================================================================
+
+model StoryElement {
+  id          String   @id @default(cuid())
+  title       String
+  content     String
+  type        StoryType @default(SCENE)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Story metadata
+  isActive    Boolean @default(true)
+  priority    Int     @default(0)
+  tags        String[] // Array of tags for categorization
+  
+  // Narrative structure
+  parentId    String?
+  orderIndex  Int     @default(0)
+  
+  // Relations
+  sessionId   String
+  session     GameSession    @relation(fields: [sessionId], references: [id])
+  parent      StoryElement?  @relation("StoryHierarchy", fields: [parentId], references: [id])
+  children    StoryElement[] @relation("StoryHierarchy")
+
+  @@map("story_elements")
+}
+
+model GameEvent {
+  id          String    @id @default(cuid())
+  title       String
+  description String
+  eventType   EventType @default(STORY)
+  timestamp   DateTime  @default(now())
+  
+  // Event metadata
+  isPublic    Boolean   @default(true)
+  metadata    Json?     // Flexible JSON for event-specific data
+  
+  // Relations
+  sessionId   String
+  session     GameSession @relation(fields: [sessionId], references: [id])
+
+  @@map("game_events")
+}
+
+model DiceRoll {
+  id          String   @id @default(cuid())
+  expression  String   // e.g., "2d6+3"
+  result      Int
+  breakdown   String   // e.g., "[4,2]+3=9"
+  purpose     String?  // What the roll was for
+  timestamp   DateTime @default(now())
+  
+  // Relations
+  sessionId   String
+  session     GameSession @relation(fields: [sessionId], references: [id])
+
+  @@map("dice_rolls")
+}
+
+// ============================================================================
+// AI INTEGRATION & MEMORY
+// ============================================================================
+
+model AIConversation {
+  id          String   @id @default(cuid())
+  title       String?
+  model       String   @default("gpt-4")
+  temperature Float    @default(0.7)
+  maxTokens   Int      @default(4000)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Conversation metadata
+  isActive    Boolean @default(true)
+  context     String? // System prompt or context
+  
+  // Relations
+  userId      String?
+  user        User?         @relation(fields: [userId], references: [id])
+  sessionId   String
+  session     GameSession   @relation(fields: [sessionId], references: [id])
+  messages    AIMessage[]
+  
+  @@map("ai_conversations")
+}
+
+model AIMessage {
+  id            String   @id @default(cuid())
+  content       String
+  role          AIRole   @default(ASSISTANT)
+  timestamp     DateTime @default(now())
+  
+  // Message metadata
+  tokenCount    Int?
+  cost          Float?
+  responseTime  Int?     // in milliseconds
+  
+  // Relations
+  conversationId String
+  conversation   AIConversation @relation(fields: [conversationId], references: [id])
+
+  @@map("ai_messages")
+}
+
+model MemoryEntry {
+  id          String     @id @default(cuid())
+  content     String
+  category    MemoryType @default(GENERAL)
+  importance  Int        @default(1) // 1-10 scale
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  // Memory metadata
+  isActive    Boolean    @default(true)
+  tags        String[]   // Array of tags for categorization
+  
+  // Vector search support
+  embedding   Float[]   @default([])   // Vector embedding for semantic search
+  
+  // Relations
+  userId      String?
+  user        User?      @relation(fields: [userId], references: [id])
+  sessionId   String?
+  
+  @@map("memory_entries")
+}
+
+// ============================================================================
+// SYSTEM & CONFIGURATION
+// ============================================================================
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  category    String   @default("general")
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum MessageType {
+  PLAYER
+  GM
+  SYSTEM
+  AI
+  NARRATIVE
+  ACTION
+  DICE_ROLL
+  OOC // Out of Character
+}
+
+enum SessionStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum PlayerRole {
+  PLAYER
+  GM
+  SPECTATOR
+  ADMIN
+}
+
+enum ItemType {
+  WEAPON
+  ARMOR
+  CONSUMABLE
+  TOOL
+  TREASURE
+  QUEST_ITEM
+  MISC
+}
+
+enum Rarity {
+  COMMON
+  UNCOMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+enum EffectType {
+  BUFF
+  DEBUFF
+  CONDITION
+  TEMPORARY
+  PERMANENT
+}
+
+enum StoryType {
+  SCENE
+  CHAPTER
+  QUEST
+  SUBPLOT
+  CHARACTER_ARC
+  LOCATION
+  NPC
+}
+
+enum EventType {
+  STORY
+  COMBAT
+  DICE_ROLL
+  CHARACTER_ACTION
+  SYSTEM
+  MILESTONE
+}
+
+enum AIRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum MemoryType {
+  GENERAL
+  CHARACTER
+  LOCATION
+  EVENT
+  RULE
+  PREFERENCE
+  STORY_BEAT
+}
