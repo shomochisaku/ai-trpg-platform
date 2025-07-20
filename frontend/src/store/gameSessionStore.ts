@@ -10,24 +10,50 @@ const initialGameSession: GameSession = {
   lastActivity: null,
 };
 
+// Global store reference for direct access
+let storeRef: any = null;
+
 export const useGameSessionStore = create<GameSessionStore>()(
   devtools(
-    (set) => ({
-      session: initialGameSession,
+    (set, get) => {
+      const store = {
+        session: initialGameSession,
       
-      updateSession: (updates) => {
-        set(
-          (state) => ({
-            session: {
-              ...state.session,
-              ...updates,
-              lastActivity: new Date(),
+        updateSession: (updates) => {
+          console.log('[GameSessionStore] updateSession called with:', updates);
+          console.log('[GameSessionStore] Current state before update:', get().session);
+          
+          set(
+            (state) => {
+              const newSession = {
+                ...state.session,
+                ...updates,
+                lastActivity: new Date(),
+              };
+              console.log('[GameSessionStore] Session updating from:', state.session);
+              console.log('[GameSessionStore] Session updating to:', newSession);
+              
+              return { session: newSession };
             },
-          }),
-          false,
-          'updateSession'
-        );
-      },
+            true, // Replace entire state to force re-render
+            'updateSession'
+          );
+          
+          // Force immediate state verification and subscriber notification
+          setTimeout(() => {
+            const currentState = get().session;
+            console.log('[GameSessionStore] Post-update verification:', currentState);
+            if (JSON.stringify(currentState.sessionId) !== JSON.stringify(updates.sessionId) && updates.sessionId !== undefined) {
+              console.error('[GameSessionStore] STATE UPDATE FAILED!');
+              // Force another update
+              set(
+                (state) => ({ ...state, session: { ...state.session, ...updates, lastActivity: new Date() } }),
+                true,
+                'updateSession-retry'
+              );
+            }
+          }, 0);
+        },
       
       resetSession: () => {
         set(
@@ -37,22 +63,51 @@ export const useGameSessionStore = create<GameSessionStore>()(
         );
       },
       
-      connect: (sessionId, playerId, characterName) => {
-        set(
-          (state) => ({
-            session: {
-              ...state.session,
-              sessionId,
-              playerId,
-              characterName,
-              isConnected: true,
-              lastActivity: new Date(),
-            },
-          }),
-          false,
-          'connect'
-        );
-      },
+        connect: (sessionId, playerId, characterName) => {
+          console.log('[GameSessionStore] connect() called with:', { sessionId, playerId, characterName });
+          console.log('[GameSessionStore] Current state before connect:', get().session);
+          
+          const newSession = {
+            sessionId,
+            playerId,
+            characterName,
+            isConnected: true,
+            lastActivity: new Date(),
+          };
+          
+          set(
+            () => ({ session: newSession }),
+            true, // Replace entire state to force re-render
+            'connect'
+          );
+          
+          console.log('[GameSessionStore] Connect executed, new session:', newSession);
+          
+          // Multiple verification attempts with forced updates
+          let verificationAttempts = 0;
+          const verifyConnection = () => {
+            verificationAttempts++;
+            const currentState = get().session;
+            console.log(`[GameSessionStore] Verification attempt ${verificationAttempts}:`, currentState);
+            
+            const isValid = currentState.sessionId === sessionId && 
+                           currentState.playerId === playerId && 
+                           currentState.characterName === characterName;
+            
+            if (!isValid && verificationAttempts < 3) {
+              console.log('[GameSessionStore] Connection verification failed, retrying...');
+              set(() => ({ session: newSession }), true, `connect-retry-${verificationAttempts}`);
+              setTimeout(verifyConnection, 10);
+            } else {
+              console.log('[GameSessionStore] Connection verification complete:', { 
+                success: isValid, 
+                attempts: verificationAttempts 
+              });
+            }
+          };
+          
+          setTimeout(verifyConnection, 0);
+        },
       
       disconnect: () => {
         set(
@@ -67,9 +122,19 @@ export const useGameSessionStore = create<GameSessionStore>()(
           'disconnect'
         );
       },
-    }),
+      };
+      
+      // Store reference for direct access
+      storeRef = store;
+      return store;
+    },
     {
       name: 'game-session-store',
     }
   )
 );
+
+// Direct store access function
+export const getGameSessionState = () => {
+  return useGameSessionStore.getState().session;
+};

@@ -9,7 +9,13 @@ export const useGameSession = () => {
 };
 
 export const useCampaign = () => {
-  const gameSessionStore = useGameSessionStore();
+  // Use Zustand selectors for proper subscription
+  const session = useGameSessionStore((state) => state.session);
+  const connect = useGameSessionStore((state) => state.connect);
+  const updateSession = useGameSessionStore((state) => state.updateSession);
+  const disconnect = useGameSessionStore((state) => state.disconnect);
+  const resetSession = useGameSessionStore((state) => state.resetSession);
+  
   const webSocketStore = useWebSocketStore();
   const [currentCampaign, setCurrentCampaign] = useState<Campaign | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -22,9 +28,28 @@ export const useCampaign = () => {
   ) => {
     try {
       setIsLoading(true);
+      console.log('[useCampaign] Starting connection process:', { campaignId, playerId, characterName });
       
       // Update local state to use campaign ID as session ID
-      gameSessionStore.connect(campaignId, playerId, characterName);
+      // IMPORTANT: Set playerId here to ensure it's available for processAction
+      console.log('[useCampaign] Calling connect...');
+      connect(campaignId, playerId, characterName);
+      
+      // Wait for store update to propagate
+      await new Promise(resolve => {
+        const checkStore = () => {
+          const currentSession = useGameSessionStore.getState().session;
+          console.log('[useCampaign] Checking store state:', currentSession);
+          if (currentSession.sessionId === campaignId && currentSession.playerId === playerId) {
+            console.log('[useCampaign] Store update confirmed!');
+            resolve(void 0);
+          } else {
+            console.log('[useCampaign] Store not yet updated, waiting...');
+            setTimeout(checkStore, 10);
+          }
+        };
+        checkStore();
+      });
       
       // Connect to WebSocket
       webSocketStore.setConnecting(true);
@@ -33,35 +58,56 @@ export const useCampaign = () => {
       
       // Get campaign details from API
       const response = await api.campaign.getCampaign(campaignId);
-      if (response.success && response.data) {
-        setCurrentCampaign(response.data);
-        // Convert campaign to session format for backward compatibility
-        gameSessionStore.updateSession({
+      if (response.success && response.data && response.data.data) {
+        setCurrentCampaign(response.data.data);
+        
+        // Final verification and forced update
+        console.log('[useCampaign] Final session verification...');
+        updateSession({
           sessionId: campaignId,
           playerId,
           characterName,
           isConnected: true,
           lastActivity: new Date(),
         });
+        
+        // Additional store propagation wait
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        const finalSession = useGameSessionStore.getState().session;
+        console.log('[useCampaign] Final session state:', finalSession);
+        
+        if (finalSession.sessionId !== campaignId || finalSession.playerId !== playerId) {
+          throw new Error('Session state verification failed after connection');
+        }
+        
+        console.log('[useCampaign] Campaign connected successfully:', {
+          campaignId,
+          playerId,
+          characterName
+        });
       }
     } catch (error) {
       console.error('Failed to connect to campaign:', error);
       webSocketStore.setError(error instanceof Error ? error.message : 'Connection failed');
-      gameSessionStore.disconnect();
+      disconnect();
+      throw error; // Re-throw to allow caller to handle
     } finally {
       setIsLoading(false);
     }
-  }, [gameSessionStore, webSocketStore]);
+  }, []); // Empty dependency array - store methods are stable
 
   // Create a new campaign
-  const createCampaign = useCallback(async (data: CreateCampaignData, playerId: string) => {
+  const createCampaign = useCallback(async (data: CreateCampaignData, playerId: string, characterName?: string) => {
     try {
       setIsLoading(true);
       
       const response = await api.campaign.createCampaign(data);
-      if (response.success && response.data) {
-        const campaign = response.data;
-        await connectToCampaign(campaign.id, playerId, 'Player');
+      if (response.success && response.data && response.data.data) {
+        const campaign = response.data.data;
+        // Use provided characterName or extract from title
+        const charName = characterName || data.title.replace(/'s Adventure$/, '') || 'Player';
+        await connectToCampaign(campaign.id, playerId, charName);
         return campaign;
       }
       throw new Error(response.error || 'Failed to create campaign');
@@ -79,9 +125,9 @@ export const useCampaign = () => {
       setIsLoading(true);
       
       const response = await api.campaign.getCampaign(campaignId);
-      if (response.success && response.data) {
+      if (response.success && response.data && response.data.data) {
         await connectToCampaign(campaignId, playerId, 'Player');
-        return response.data;
+        return response.data.data;
       }
       throw new Error(response.error || 'Failed to join campaign');
     } catch (error) {
@@ -100,33 +146,30 @@ export const useCampaign = () => {
       webSocketStore.setConnected(false);
       
       // Clear local state
-      gameSessionStore.disconnect();
+      disconnect();
       setCurrentCampaign(null);
     } catch (error) {
       console.error('Failed to disconnect from campaign:', error);
     }
-  }, [gameSessionStore, webSocketStore]);
+  }, []); // Empty dependency array - store methods are stable
 
-  // Auto-reconnect effect
+  // Simplified auto-reconnect effect
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && gameSessionStore.session.sessionId) {
-        // Check if we're still connected
-        if (!webSocketService.isConnected()) {
-          const { sessionId, playerId, characterName } = gameSessionStore.session;
-          if (sessionId && playerId && characterName) {
-            connectToCampaign(sessionId, playerId, characterName);
-          }
+      if (document.visibilityState === 'visible' && session.sessionId && !webSocketService.isConnected()) {
+        const { sessionId, playerId, characterName } = session;
+        if (sessionId && playerId && characterName) {
+          connectToCampaign(sessionId, playerId, characterName);
         }
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [gameSessionStore.session, connectToCampaign]);
+  }, []); // Empty dependency array to prevent infinite loops
 
   return {
-    session: gameSessionStore.session,
+    session,
     websocketState: webSocketStore.websocket,
     currentCampaign,
     isLoading,
@@ -134,8 +177,8 @@ export const useCampaign = () => {
     joinCampaign,
     connectToCampaign,
     disconnectFromCampaign,
-    updateSession: gameSessionStore.updateSession,
-    resetSession: gameSessionStore.resetSession,
+    updateSession,
+    resetSession,
     
     // Backward compatibility
     createSession: (characterName: string) => {
@@ -159,7 +202,7 @@ export const useCampaign = () => {
           },
         },
       };
-      return createCampaign(defaultCampaignData, 'player-1');
+      return createCampaign(defaultCampaignData, 'player-1', characterName);
     },
     joinSession: joinCampaign,
     disconnectFromSession: disconnectFromCampaign,

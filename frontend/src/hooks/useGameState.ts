@@ -11,7 +11,7 @@ export const useGameState = () => {
   const updatePlayerStatus = useCallback((updates: Partial<PlayerStatus>) => {
     // Update local state only - real updates should go through processAction API
     gameStateStore.updatePlayerStatus(updates);
-  }, [gameStateStore]);
+  }, []); // Empty dependency array - store methods are stable
 
   // Load game state from campaign data
   const loadGameState = useCallback(async () => {
@@ -38,7 +38,7 @@ export const useGameState = () => {
     } catch (error) {
       console.error('Failed to load game state:', error);
     }
-  }, [gameStateStore, gameSessionStore.session]);
+  }, [gameSessionStore.session.sessionId]); // Only depend on specific session value
 
   // Set up WebSocket event listeners
   useEffect(() => {
@@ -60,7 +60,7 @@ export const useGameState = () => {
       webSocketService.off('game:status-update', handleStatusUpdate);
       webSocketService.off('game:scene-change', handleSceneChange);
     };
-  }, [gameStateStore]);
+  }, []); // Empty dependency array - WebSocket handlers are stable
 
   // Load game state when session is established
   useEffect(() => {
