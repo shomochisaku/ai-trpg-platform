@@ -2,17 +2,72 @@ import { useEffect, useCallback } from 'react';
 import { useChatStore, useGameSessionStore, useGameStateStore } from '../store';
 import { api, webSocketService } from '../services';
 import { ChatMessage } from '../types';
+import { getGameSessionState } from '../store/gameSessionStore';
 
 export const useChat = () => {
   const chatStore = useChatStore();
-  const gameSessionStore = useGameSessionStore();
+  // Use selector to ensure proper subscription
+  const session = useGameSessionStore((state) => {
+    console.log('[useChat] Selector executed, session state:', state.session);
+    return state.session;
+  });
+  const updateSession = useGameSessionStore((state) => state.updateSession);
   const gameStateStore = useGameStateStore();
 
   // Process player action (replaces sendMessage)
   const processAction = useCallback(async (action: string) => {
-    const { sessionId, playerId } = gameSessionStore.session;
+    console.log('[useChat] processAction called with:', action);
+    
+    // Multi-source session verification with retry
+    const getValidSession = async (retries = 3) => {
+      for (let i = 0; i < retries; i++) {
+        // Try selector first
+        const selectorSession = session;
+        console.log(`[useChat] Attempt ${i + 1} - Selector session:`, selectorSession);
+        
+        // Try fresh store read
+        const freshSession = useGameSessionStore.getState().session;
+        console.log(`[useChat] Attempt ${i + 1} - Fresh session:`, freshSession);
+        
+        // Use fresh session if it has data and selector doesn't
+        const workingSession = (freshSession.sessionId && freshSession.playerId) ? freshSession : selectorSession;
+        
+        if (workingSession.sessionId && workingSession.playerId) {
+          console.log('[useChat] Valid session found:', workingSession);
+          return workingSession;
+        }
+        
+        console.log(`[useChat] Attempt ${i + 1} failed, waiting...`);
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      throw new Error('No active campaign session after retries');
+    };
+    
+    const validSession = await getValidSession();
+    const { sessionId, playerId } = validSession;
+    
+    // Final failsafe: if session is still invalid, try to recover
     if (!sessionId || !playerId) {
-      throw new Error('No active campaign session');
+      console.error('[useChat] Session recovery failed, attempting emergency recovery...');
+      
+      // Try to get session from browser storage or reconstruct
+      const emergencySession = getGameSessionState();
+      if (emergencySession.sessionId && emergencySession.playerId) {
+        console.log('[useChat] Emergency session found:', emergencySession);
+        const updateSession = useGameSessionStore.getState().updateSession;
+        updateSession(emergencySession);
+        
+        // Wait for update
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        const recoveredSession = getGameSessionState();
+        if (recoveredSession.sessionId && recoveredSession.playerId) {
+          console.log('[useChat] Session recovery successful');
+          return recoveredSession;
+        }
+      }
+      
+      throw new Error('Failed to recover session - please reconnect to campaign');
     }
 
     try {
@@ -26,16 +81,41 @@ export const useChat = () => {
       });
 
       // Send via WebSocket for real-time updates
-      webSocketService.sendMessage(action, 'message');
+      // Send via WebSocket with retry
+      try {
+        webSocketService.sendMessage(action, 'message');
+      } catch (wsError) {
+        console.warn('[useChat] WebSocket send failed, continuing with API only:', wsError);
+      }
 
-      // Process action via campaign API
-      const response = await api.action.processAction(sessionId, playerId, action);
+      // Process action via campaign API with retry
+      let response;
+      let attempts = 0;
+      const maxAttempts = 3;
+      
+      while (attempts < maxAttempts) {
+        try {
+          attempts++;
+          response = await api.action.processAction(sessionId, playerId, action);
+          break; // Success, exit retry loop
+        } catch (apiError) {
+          console.error(`[useChat] API attempt ${attempts} failed:`, apiError);
+          if (attempts >= maxAttempts) {
+            throw apiError;
+          }
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
+        }
+      }
       if (response.success && response.data) {
-        const result = response.data;
+        // API response is double-wrapped: response.data.data contains the actual data
+        const responseData = response.data; // {success: true, data: {...}}
+        const result = responseData.data; // {campaignId: ..., narrative: ...}
+        const narrativeContent = result.narrative;
         
         // Add GM response to chat
         chatStore.addMessage({
-          content: result.narrative,
+          content: narrativeContent || 'No response received',
           sender: 'gm',
           type: 'message',
         });
@@ -92,7 +172,7 @@ export const useChat = () => {
     } finally {
       chatStore.setLoading(false);
     }
-  }, [chatStore, gameSessionStore.session, gameStateStore]);
+  }, []); // Remove session dependencies to prevent stale closures
 
   // Send a simple message (for non-action messages)
   const sendMessage = useCallback(async (
@@ -110,7 +190,7 @@ export const useChat = () => {
         type,
       });
     }
-  }, [processAction, chatStore]);
+  }, [processAction]);
 
   // Roll dice as an action
   const rollDice = useCallback(async (diceExpression: string) => {
@@ -129,7 +209,7 @@ export const useChat = () => {
       sender: 'gm',
       type: 'system',
     });
-  }, [chatStore]);
+  }, []); // Empty dependency array - store methods are stable
 
   // Set up WebSocket event listeners
   useEffect(() => {
@@ -165,14 +245,14 @@ export const useChat = () => {
       webSocketService.off('system:notification', handleSystemNotification);
       webSocketService.off('system:error', handleSystemError);
     };
-  }, [chatStore]);
+  }, []); // Empty dependency array - WebSocket handlers are stable
 
   // Load chat history when session changes
   useEffect(() => {
-    if (gameSessionStore.session.sessionId && gameSessionStore.session.isConnected) {
+    if (session.sessionId && session.isConnected) {
       loadChatHistory();
     }
-  }, [gameSessionStore.session.sessionId, gameSessionStore.session.isConnected, loadChatHistory]);
+  }, [session.sessionId, session.isConnected, loadChatHistory]);
 
   return {
     chat: chatStore.chat,

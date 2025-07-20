@@ -22,8 +22,12 @@ export const useActionInput = (
       historyIndex: -1, // Reset history index when typing
       error: null,
     }));
-    callbacks.onInputChange(value);
-  }, [callbacks]);
+    
+    // Call onInputChange asynchronously to avoid updating parent state during render
+    if (callbacks.onInputChange) {
+      Promise.resolve().then(() => callbacks.onInputChange(value));
+    }
+  }, [callbacks]); // Include callbacks in dependency array
 
   const addToHistory = useCallback((action: string) => {
     if (action.trim() === '') return;
@@ -60,32 +64,37 @@ export const useActionInput = (
   }, []);
 
   const handleSubmit = useCallback(async () => {
-    const trimmedInput = state.currentInput.trim();
-    if (!trimmedInput || state.isSubmitting) return;
+    setState(prev => {
+      const trimmedInput = prev.currentInput.trim();
+      if (!trimmedInput || prev.isSubmitting) return prev;
 
-    setState(prev => ({
-      ...prev,
-      isSubmitting: true,
-      error: null,
-    }));
+      // Start submission immediately
+      (async () => {
+        try {
+          await callbacks.onSubmit(trimmedInput);
+          addToHistory(trimmedInput);
+          setState(current => ({
+            ...current,
+            currentInput: '',
+            isSubmitting: false,
+            historyIndex: -1,
+          }));
+        } catch (error) {
+          setState(current => ({
+            ...current,
+            isSubmitting: false,
+            error: error instanceof Error ? error.message : 'An error occurred',
+          }));
+        }
+      })();
 
-    try {
-      await callbacks.onSubmit(trimmedInput);
-      addToHistory(trimmedInput);
-      setState(prev => ({
+      return {
         ...prev,
-        currentInput: '',
-        isSubmitting: false,
-        historyIndex: -1,
-      }));
-    } catch (error) {
-      setState(prev => ({
-        ...prev,
-        isSubmitting: false,
-        error: error instanceof Error ? error.message : 'An error occurred',
-      }));
-    }
-  }, [state.currentInput, state.isSubmitting, callbacks, addToHistory]);
+        isSubmitting: true,
+        error: null,
+      };
+    });
+  }, [addToHistory]); // Only depend on addToHistory
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && event.shiftKey) {
