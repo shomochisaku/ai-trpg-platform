@@ -47,14 +47,14 @@ export class AIService {
       // Mastra instance is initialized in config if available
       if (mastraInstance) {
         logger.info('Mastra framework initialized successfully');
-        
+
         // Initialize game workflow with Mastra instance
         this.gameWorkflow = new GameWorkflow(mastraInstance, {
           maxRetries: 3,
           timeout: 30000,
-          verbose: true
+          verbose: true,
         });
-        
+
         logger.info('Game workflow initialized successfully');
       } else {
         logger.warn('Mastra framework not available, using fallback mode');
@@ -141,28 +141,41 @@ export class AIService {
   /**
    * Process a game action using the workflow system
    */
-  async processGameAction(context: GameActionContext): Promise<ProcessGameActionResult> {
+  async processGameAction(
+    context: GameActionContext
+  ): Promise<ProcessGameActionResult> {
     if (!this.initialized) {
       throw new Error('AI Service not initialized');
     }
 
     if (!this.gameWorkflow) {
-      logger.warn('Game workflow not available, falling back to simple GM chat');
+      logger.warn(
+        'Game workflow not available, falling back to simple GM chat'
+      );
       // Fallback to simple GM response
-      const response = await this.gmAgent.chat(context.campaignId, context.playerAction);
+      const response = await this.gmAgent.chat(
+        context.campaignId,
+        context.playerAction
+      );
       return {
         success: true,
         narrative: response,
         gameState: context.gameState,
-        suggestedActions: ['Continue exploring', 'Ask for more details', 'Try something different']
+        suggestedActions: [
+          'Continue exploring',
+          'Ask for more details',
+          'Try something different',
+        ],
       };
     }
 
     try {
-      logger.info(`Processing game action for campaign ${context.campaignId}: ${context.playerAction}`);
-      
+      logger.info(
+        `Processing game action for campaign ${context.campaignId}: ${context.playerAction}`
+      );
+
       const result = await this.gameWorkflow.processGameAction(context);
-      
+
       // Store the action and result for future reference
       await storeKnowledge({
         category: 'game_action',
@@ -172,18 +185,25 @@ export class AIService {
         relevance: 0.9,
       });
 
-      logger.info(`Game action processed successfully for campaign ${context.campaignId}`);
+      logger.info(
+        `Game action processed successfully for campaign ${context.campaignId}`
+      );
       return result;
     } catch (error) {
       logger.error('Error processing game action:', error);
-      
+
       // Return fallback response in case of error
       return {
         success: false,
-        narrative: 'An unexpected event occurs, and the situation becomes unclear. The story continues...',
+        narrative:
+          'An unexpected event occurs, and the situation becomes unclear. The story continues...',
         gameState: context.gameState,
-        suggestedActions: ['Try again', 'Ask for clarification', 'Change approach'],
-        error: error instanceof Error ? error.message : 'Unknown error'
+        suggestedActions: [
+          'Try again',
+          'Ask for clarification',
+          'Change approach',
+        ],
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }

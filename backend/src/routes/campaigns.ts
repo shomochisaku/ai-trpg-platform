@@ -250,7 +250,11 @@ router.post('/:id/action', async (req: Request, res: Response) => {
     }
 
     // Process player action through workflow system
-    const result = await campaignService.processPlayerAction(id, playerId, action);
+    const result = await campaignService.processPlayerAction(
+      id,
+      playerId,
+      action
+    );
 
     res.json({
       success: true,
@@ -263,7 +267,7 @@ router.post('/:id/action', async (req: Request, res: Response) => {
         suggestedActions: result.suggestedActions,
         diceResults: result.diceResults,
         workflowSuccess: result.success,
-        error: result.error
+        error: result.error,
       },
     });
   } catch (error) {
@@ -271,7 +275,7 @@ router.post('/:id/action', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to process player action',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 });
