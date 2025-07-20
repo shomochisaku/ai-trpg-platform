@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, SessionStatus } from '@prisma/client';
 import { logger } from '@/utils/logger';
 // import { ragService, SearchResult } from './ragService'; // MVP: Disabled for minimal schema
 
@@ -181,7 +181,7 @@ export class CampaignService {
   ): Promise<{ campaigns: Campaign[]; total: number }> {
     const where = {
       createdBy: userId,
-      ...(options.status && { status: options.status as any }),
+      ...(options.status && { status: options.status as SessionStatus }),
     };
 
     const [campaigns, total] = await Promise.all([
@@ -222,7 +222,7 @@ export class CampaignService {
           aiModel: 'gpt-4', 
           aiPersonality: validated.settings?.gmProfile?.personality || 'balanced',
         }),
-        ...(validated.status && { status: validated.status as any }),
+        ...(validated.status && { status: validated.status as SessionStatus }),
       },
     });
 
@@ -446,7 +446,7 @@ export class CampaignService {
     aiGMEnabled?: boolean;
     aiModel?: string;
     aiPersonality?: string;
-    status: string | any;
+    status: SessionStatus | string;
     createdAt: Date;
     updatedAt: Date;
   }): Campaign {
