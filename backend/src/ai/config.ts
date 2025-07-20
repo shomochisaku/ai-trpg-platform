@@ -9,7 +9,8 @@ dotenv.config();
 // Environment configuration schema
 const envSchema = z.object({
   OPENAI_API_KEY: z.string().min(1),
-  ANTHROPIC_API_KEY: z.string().min(1),
+  OPENAI_MODEL: z.string().default('gpt-4o-mini'),
+  ANTHROPIC_API_KEY: z.string().optional(),
   PINECONE_API_KEY: z.string().optional(),
   PINECONE_ENVIRONMENT: z.string().optional(),
 });
@@ -22,10 +23,8 @@ const getEnvWithFallback = (key: string, fallback: string): string => {
 // Parse and validate environment variables
 export const env = envSchema.parse({
   OPENAI_API_KEY: getEnvWithFallback('OPENAI_API_KEY', 'dummy-openai-key'),
-  ANTHROPIC_API_KEY: getEnvWithFallback(
-    'ANTHROPIC_API_KEY',
-    'dummy-anthropic-key'
-  ),
+  OPENAI_MODEL: getEnvWithFallback('OPENAI_MODEL', 'gpt-4o-mini'),
+  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
   PINECONE_API_KEY: process.env.PINECONE_API_KEY,
   PINECONE_ENVIRONMENT: process.env.PINECONE_ENVIRONMENT,
 });
@@ -34,7 +33,7 @@ export const env = envSchema.parse({
 export const mastraConfig = {
   openai: {
     apiKey: env.OPENAI_API_KEY,
-    model: 'gpt-4',
+    model: env.OPENAI_MODEL,
   },
   anthropic: {
     apiKey: env.ANTHROPIC_API_KEY,

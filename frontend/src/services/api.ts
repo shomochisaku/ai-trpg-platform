@@ -1,7 +1,56 @@
-import { ApiResponse, GameSession, ChatMessage, PlayerStatus } from '../types';
+import { ApiResponse } from '../types';
 
 // Configuration
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+// Campaign Types (matching backend)
+export interface Campaign {
+  id: string;
+  userId: string;
+  title: string;
+  description?: string;
+  status: string;
+  aiSettings: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CampaignSettings {
+  gmProfile: {
+    personality: string;
+    speechStyle: string;
+    guidingPrinciples: string[];
+  };
+  worldSettings: {
+    toneAndManner: string;
+    keyConcepts: string[];
+  };
+  opening: {
+    prologue: string;
+    initialStatusTags: string[];
+    initialInventory: string[];
+  };
+}
+
+export interface CreateCampaignData {
+  userId: string;
+  title: string;
+  description?: string;
+  settings: CampaignSettings;
+}
+
+export interface PlayerActionResult {
+  campaignId: string;
+  playerId: string;
+  action: string;
+  narrative: string;
+  gameState: Record<string, unknown>;
+  suggestedActions: string[];
+  diceResults: Record<string, unknown>;
+  workflowSuccess: boolean;
+  error?: string;
+}
 
 // Error handling utility
 class ApiError extends Error {
@@ -61,124 +110,80 @@ async function apiRequest<T>(
   }
 }
 
-// Game Session API
-export const gameSessionApi = {
-  // Create a new game session
-  createSession: async (characterName: string): Promise<ApiResponse<GameSession>> => {
-    return apiRequest<GameSession>('/api/campaigns/sessions', {
+// Campaign API
+export const campaignApi = {
+  // Create a new campaign
+  createCampaign: async (data: CreateCampaignData): Promise<ApiResponse<Campaign>> => {
+    return apiRequest<Campaign>('/api/campaigns', {
       method: 'POST',
-      body: JSON.stringify({ characterName }),
+      body: JSON.stringify(data),
     });
   },
 
-  // Join an existing session
-  joinSession: async (sessionId: string, playerId: string): Promise<ApiResponse<GameSession>> => {
-    return apiRequest<GameSession>(`/api/campaigns/sessions/${sessionId}/join`, {
-      method: 'POST',
-      body: JSON.stringify({ playerId }),
+  // Get campaign details
+  getCampaign: async (campaignId: string): Promise<ApiResponse<Campaign>> => {
+    return apiRequest<Campaign>(`/api/campaigns/${campaignId}`);
+  },
+
+  // List campaigns for user
+  listCampaigns: async (userId: string, options?: {
+    status?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<ApiResponse<{ campaigns: Campaign[]; total: number }>> => {
+    const params = new URLSearchParams({ userId });
+    if (options?.status) params.append('status', options.status);
+    if (options?.limit) params.append('limit', options.limit.toString());
+    if (options?.offset) params.append('offset', options.offset.toString());
+
+    return apiRequest<{ campaigns: Campaign[]; total: number }>(`/api/campaigns?${params}`);
+  },
+
+  // Update campaign
+  updateCampaign: async (campaignId: string, data: Partial<CreateCampaignData>): Promise<ApiResponse<Campaign>> => {
+    return apiRequest<Campaign>(`/api/campaigns/${campaignId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
     });
   },
 
-  // Get session details
-  getSession: async (sessionId: string): Promise<ApiResponse<GameSession>> => {
-    return apiRequest<GameSession>(`/api/campaigns/sessions/${sessionId}`);
+  // Delete campaign
+  deleteCampaign: async (campaignId: string): Promise<ApiResponse<void>> => {
+    return apiRequest<void>(`/api/campaigns/${campaignId}`, {
+      method: 'DELETE',
+    });
   },
 
-  // End a session
-  endSession: async (sessionId: string): Promise<ApiResponse<void>> => {
-    return apiRequest<void>(`/api/campaigns/sessions/${sessionId}/end`, {
+  // Get campaign statistics
+  getCampaignStats: async (campaignId: string): Promise<ApiResponse<Record<string, unknown>>> => {
+    return apiRequest<Record<string, unknown>>(`/api/campaigns/${campaignId}/stats`);
+  },
+};
+
+// Player Action API
+export const actionApi = {
+  // Process player action
+  processAction: async (
+    campaignId: string,
+    playerId: string,
+    action: string
+  ): Promise<ApiResponse<PlayerActionResult>> => {
+    return apiRequest<PlayerActionResult>(`/api/campaigns/${campaignId}/action`, {
       method: 'POST',
+      body: JSON.stringify({ action, playerId }),
     });
   },
 };
 
-// Chat API
-export const chatApi = {
-  // Send a message
-  sendMessage: async (
-    sessionId: string,
-    content: string,
-    type: ChatMessage['type'] = 'message'
-  ): Promise<ApiResponse<ChatMessage>> => {
-    return apiRequest<ChatMessage>(`/api/campaigns/sessions/${sessionId}/messages`, {
-      method: 'POST',
-      body: JSON.stringify({ content, type }),
-    });
-  },
-
-  // Get chat history
-  getChatHistory: async (
-    sessionId: string,
-    limit: number = 50,
-    offset: number = 0
-  ): Promise<ApiResponse<ChatMessage[]>> => {
-    return apiRequest<ChatMessage[]>(
-      `/api/campaigns/sessions/${sessionId}/messages?limit=${limit}&offset=${offset}`
-    );
-  },
-
-  // Roll dice
-  rollDice: async (
-    sessionId: string,
-    diceExpression: string
-  ): Promise<ApiResponse<ChatMessage>> => {
-    return apiRequest<ChatMessage>(`/api/campaigns/sessions/${sessionId}/dice`, {
-      method: 'POST',
-      body: JSON.stringify({ dice: diceExpression }),
-    });
-  },
-};
-
-// Game State API
+// Game State API (uses campaign data)
 export const gameStateApi = {
-  // Get current game state
-  getGameState: async (sessionId: string): Promise<ApiResponse<PlayerStatus>> => {
-    return apiRequest<PlayerStatus>(`/api/campaigns/sessions/${sessionId}/state`);
+  // Get current game state from campaign
+  getGameState: async (campaignId: string): Promise<ApiResponse<Campaign>> => {
+    return campaignApi.getCampaign(campaignId);
   },
 
-  // Update player status
-  updatePlayerStatus: async (
-    sessionId: string,
-    updates: Partial<PlayerStatus>
-  ): Promise<ApiResponse<PlayerStatus>> => {
-    return apiRequest<PlayerStatus>(`/api/campaigns/sessions/${sessionId}/state`, {
-      method: 'PATCH',
-      body: JSON.stringify(updates),
-    });
-  },
-
-  // Update status tags
-  updateStatusTags: async (
-    sessionId: string,
-    statusTags: string[]
-  ): Promise<ApiResponse<PlayerStatus>> => {
-    return apiRequest<PlayerStatus>(`/api/campaigns/sessions/${sessionId}/status-tags`, {
-      method: 'PUT',
-      body: JSON.stringify({ statusTags }),
-    });
-  },
-
-  // Update inventory
-  updateInventory: async (
-    sessionId: string,
-    inventory: string[]
-  ): Promise<ApiResponse<PlayerStatus>> => {
-    return apiRequest<PlayerStatus>(`/api/campaigns/sessions/${sessionId}/inventory`, {
-      method: 'PUT',
-      body: JSON.stringify({ inventory }),
-    });
-  },
-
-  // Update notes
-  updateNotes: async (
-    sessionId: string,
-    notes: string
-  ): Promise<ApiResponse<PlayerStatus>> => {
-    return apiRequest<PlayerStatus>(`/api/campaigns/sessions/${sessionId}/notes`, {
-      method: 'PUT',
-      body: JSON.stringify({ notes }),
-    });
-  },
+  // Game state updates are handled through player actions
+  // Use actionApi.processAction() to update game state
 };
 
 // Health check API
@@ -190,8 +195,8 @@ export const healthApi = {
 
 // Export all APIs
 export const api = {
-  gameSession: gameSessionApi,
-  chat: chatApi,
+  campaign: campaignApi,
+  action: actionApi,
   gameState: gameStateApi,
   health: healthApi,
 };

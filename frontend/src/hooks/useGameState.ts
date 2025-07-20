@@ -7,99 +7,13 @@ export const useGameState = () => {
   const gameStateStore = useGameStateStore();
   const gameSessionStore = useGameSessionStore();
 
-  // Update player status
-  const updatePlayerStatus = useCallback(async (updates: Partial<PlayerStatus>) => {
-    const { sessionId } = gameSessionStore.session;
-    if (!sessionId) {
-      throw new Error('No active session');
-    }
+  // Simplified player status update (local only - real updates go through processAction)
+  const updatePlayerStatus = useCallback((updates: Partial<PlayerStatus>) => {
+    // Update local state only - real updates should go through processAction API
+    gameStateStore.updatePlayerStatus(updates);
+  }, [gameStateStore]);
 
-    try {
-      // Update local state immediately for optimistic updates
-      gameStateStore.updatePlayerStatus(updates);
-
-      // Send updates via WebSocket for real-time sync
-      webSocketService.updatePlayerStatus(updates);
-
-      // Also send via API for persistence
-      const response = await api.gameState.updatePlayerStatus(sessionId, updates);
-      if (!response.success) {
-        throw new Error(response.error || 'Failed to update player status');
-      }
-
-      // Update with server response if available
-      if (response.data) {
-        gameStateStore.updatePlayerStatus(response.data);
-      }
-    } catch (error) {
-      console.error('Failed to update player status:', error);
-      // Revert optimistic update on error
-      // Note: In a real app, you might want to keep track of previous state
-      throw error;
-    }
-  }, [gameStateStore, gameSessionStore.session]);
-
-  // Update status tags
-  const updateStatusTags = useCallback(async (statusTags: string[]) => {
-    const { sessionId } = gameSessionStore.session;
-    if (!sessionId) {
-      throw new Error('No active session');
-    }
-
-    try {
-      const response = await api.gameState.updateStatusTags(sessionId, statusTags);
-      if (response.success && response.data) {
-        gameStateStore.updatePlayerStatus({ statusTags: response.data.statusTags });
-      } else {
-        throw new Error(response.error || 'Failed to update status tags');
-      }
-    } catch (error) {
-      console.error('Failed to update status tags:', error);
-      throw error;
-    }
-  }, [gameStateStore, gameSessionStore.session]);
-
-  // Update inventory
-  const updateInventory = useCallback(async (inventory: string[]) => {
-    const { sessionId } = gameSessionStore.session;
-    if (!sessionId) {
-      throw new Error('No active session');
-    }
-
-    try {
-      const response = await api.gameState.updateInventory(sessionId, inventory);
-      if (response.success && response.data) {
-        gameStateStore.updatePlayerStatus({ inventory: response.data.inventory });
-      } else {
-        throw new Error(response.error || 'Failed to update inventory');
-      }
-    } catch (error) {
-      console.error('Failed to update inventory:', error);
-      throw error;
-    }
-  }, [gameStateStore, gameSessionStore.session]);
-
-  // Update notes
-  const updateNotes = useCallback(async (notes: string) => {
-    const { sessionId } = gameSessionStore.session;
-    if (!sessionId) {
-      throw new Error('No active session');
-    }
-
-    try {
-      const response = await api.gameState.updateNotes(sessionId, notes);
-      if (response.success && response.data) {
-        gameStateStore.updatePlayerStatus({ notes: response.data.notes });
-      } else {
-        throw new Error(response.error || 'Failed to update notes');
-      }
-    } catch (error) {
-      console.error('Failed to update notes:', error);
-      throw error;
-    }
-  }, [gameStateStore, gameSessionStore.session]);
-
-  // Load game state from server
+  // Load game state from campaign data
   const loadGameState = useCallback(async () => {
     const { sessionId } = gameSessionStore.session;
     if (!sessionId) {
@@ -109,13 +23,20 @@ export const useGameState = () => {
     try {
       const response = await api.gameState.getGameState(sessionId);
       if (response.success && response.data) {
-        gameStateStore.updatePlayerStatus(response.data);
-      } else {
-        throw new Error(response.error || 'Failed to load game state');
+        // Extract game state from campaign metadata
+        const campaign = response.data;
+        if (campaign.metadata && campaign.metadata.gameState) {
+          const gameState = campaign.metadata.gameState as Record<string, unknown>;
+          gameStateStore.updateGameState({
+            currentScene: (gameState.currentScene as string) || '',
+            gameMode: (gameState.gameMode as 'playing' | 'paused' | 'ended') || 'playing',
+            lastUpdate: new Date(),
+            playerStatus: gameState.playerStatus as PlayerStatus || gameStateStore.gameState.playerStatus,
+          });
+        }
       }
     } catch (error) {
       console.error('Failed to load game state:', error);
-      throw error;
     }
   }, [gameStateStore, gameSessionStore.session]);
 
@@ -151,9 +72,6 @@ export const useGameState = () => {
   return {
     gameState: gameStateStore.gameState,
     updatePlayerStatus,
-    updateStatusTags,
-    updateInventory,
-    updateNotes,
     updateGameState: gameStateStore.updateGameState,
     resetGameState: gameStateStore.resetGameState,
     loadGameState,

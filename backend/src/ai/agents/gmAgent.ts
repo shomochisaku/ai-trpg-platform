@@ -97,7 +97,7 @@ export class GMAgent {
   constructor(config: GMAgentConfig = { provider: 'openai' }) {
     this.config = {
       provider: config.provider,
-      model: config.model || (config.provider === 'openai' ? 'gpt-4' : 'claude-3-5-sonnet-20241022'),
+      model: config.model || (config.provider === 'openai' ? mastraConfig.openai.model : 'claude-3-5-sonnet-20241022'),
       temperature: config.temperature || 0.7,
       maxTokens: config.maxTokens || 2000,
       systemPrompt: config.systemPrompt || this.getDefaultSystemPrompt(),

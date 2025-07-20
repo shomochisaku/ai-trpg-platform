@@ -1,106 +1,135 @@
 import { useEffect, useCallback } from 'react';
-import { useChatStore, useGameSessionStore } from '../store';
+import { useChatStore, useGameSessionStore, useGameStateStore } from '../store';
 import { api, webSocketService } from '../services';
 import { ChatMessage } from '../types';
 
 export const useChat = () => {
   const chatStore = useChatStore();
   const gameSessionStore = useGameSessionStore();
+  const gameStateStore = useGameStateStore();
 
-  // Send a message
-  const sendMessage = useCallback(async (
-    content: string,
-    type: ChatMessage['type'] = 'message'
-  ) => {
-    const { sessionId } = gameSessionStore.session;
-    if (!sessionId) {
-      throw new Error('No active session');
+  // Process player action (replaces sendMessage)
+  const processAction = useCallback(async (action: string) => {
+    const { sessionId, playerId } = gameSessionStore.session;
+    if (!sessionId || !playerId) {
+      throw new Error('No active campaign session');
     }
 
     try {
       chatStore.setLoading(true);
       
-      // Add message to local state immediately for optimistic updates
+      // Add player action to chat immediately for optimistic updates
+      chatStore.addMessage({
+        content: action,
+        sender: 'player',
+        type: 'message',
+      });
+
+      // Send via WebSocket for real-time updates
+      webSocketService.sendMessage(action, 'message');
+
+      // Process action via campaign API
+      const response = await api.action.processAction(sessionId, playerId, action);
+      if (response.success && response.data) {
+        const result = response.data;
+        
+        // Add GM response to chat
+        chatStore.addMessage({
+          content: result.narrative,
+          sender: 'gm',
+          type: 'message',
+        });
+
+        // Update game state if provided
+        if (result.gameState) {
+          const gameState = result.gameState as Record<string, unknown>;
+          gameStateStore.updateGameState({
+            currentScene: (gameState.currentScene as string) || gameStateStore.gameState.currentScene,
+            lastUpdate: new Date(),
+          });
+        }
+
+        // Add dice results if any
+        if (result.diceResults && Object.keys(result.diceResults).length > 0) {
+          chatStore.addMessage({
+            content: `Dice rolled: ${JSON.stringify(result.diceResults)}`,
+            sender: 'gm',
+            type: 'dice-roll',
+            metadata: { 
+              diceRoll: { 
+                dice: 'unknown', 
+                result: typeof result.diceResults === 'object' ? 0 : Number(result.diceResults) || 0
+              } 
+            },
+          });
+        }
+
+        // Add suggested actions as system message
+        if (result.suggestedActions && result.suggestedActions.length > 0) {
+          chatStore.addMessage({
+            content: `Suggested actions: ${result.suggestedActions.join(', ')}`,
+            sender: 'gm',
+            type: 'system',
+          });
+        }
+
+        return result;
+      } else {
+        throw new Error(response.error || 'Failed to process action');
+      }
+    } catch (error) {
+      console.error('Failed to process action:', error);
+      chatStore.setError(error instanceof Error ? error.message : 'Failed to process action');
+      
+      // Add error message to chat
+      chatStore.addMessage({
+        content: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        sender: 'gm',
+        type: 'system',
+      });
+      
+      throw error;
+    } finally {
+      chatStore.setLoading(false);
+    }
+  }, [chatStore, gameSessionStore.session, gameStateStore]);
+
+  // Send a simple message (for non-action messages)
+  const sendMessage = useCallback(async (
+    content: string,
+    type: ChatMessage['type'] = 'message'
+  ) => {
+    if (type === 'message') {
+      // Regular messages are treated as actions
+      return processAction(content);
+    } else {
+      // System messages, dice rolls, etc.
       chatStore.addMessage({
         content,
         sender: 'player',
         type,
       });
-
-      // Send via WebSocket for real-time updates
-      webSocketService.sendMessage(content, type);
-
-      // Also send via API for persistence
-      const response = await api.chat.sendMessage(sessionId, content, type);
-      if (!response.success) {
-        throw new Error(response.error || 'Failed to send message');
-      }
-    } catch (error) {
-      console.error('Failed to send message:', error);
-      chatStore.setError(error instanceof Error ? error.message : 'Failed to send message');
-    } finally {
-      chatStore.setLoading(false);
     }
-  }, [chatStore, gameSessionStore.session]);
+  }, [processAction, chatStore]);
 
-  // Roll dice
+  // Roll dice as an action
   const rollDice = useCallback(async (diceExpression: string) => {
-    const { sessionId } = gameSessionStore.session;
-    if (!sessionId) {
-      throw new Error('No active session');
-    }
+    return processAction(`Roll ${diceExpression}`);
+  }, [processAction]);
 
-    try {
-      chatStore.setLoading(true);
-      
-      // Send dice roll via WebSocket
-      webSocketService.rollDice(diceExpression);
-      
-      // Also send via API
-      const response = await api.chat.rollDice(sessionId, diceExpression);
-      if (!response.success) {
-        throw new Error(response.error || 'Failed to roll dice');
-      }
-    } catch (error) {
-      console.error('Failed to roll dice:', error);
-      chatStore.setError(error instanceof Error ? error.message : 'Failed to roll dice');
-    } finally {
-      chatStore.setLoading(false);
-    }
-  }, [chatStore, gameSessionStore.session]);
-
-  // Load chat history
-  const loadChatHistory = useCallback(async (limit: number = 50, offset: number = 0) => {
-    const { sessionId } = gameSessionStore.session;
-    if (!sessionId) {
-      return;
-    }
-
-    try {
-      chatStore.setLoading(true);
-      
-      const response = await api.chat.getChatHistory(sessionId, limit, offset);
-      if (response.success && response.data) {
-        // Clear existing messages and add history
-        chatStore.clearMessages();
-        response.data.forEach(message => {
-          chatStore.addMessage({
-            content: message.content,
-            sender: message.sender,
-            type: message.type,
-            metadata: message.metadata,
-          });
-        });
-      } else {
-        throw new Error(response.error || 'Failed to load chat history');
-      }
-    } catch (error) {
-      console.error('Failed to load chat history:', error);
-      chatStore.setError(error instanceof Error ? error.message : 'Failed to load chat history');
-    } finally {
-      chatStore.setLoading(false);
-    }
-  }, [chatStore, gameSessionStore.session]);
+  // Simplified history loading (no backend endpoint for now)
+  const loadChatHistory = useCallback(async () => {
+    // For MVP, we'll start with empty chat each time
+    // In the future, this could load from campaign data or a dedicated endpoint
+    chatStore.clearMessages();
+    
+    // Add welcome message
+    chatStore.addMessage({
+      content: 'Welcome to your adventure! What would you like to do?',
+      sender: 'gm',
+      type: 'system',
+    });
+  }, [chatStore]);
 
   // Set up WebSocket event listeners
   useEffect(() => {
@@ -147,6 +176,7 @@ export const useChat = () => {
 
   return {
     chat: chatStore.chat,
+    processAction,
     sendMessage,
     rollDice,
     loadChatHistory,
