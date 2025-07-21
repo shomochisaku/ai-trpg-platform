@@ -193,7 +193,7 @@ Always respond in character as the GM, describing scenes vividly and asking for 
   }
 
   /**
-   * Send a message to the GM and get a response
+   * Send a message to the GM and get a response with RAG integration
    */
   async chat(sessionId: string, message: string): Promise<string> {
     const session = this.sessions.get(sessionId);
@@ -211,6 +211,9 @@ Always respond in character as the GM, describing scenes vividly and asking for 
     let response: string;
 
     try {
+      // Enhance session with RAG-retrieved context
+      await this.enhanceSessionWithRAG(session, message, sessionId);
+      
       // Get response based on available implementation
       if (this.useMastra) {
         response = await this.chatWithMastra(session);
@@ -222,6 +225,16 @@ Always respond in character as the GM, describing scenes vividly and asking for 
           response = await this.chatWithAnthropic(session);
         }
       }
+
+      // Store the conversation as knowledge for future RAG retrieval
+      await storeKnowledge({
+        category: 'conversation',
+        title: `Session ${sessionId} - Recent Exchange`,
+        content: `Player: ${message}\nGM: ${response}`,
+        tags: ['conversation', sessionId, 'recent'],
+        relevance: 0.8,
+        sessionId,
+      });
 
       // Add assistant response to session
       session.messages.push({
@@ -240,6 +253,60 @@ Always respond in character as the GM, describing scenes vividly and asking for 
     }
 
     return response;
+  }
+
+  /**
+   * Enhance session context with RAG-retrieved relevant memories
+   */
+  private async enhanceSessionWithRAG(session: GMSession, userMessage: string, sessionId: string): Promise<void> {
+    try {
+      logger.info(`Enhancing session ${sessionId} with RAG context for message: ${userMessage.substring(0, 50)}...`);
+
+      // Retrieve relevant memories using semantic search
+      const relevantMemories = await getKnowledge({
+        query: userMessage,
+        sessionId,
+        limit: 5,
+      });
+
+      // Also get recent conversation history
+      const recentConversations = await getKnowledge({
+        category: 'conversation',
+        sessionId,
+        limit: 3,
+      });
+
+      // Combine all relevant context
+      const allContext = [...relevantMemories, ...recentConversations];
+
+      // Update session's knowledge context
+      session.gameState.knowledgeContext = allContext;
+
+      // Add a context message to help the AI understand the retrieved information
+      if (allContext.length > 0) {
+        const contextSummary = allContext
+          .map(entry => `${entry.title}: ${entry.content.substring(0, 150)}...`)
+          .join('\n');
+
+        // Insert context before the latest user message (but after system message)
+        const systemMessageIndex = session.messages.findIndex(msg => msg.role === 'system');
+        const insertIndex = systemMessageIndex >= 0 ? systemMessageIndex + 1 : 0;
+
+        session.messages.splice(insertIndex, 0, {
+          role: 'system',
+          content: `[RAG Context - Relevant memories and recent conversations]:
+${contextSummary}
+
+[End of context - Respond to the following player message while considering this context]`,
+          timestamp: new Date(),
+        });
+
+        logger.info(`Enhanced session with ${allContext.length} relevant memories`);
+      }
+    } catch (error) {
+      logger.warn('Failed to enhance session with RAG context:', error);
+      // Continue without RAG enhancement - this is not critical for basic functionality
+    }
   }
 
   /**

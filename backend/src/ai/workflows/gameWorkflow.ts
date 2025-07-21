@@ -306,9 +306,35 @@ export class GameWorkflow {
       const { analysis, judgment } = previousResults;
       const agent = this.mastra.getAgent('gm-agent');
 
-      // Retrieve relevant memories (RAG not directly available in Mastra)
-      // Using context memories instead
-      const memories = context.memories || [];
+      // Retrieve relevant memories using RAG/vector search
+      let ragMemories: any[] = [];
+      try {
+        const { getKnowledge } = await import('../tools/gameTools');
+        
+        // Get context-relevant memories using semantic search
+        const relevantMemories = await getKnowledge({
+          query: `${context.playerAction} ${context.gameState.currentScene}`,
+          sessionId: context.campaignId,
+          limit: 5,
+        });
+        
+        // Get recent story beats for narrative continuity
+        const recentStoryBeats = await getKnowledge({
+          category: 'story_beat',
+          sessionId: context.campaignId,
+          limit: 3,
+        });
+
+        ragMemories = [...relevantMemories, ...recentStoryBeats];
+        
+        if (this.options.verbose) {
+          console.log(`RAG retrieved ${ragMemories.length} relevant memories for narrative generation`);
+        }
+        
+      } catch (error) {
+        console.warn('RAG memory retrieval failed, using context memories:', error);
+        ragMemories = context.memories || [];
+      }
 
       const prompt = `
         Generate an immersive narrative response for the following game action:
@@ -320,8 +346,10 @@ export class GameWorkflow {
           'No roll required'}
         Current Scene: ${context.gameState.currentScene}
         
-        Recent Memories:
-        ${memories.map((m: any) => m.content).join('\n') || 'None'}
+        Relevant Context from Campaign History:
+        ${ragMemories.map((m: any) => 
+          `- ${m.title || 'Memory'}: ${m.content}`
+        ).join('\n') || 'None available'}
         
         Status Changes:
         ${judgment.statusChanges.map((sc: any) => 
@@ -333,8 +361,12 @@ export class GameWorkflow {
         2. The mood of the scene
         3. 3-4 suggested next actions for the player
         
-        Make the narrative dramatic and engaging, incorporating the dice results naturally.
-        Respond in JSON format.
+        Make the narrative dramatic and engaging, incorporating:
+        - The dice results naturally into the story
+        - Continuity with the relevant context from campaign history
+        - The consequences of the status changes
+        
+        Respond in JSON format with fields: narrative, mood, suggestedNextActions
       `;
 
       const response = await agent.generate([{ role: 'user', content: prompt }]);
