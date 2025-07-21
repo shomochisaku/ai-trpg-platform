@@ -14,8 +14,6 @@ jest.mock('../src/utils/logger', () => ({
 // In CI environment, use regular PrismaClient with PostgreSQL
 // In local environment, may use SQLite fallback
 // Skip mocking for integration tests that need real database access
-// TEMPORARILY DISABLED to fix memoryEntry issue
-/*
 if (!process.env.SKIP_PRISMA_MOCK) {
   jest.mock('@prisma/client', () => {
     if (process.env.CI) {
@@ -34,7 +32,6 @@ if (!process.env.SKIP_PRISMA_MOCK) {
     }
   });
 }
-*/
 
 // Set test environment variables
 process.env.NODE_ENV = 'test';

@@ -39,7 +39,7 @@
     "@anthropic-ai/sdk": "^0.20.0",
     "@mastra/core": "^0.10.15",
     "@mastra/memory": "^0.11.3",
-    "@prisma/client": "^5.7.1",
+    "@prisma/client": "^5.22.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
