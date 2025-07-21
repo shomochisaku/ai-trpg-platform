@@ -99,6 +99,8 @@ export class AIService {
         content: `Player ${playerName} (ID: ${playerId}) has started a new game session.`,
         tags: ['player', 'session', playerName.toLowerCase()],
         relevance: 0.8,
+        sessionId,
+        userId: playerId,
       });
 
       logger.info(
@@ -129,6 +131,7 @@ export class AIService {
         content: `Player: ${message}\nGM: ${response}`,
         tags: ['conversation', sessionId, 'player-interaction'],
         relevance: 0.6,
+        sessionId,
       });
 
       return response;
@@ -183,6 +186,7 @@ export class AIService {
         content: `Player: ${context.playerAction}\nResult: ${result.narrative}`,
         tags: ['game_action', context.campaignId, 'workflow'],
         relevance: 0.9,
+        sessionId: context.campaignId,
       });
 
       logger.info(
