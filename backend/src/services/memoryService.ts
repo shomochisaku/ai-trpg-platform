@@ -114,7 +114,7 @@ export class MemoryService {
           category: validated.category,
           importance: validated.importance,
           tags: validated.tags,
-          embedding,
+          embedding: embedding, // Use Float[] directly
           userId: validated.userId,
           sessionId: validated.sessionId,
         },
@@ -129,7 +129,7 @@ export class MemoryService {
       return memory;
     } catch (error) {
       logger.error('Failed to create memory entry', error);
-      throw new Error('Failed to create memory entry');
+      throw error; // Throw original error for better debugging
     }
   }
 
@@ -161,7 +161,7 @@ export class MemoryService {
         const embedding = await embeddingService.generateEmbedding(
           validated.content
         );
-        updateData.embedding = embedding;
+        updateData.embedding = embedding; // Use Float[] directly
       }
 
       const memory = await prisma.memoryEntry.update({

@@ -56,27 +56,49 @@ export class VectorSearchService {
 
       const whereClause = conditions.join(' AND ');
 
-      // Execute vector similarity search using pgvector
-      const results = await prisma.$queryRawUnsafe<VectorSearchResult[]>(
-        `
-        SELECT 
-          id,
-          content,
-          category,
-          importance,
-          tags,
-          "createdAt",
-          1 - (embedding::vector <=> $1::vector) as similarity
-        FROM memory_entries
-        WHERE ${whereClause}
-          AND "isActive" = true
-          AND cardinality(embedding) > 0
-          AND 1 - (embedding::vector <=> $1::vector) > $2
-        ORDER BY embedding::vector <=> $1::vector
-        LIMIT $${paramIndex}
-      `,
-        ...params
-      );
+      // First, get all candidates with filtering
+      const candidates = await prisma.memoryEntry.findMany({
+        where: {
+          isActive: true,
+          ...(campaignId && { sessionId: campaignId }),
+          ...(category && { category }),
+        },
+        select: {
+          id: true,
+          content: true,
+          category: true,
+          importance: true,
+          tags: true,
+          createdAt: true,
+          embedding: true,
+        },
+      });
+
+      // Calculate similarities in JavaScript for better reliability
+      const results: VectorSearchResult[] = candidates
+        .map((candidate) => {
+          if (!candidate.embedding || candidate.embedding.length === 0) {
+            return null;
+          }
+          
+          const similarity = this.cosineSimilarity(embedding, candidate.embedding);
+          if (similarity <= threshold) {
+            return null;
+          }
+
+          return {
+            id: candidate.id,
+            content: candidate.content,
+            category: candidate.category,
+            importance: candidate.importance,
+            tags: candidate.tags,
+            createdAt: candidate.createdAt,
+            similarity,
+          };
+        })
+        .filter((result): result is VectorSearchResult => result !== null)
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, limit);
 
       logger.info(`Vector search found ${results.length} results`, {
         limit,
