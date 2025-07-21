@@ -76,8 +76,8 @@ This document describes the comprehensive database design for the AI-TRPG platfo
 ### Prerequisites
 
 1. **PostgreSQL Database**
-   - PostgreSQL 12 or higher
-   - pgvector extension (for vector search)
+   - PostgreSQL 14 or higher (Tested with PostgreSQL 14.18)
+   - pgvector extension (for vector search, Tested with pgvector 0.8.0)
 
 2. **Node.js Environment**
    - Node.js 18 or higher

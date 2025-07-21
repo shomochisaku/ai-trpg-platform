@@ -1,0 +1,35 @@
+// MVP用最小限スキーマ（SQLite対応）
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// 最小限のGameSession（Campaign）
+model GameSession {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  status      String   @default("ACTIVE") // enum代替
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Basic settings
+  systemType    String  @default("freeform")
+  maxPlayers    Int     @default(6)
+  currentTurn   Int     @default(0)
+  
+  // AI settings (JSON文字列として保存)
+  aiSettings    String  @default("{}")
+  
+  // Metadata (JSON文字列として保存)
+  metadata      String  @default("{}")
+
+  // Creator
+  createdBy     String
+
+  @@map("game_sessions")
+}

@@ -22,7 +22,17 @@
 
 ### マイルストーン1: Mastra AI統合とコアエンジン基盤
 
-#### フェーズ1: Mastra AI導入と統合（最優先・1週間）
+#### フェーズ0: PostgreSQL移行とRAG基盤準備（緊急追加・最優先・1週間）
+
+- [ ] 0.5 PostgreSQL移行とRAG基盤構築
+  - PostgreSQL + pgvector環境構築（Issue #47）
+  - Prismaスキーマ完全移行（SQLite → PostgreSQL）（Issue #48）
+  - ベクトル検索機能基盤とRAG準備確認（Issue #49）
+  - CI環境PostgreSQL対応（Issue #50）
+  - _前提条件: Mastra AI統合・RAGシステム実装の技術的基盤_
+  - _完了条件: ベクトル検索動作確認、Mastra AI統合準備完了_
+
+#### フェーズ1: Mastra AI導入と統合（1週間）
 
 - [ ] 1.1 Mastra AI フレームワーク導入
   - バックエンドプロジェクトへのMastra導入

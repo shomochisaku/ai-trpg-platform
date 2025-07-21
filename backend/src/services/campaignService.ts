@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, SessionStatus } from '@prisma/client';
 import { logger } from '@/utils/logger';
 // import { ragService, SearchResult } from './ragService'; // MVP: Disabled for minimal schema
 
@@ -139,8 +139,11 @@ export class CampaignService {
         createdBy: validated.userId,
         name: validated.title,
         description: validated.description || '',
-        status: 'ACTIVE',
-        aiSettings: JSON.stringify(validated.settings),
+        status: 'ACTIVE' as const,
+        // Map aiSettings to new schema fields
+        aiGMEnabled: true,
+        aiModel: 'gpt-4',
+        aiPersonality: validated.settings?.gmProfile?.personality || 'balanced',
         systemType: 'AI_TRPG',
         maxPlayers: 1,
       },
@@ -178,7 +181,7 @@ export class CampaignService {
   ): Promise<{ campaigns: Campaign[]; total: number }> {
     const where = {
       createdBy: userId,
-      ...(options.status && { status: options.status }),
+      ...(options.status && { status: options.status as SessionStatus }),
     };
 
     const [campaigns, total] = await Promise.all([
@@ -214,9 +217,13 @@ export class CampaignService {
           description: validated.description,
         }),
         ...(validated.settings && {
-          aiSettings: JSON.stringify(validated.settings),
+          // Map aiSettings to new schema fields
+          aiGMEnabled: true,
+          aiModel: 'gpt-4',
+          aiPersonality:
+            validated.settings?.gmProfile?.personality || 'balanced',
         }),
-        ...(validated.status && { status: validated.status }),
+        ...(validated.status && { status: validated.status as SessionStatus }),
       },
     });
 
@@ -436,41 +443,28 @@ export class CampaignService {
     createdBy: string;
     name: string;
     description: string | null;
-    aiSettings: string;
-    status: string;
+    // New PostgreSQL schema fields
+    aiGMEnabled?: boolean;
+    aiModel?: string;
+    aiPersonality?: string;
+    status: SessionStatus | string;
     createdAt: Date;
     updatedAt: Date;
   }): Campaign {
-    let settings: CampaignSettings;
-    try {
-      settings =
-        session.aiSettings && session.aiSettings !== '{}'
-          ? JSON.parse(session.aiSettings)
-          : {
-              gmProfile: {
-                personality: 'balanced',
-                speechStyle: 'narrative',
-                guidingPrinciples: [],
-              },
-              worldSettings: { toneAndManner: 'fantasy', keyConcepts: [] },
-              opening: {
-                prologue: '',
-                initialStatusTags: [],
-                initialInventory: [],
-              },
-            };
-    } catch (error) {
-      logger.warn('Failed to parse campaign settings, using defaults:', error);
-      settings = {
-        gmProfile: {
-          personality: 'balanced',
-          speechStyle: 'narrative',
-          guidingPrinciples: [],
-        },
-        worldSettings: { toneAndManner: 'fantasy', keyConcepts: [] },
-        opening: { prologue: '', initialStatusTags: [], initialInventory: [] },
-      };
-    }
+    // Create settings from new PostgreSQL schema fields
+    const settings: CampaignSettings = {
+      gmProfile: {
+        personality: session.aiPersonality || 'balanced',
+        speechStyle: 'narrative',
+        guidingPrinciples: [],
+      },
+      worldSettings: { toneAndManner: 'fantasy', keyConcepts: [] },
+      opening: {
+        prologue: '',
+        initialStatusTags: [],
+        initialInventory: [],
+      },
+    };
 
     return {
       id: session.id,

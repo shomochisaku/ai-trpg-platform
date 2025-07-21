@@ -992,8 +992,8 @@ jobs:
 ### 技術的要件
 
 #### PostgreSQL環境
-- **バージョン**: PostgreSQL 15以上
-- **拡張機能**: pgvector（必須）
+- **バージョン**: PostgreSQL 14以上（実装・テスト済み: PostgreSQL 14.18）
+- **拡張機能**: pgvector（必須、実装・テスト済み: pgvector 0.8.0）
 - **推奨設定**:
   ```sql
   -- pgvector設定
