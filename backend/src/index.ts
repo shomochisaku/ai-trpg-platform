@@ -9,7 +9,7 @@ import { errorHandler } from '@/middleware/errorHandler';
 import { authRoutes } from '@/routes/auth';
 import { healthRoutes } from '@/routes/health';
 import { aiRoutes } from '@/routes/ai';
-// import memoryRoutes from '@/routes/memory'; // MVP: Disabled for minimal schema
+import memoryRoutes from '@/routes/memory'; // MVP: Re-enabled for vector search
 // import { ragRoutes } from '@/routes/rag'; // MVP: Disabled for minimal schema
 import { campaignRoutes } from '@/routes/campaigns';
 import { aiService } from '@/ai/aiService';
@@ -45,7 +45,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/ai', aiRoutes);
-// app.use('/api/memory', memoryRoutes); // MVP: Disabled for minimal schema
+app.use('/api/memory', memoryRoutes); // MVP: Re-enabled for vector search
 // app.use('/api/rag', ragRoutes); // MVP: Disabled for minimal schema
 app.use('/api/campaigns', campaignRoutes);
 
