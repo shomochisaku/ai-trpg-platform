@@ -219,8 +219,9 @@ export class CampaignService {
         ...(validated.settings && {
           // Map aiSettings to new schema fields
           aiGMEnabled: true,
-          aiModel: 'gpt-4', 
-          aiPersonality: validated.settings?.gmProfile?.personality || 'balanced',
+          aiModel: 'gpt-4',
+          aiPersonality:
+            validated.settings?.gmProfile?.personality || 'balanced',
         }),
         ...(validated.status && { status: validated.status as SessionStatus }),
       },
