@@ -189,15 +189,16 @@ describe('Vector Search Integration Tests', () => {
       }
     });
 
-    it.skip('should filter by category', async () => {
+    it('should filter by category', async () => {
       const characterResults = await memoryService.searchMemories({
-        query: 'warrior magic',
+        query: 'Aldric brave warrior Elara wise sorceress character person',
         category: MemoryType.CHARACTER,
         campaignId: 'test-campaign-1',
-        threshold: 0.3, // Lower threshold to ensure results
+        threshold: 0.1, // Low threshold to ensure results
       });
 
       expect(characterResults.length).toBeGreaterThan(0);
+      expect(characterResults.length).toBeLessThanOrEqual(2); // Should only return character results
       characterResults.forEach(result => {
         expect(result.category).toBe(MemoryType.CHARACTER);
       });
