@@ -1,0 +1,60 @@
+databases:
+  - name: ai-trpg-db
+    databaseName: aitrpg
+    user: aitrpguser
+    region: oregon
+
+services:
+  - type: web
+    name: ai-trpg-backend
+    runtime: node
+    region: oregon
+    plan: starter
+    buildCommand: cd backend && npm install && npm run build
+    startCommand: cd backend && npm start
+    healthCheckPath: /api/health
+    numInstances: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ai-trpg-db
+          property: connectionString
+      - key: FRONTEND_URL
+        value: https://ai-trpg.vercel.app
+      - key: ALLOWED_ORIGINS
+        value: https://ai-trpg.vercel.app
+      - key: CORS_CREDENTIALS
+        value: true
+      - key: TRUST_PROXY
+        value: 1
+      - key: BCRYPT_ROUNDS
+        value: 12
+      - key: RATE_LIMIT_WINDOW_MS
+        value: 900000
+      - key: RATE_LIMIT_MAX_REQUESTS
+        value: 100
+      - key: LOG_LEVEL
+        value: info
+      - key: SENTRY_ENVIRONMENT
+        value: production
+      - fromGroup: ai-trpg-secrets
+
+envVarGroups:
+  - name: ai-trpg-secrets
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: PINECONE_API_KEY
+        sync: false
+      - key: PINECONE_ENVIRONMENT
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
