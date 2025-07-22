@@ -57,6 +57,78 @@ export interface GameState {
   lastUpdated: Date;
 }
 
+// Dice Roll Result Types
+export interface DiceResult {
+  dice: string;
+  result: number;
+  breakdown: number[];
+  total: number;
+  target?: number;
+  success?: boolean;
+  advantage?: boolean;
+  disadvantage?: boolean;
+  modifier?: number;
+  reason?: string;
+  timestamp: Date;
+}
+
+// State Change Types
+export interface StateChanges {
+  addedTags: StatusTag[];
+  removedTags: string[];
+  updatedTags: StatusTag[];
+  inventoryChanges: InventoryChange[];
+  statusChanges?: {
+    health?: { old: number; new: number };
+    mana?: { old: number; new: number };
+    stamina?: { old: number; new: number };
+    level?: { old: number; new: number };
+    experience?: { old: number; new: number };
+  };
+}
+
+export interface InventoryChange {
+  type: 'added' | 'removed' | 'updated' | 'equipped' | 'unequipped';
+  item: InventoryItem;
+  quantity?: number;
+  previousQuantity?: number;
+}
+
+// WebSocket Event Types
+export interface GameStateUpdateEvent {
+  type: 'gameState:update';
+  data: {
+    campaignId: string;
+    gameState: GameState;
+    changes: StateChanges;
+    diceResults?: DiceResult[];
+  };
+}
+
+export interface NarrativeUpdateEvent {
+  type: 'narrative:update';
+  data: {
+    campaignId: string;
+    narrative: string;
+    timestamp: Date;
+  };
+}
+
+// Animation Types
+export interface AnimationConfig {
+  duration: number; // in milliseconds
+  type: 'fadeIn' | 'fadeOut' | 'slideIn' | 'slideOut' | 'bounce' | 'pulse';
+  delay?: number;
+}
+
+// Connection State Types  
+export interface ConnectionState {
+  status: 'connected' | 'connecting' | 'disconnected' | 'reconnecting' | 'error';
+  lastConnected?: Date;
+  connectionAttempts: number;
+  error?: string;
+}
+
 export type TagType = StatusTag['type'];
 export type ItemType = InventoryItem['type'];
 export type ItemRarity = InventoryItem['rarity'];
