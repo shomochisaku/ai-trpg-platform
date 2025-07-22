@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { InventoryItem as InventoryItemType } from '../types/status';
 import styles from './InventoryItem.module.css';
 
@@ -6,9 +6,49 @@ interface InventoryItemProps {
   item: InventoryItemType;
   showTooltip?: boolean;
   compact?: boolean;
+  isNew?: boolean; // For add animation
+  isRemoving?: boolean; // For remove animation
+  quantityChanged?: boolean; // For quantity update animation
+  onAnimationComplete?: () => void;
 }
 
-const InventoryItem: React.FC<InventoryItemProps> = ({ item, showTooltip = true, compact = false }) => {
+const InventoryItem: React.FC<InventoryItemProps> = ({ 
+  item, 
+  showTooltip = true, 
+  compact = false,
+  isNew = false,
+  isRemoving = false,
+  quantityChanged = false,
+  onAnimationComplete
+}) => {
+  const [isVisible, setIsVisible] = useState(!isNew);
+  const [isExiting, setIsExiting] = useState(false);
+  const [showQuantityChange, setShowQuantityChange] = useState(false);
+
+  useEffect(() => {
+    if (isNew) {
+      const timer = setTimeout(() => setIsVisible(true), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isNew]);
+
+  useEffect(() => {
+    if (isRemoving && !isExiting) {
+      setIsExiting(true);
+      const timer = setTimeout(() => {
+        onAnimationComplete?.();
+      }, 400); // Match CSS animation duration
+      return () => clearTimeout(timer);
+    }
+  }, [isRemoving, isExiting, onAnimationComplete]);
+
+  useEffect(() => {
+    if (quantityChanged) {
+      setShowQuantityChange(true);
+      const timer = setTimeout(() => setShowQuantityChange(false), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [quantityChanged]);
   const getRarityColor = (rarity?: InventoryItemType['rarity']) => {
     switch (rarity) {
       case 'common':
@@ -59,15 +99,32 @@ const InventoryItem: React.FC<InventoryItemProps> = ({ item, showTooltip = true,
     </div>
   ) : undefined;
 
+  const getAnimationClass = () => {
+    if (isExiting) return styles.slideOut;
+    if (isVisible && isNew) return styles.slideIn;
+    if (!isVisible) return styles.hidden;
+    return '';
+  };
+
   return (
-    <div className={`${styles.inventoryItem} ${getRarityColor(item.rarity)} ${compact ? styles.compact : ''}`}>
+    <div className={`
+      ${styles.inventoryItem} 
+      ${getRarityColor(item.rarity)} 
+      ${compact ? styles.compact : ''} 
+      ${getAnimationClass()}
+      ${showQuantityChange ? styles.quantityPulse : ''}
+    `.trim()}>
       <div className={styles.itemHeader}>
         <div className={styles.itemIcon}>
           {item.icon || getTypeIcon(item.type)}
         </div>
         <div className={styles.itemInfo}>
           <span className={styles.itemName}>{item.name}</span>
-          {item.quantity > 1 && <span className={styles.quantity}>x{item.quantity}</span>}
+          {item.quantity > 1 && (
+            <span className={`${styles.quantity} ${showQuantityChange ? styles.quantityHighlight : ''}`}>
+              x{item.quantity}
+            </span>
+          )}
         </div>
         {item.equipped && <div className={styles.equippedBadge}>E</div>}
       </div>

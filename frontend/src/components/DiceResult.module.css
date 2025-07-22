@@ -1,0 +1,298 @@
+/* Overlay */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+  pointer-events: none;
+}
+
+.overlay.visible {
+  opacity: 1;
+  pointer-events: all;
+}
+
+/* Modal */
+.diceResultModal {
+  background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+  border: 2px solid #444;
+  border-radius: 16px;
+  padding: 2rem;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
+  position: relative;
+  transform: translateY(-50px);
+  opacity: 0;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  color: #fff;
+  text-align: center;
+}
+
+.diceResultModal.slideIn {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* Result Type Colors */
+.success {
+  border-color: #10b981;
+  box-shadow: 0 20px 40px rgba(16, 185, 129, 0.3);
+}
+
+.criticalSuccess {
+  border-color: #fbbf24;
+  box-shadow: 0 20px 40px rgba(251, 191, 36, 0.4);
+  background: linear-gradient(145deg, #3a3a0a, #2a2a05);
+}
+
+.failure {
+  border-color: #ef4444;
+  box-shadow: 0 20px 40px rgba(239, 68, 68, 0.3);
+}
+
+.criticalFailure {
+  border-color: #dc2626;
+  box-shadow: 0 20px 40px rgba(220, 38, 38, 0.5);
+  background: linear-gradient(145deg, #3a0a0a, #2a0505);
+}
+
+/* Close Button */
+.closeButton {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 24px;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  z-index: 1001;
+}
+
+.closeButton:hover {
+  color: #fff;
+}
+
+/* Dice Container */
+.diceContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.dice {
+  font-size: 4rem;
+  animation-duration: 0.8s;
+  animation-timing-function: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  margin-bottom: 0.5rem;
+}
+
+.dice.rolling {
+  animation: diceRoll 0.8s ease-out;
+}
+
+@keyframes diceRoll {
+  0% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(180deg) scale(1.2); }
+  50% { transform: rotate(360deg) scale(0.8); }
+  75% { transform: rotate(540deg) scale(1.1); }
+  100% { transform: rotate(720deg) scale(1); }
+}
+
+.resultNumber {
+  font-size: 3rem;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  min-height: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Result Status */
+.resultStatus {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+  gap: 0.5rem;
+}
+
+.resultIcon {
+  font-size: 2rem;
+  animation: bounceIn 0.6s ease-out 0.2s both;
+}
+
+@keyframes bounceIn {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.resultText {
+  font-size: 1.5rem;
+  font-weight: bold;
+  animation: slideInFromRight 0.5s ease-out 0.4s both;
+}
+
+@keyframes slideInFromRight {
+  0% { 
+    opacity: 0;
+    transform: translateX(20px); 
+  }
+  100% { 
+    opacity: 1;
+    transform: translateX(0); 
+  }
+}
+
+/* Success/Failure Colors */
+.success .resultText,
+.success .resultNumber {
+  color: #10b981;
+}
+
+.criticalSuccess .resultText,
+.criticalSuccess .resultNumber {
+  color: #fbbf24;
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.6);
+}
+
+.failure .resultText,
+.failure .resultNumber {
+  color: #ef4444;
+}
+
+.criticalFailure .resultText,
+.criticalFailure .resultNumber {
+  color: #dc2626;
+  text-shadow: 0 0 10px rgba(220, 38, 38, 0.6);
+}
+
+/* Formula and Reason */
+.formula, .reason {
+  margin-bottom: 1rem;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  animation: fadeInUp 0.4s ease-out 0.6s both;
+}
+
+.difficulty {
+  color: #fbbf24;
+  font-weight: bold;
+}
+
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Details Toggle */
+.detailsToggle {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 1rem;
+  font-size: 0.8rem;
+}
+
+.detailsToggle:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+/* Roll Details */
+.rollDetails {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 0.3s ease-in-out;
+}
+
+.rollDetails.expandIn {
+  transform: scaleY(1);
+}
+
+.rollList {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.diceRoll {
+  display: inline-block;
+  padding: 0.2rem 0.4rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  margin: 0.1rem;
+}
+
+.diceRoll.criticalRoll {
+  background: rgba(251, 191, 36, 0.3);
+  color: #fbbf24;
+  font-weight: bold;
+}
+
+/* Timestamp */
+.timestamp {
+  font-size: 0.7rem;
+  color: #888;
+  margin-top: 1rem;
+  animation: fadeIn 0.3s ease-out 1s both;
+}
+
+@keyframes fadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .diceResultModal {
+    padding: 1.5rem;
+    max-width: 95%;
+  }
+  
+  .dice {
+    font-size: 3rem;
+  }
+  
+  .resultNumber {
+    font-size: 2.5rem;
+  }
+  
+  .resultIcon {
+    font-size: 1.5rem;
+  }
+  
+  .resultText {
+    font-size: 1.3rem;
+  }
+}

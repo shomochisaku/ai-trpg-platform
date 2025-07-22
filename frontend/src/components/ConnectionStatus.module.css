@@ -1,0 +1,186 @@
+/* Base Connection Status */
+.connectionStatus {
+  position: fixed;
+  z-index: 999;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  color: #fff;
+  font-size: 0.75rem;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+  max-width: 200px;
+}
+
+/* Position Classes */
+.bottom_right {
+  bottom: 1rem;
+  right: 1rem;
+}
+
+.bottom_left {
+  bottom: 1rem;
+  left: 1rem;
+}
+
+.top_right {
+  top: 1rem;
+  right: 1rem;
+}
+
+.top_left {
+  top: 1rem;
+  left: 1rem;
+}
+
+/* Compact Mode */
+.compact {
+  padding: 0.25rem 0.5rem;
+  border-radius: 50%;
+  min-width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.compact .statusText {
+  display: none;
+}
+
+/* Status Indicator */
+.statusIndicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.statusIcon {
+  font-size: 0.8rem;
+  line-height: 1;
+  display: inline-block;
+}
+
+.statusText {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Status Colors */
+.connected {
+  border-color: rgba(16, 185, 129, 0.5);
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.connecting {
+  border-color: rgba(251, 191, 36, 0.5);
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.disconnected {
+  border-color: rgba(239, 68, 68, 0.5);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.error {
+  border-color: rgba(220, 38, 38, 0.5);
+  background: rgba(220, 38, 38, 0.1);
+}
+
+/* Animations */
+.pulse {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Error Details */
+.errorDetails {
+  margin-top: 0.25rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.65rem;
+  color: #ff9999;
+  word-break: break-word;
+}
+
+/* Hover Effects */
+.connectionStatus:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.connected:hover {
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.connecting:hover {
+  box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3);
+}
+
+.disconnected:hover,
+.error:hover {
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .connectionStatus {
+    font-size: 0.7rem;
+    padding: 0.4rem 0.6rem;
+    max-width: 150px;
+  }
+
+  .bottom_right,
+  .bottom_left {
+    bottom: 0.5rem;
+  }
+
+  .bottom_right {
+    right: 0.5rem;
+  }
+
+  .bottom_left {
+    left: 0.5rem;
+  }
+
+  .top_right,
+  .top_left {
+    top: 0.5rem;
+  }
+
+  .top_right {
+    right: 0.5rem;
+  }
+
+  .top_left {
+    left: 0.5rem;
+  }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: light) {
+  .connectionStatus {
+    background: rgba(255, 255, 255, 0.9);
+    color: #333;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+  }
+
+  .errorDetails {
+    color: #cc4444;
+  }
+}

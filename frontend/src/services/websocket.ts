@@ -1,5 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 import { ChatMessage, PlayerStatus } from '../types';
+import { GameStateUpdateEvent, NarrativeUpdateEvent, DiceResult } from '../types/status';
 
 // WebSocket event types
 export interface WebSocketEvents {
@@ -14,6 +15,11 @@ export interface WebSocketEvents {
   'game:scene-change': (scene: string) => void;
   'game:player-join': (playerId: string, characterName: string) => void;
   'game:player-leave': (playerId: string) => void;
+  'game:dice-result': (result: DiceResult) => void;
+  
+  // Real-time sync events
+  'gameState:update': (event: GameStateUpdateEvent['data']) => void;
+  'narrative:update': (event: NarrativeUpdateEvent['data']) => void;
   
   // System events
   'system:notification': (notification: { type: string; message: string }) => void;

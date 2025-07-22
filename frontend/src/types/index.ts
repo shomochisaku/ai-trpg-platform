@@ -90,6 +90,12 @@ export interface GameStateStore {
   updateGameState: (updates: Partial<GameState>) => void;
   updatePlayerStatus: (updates: Partial<PlayerStatus>) => void;
   resetGameState: () => void;
+  // Real-time sync support
+  handleStateChanges?: (changes: any) => void;
+  // Dice result display
+  currentDiceResult?: any;
+  showDiceResult: (result: any) => void;
+  hideDiceResult: () => void;
 }
 
 export interface WebSocketStore {

@@ -1,10 +1,13 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import './App.css'
 import ActionInput from './components/ActionInput'
 import StatusPanel from './components/StatusPanel'
 import ChatLog from './components/ChatLog'
+import DiceResult from './components/DiceResult'
+import ConnectionStatus from './components/ConnectionStatus'
 import { useCampaign, useChat, useGameState } from './hooks'
-import { useGameSessionStore, useChatStore } from './store'
+import { useGameSessionStore, useChatStore, useGameStateStore } from './store'
+import { initializeGameStateSync } from './store/gameStateStore'
 import { mockGameState, mockGameStateMinimal } from './types/mockData'
 import { GameState } from './types/status'
 import { getGameSessionState } from './store/gameSessionStore'
@@ -23,6 +26,17 @@ function App() {
     console.log('[App.tsx] Selector executed, session state:', state.session);
     return state.session;
   });
+
+  // Get current dice result from store
+  const { currentDiceResult, hideDiceResult } = useGameStateStore((state) => ({
+    currentDiceResult: state.currentDiceResult,
+    hideDiceResult: state.hideDiceResult,
+  }));
+
+  // Initialize real-time sync on component mount
+  useEffect(() => {
+    initializeGameStateSync();
+  }, []);
   
   const { 
     websocketState, 
@@ -328,6 +342,22 @@ function App() {
       <StatusPanel 
         gameState={mockState}
         onUpdateGameState={(newState) => setMockState(prev => ({ ...prev, ...newState }))}
+      />
+      
+      {/* Dice Result Modal */}
+      {currentDiceResult && (
+        <DiceResult 
+          result={currentDiceResult} 
+          onClose={hideDiceResult}
+          autoCloseDelay={6000}
+        />
+      )}
+      
+      {/* Connection Status Indicator */}
+      <ConnectionStatus 
+        position="bottom-right" 
+        showLabel={true}
+        compact={false}
       />
     </div>
   )

@@ -60,3 +60,57 @@ export interface GameState {
 export type TagType = StatusTag['type'];
 export type ItemType = InventoryItem['type'];
 export type ItemRarity = InventoryItem['rarity'];
+
+// Dice Result Types
+export interface DiceResult {
+  id: string;
+  formula: string;
+  result: number;
+  rolls: DiceRoll[];
+  success: boolean;
+  criticalSuccess?: boolean;
+  criticalFailure?: boolean;
+  difficulty?: number;
+  reason: string;
+  timestamp: Date;
+}
+
+export interface DiceRoll {
+  die: number; // e.g., 20 for d20
+  result: number;
+  critical?: boolean;
+}
+
+// WebSocket Event Types for Game State
+export interface GameStateUpdateEvent {
+  type: 'gameState:update';
+  data: {
+    campaignId: string;
+    gameState: GameState;
+    changes: StateChanges;
+  };
+}
+
+export interface NarrativeUpdateEvent {
+  type: 'narrative:update';
+  data: {
+    campaignId: string;
+    narrative: string;
+    speaker: 'gm' | 'system';
+    timestamp: Date;
+  };
+}
+
+export interface StateChanges {
+  addedTags: StatusTag[];
+  removedTags: string[]; // IDs of removed tags
+  updatedTags: StatusTag[];
+  inventoryChanges: InventoryChange[];
+  statusChanges?: Partial<PlayerStatus>;
+}
+
+export interface InventoryChange {
+  type: 'add' | 'remove' | 'update';
+  item: InventoryItem;
+  quantity?: number;
+}
