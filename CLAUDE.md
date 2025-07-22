@@ -146,8 +146,6 @@ Mastra AI フレームワークをバックエンドプロジェクトに導入�
 ## ラベル
 `milestone-1`, `backend`, `ai-integration`, `priority-high`
 
-## 実装依頼
-@claude このIssueの実装をお願いします。Mastra AI フレームワークの導入とGMエージェントの構築を行ってください。
 ```
 
 ### 3. @claudeコマンドでの実装依頼
