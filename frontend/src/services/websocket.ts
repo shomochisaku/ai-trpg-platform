@@ -1,5 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 import { ChatMessage, PlayerStatus } from '../types';
+import { GameStateUpdateEvent, NarrativeUpdateEvent, DiceResult } from '../types/status';
 
 // WebSocket event types
 export interface WebSocketEvents {
@@ -15,9 +16,15 @@ export interface WebSocketEvents {
   'game:player-join': (playerId: string, characterName: string) => void;
   'game:player-leave': (playerId: string) => void;
   
+  // Real-time sync events
+  'gameState:update': (event: GameStateUpdateEvent['data']) => void;
+  'narrative:update': (event: NarrativeUpdateEvent['data']) => void;
+  'dice:result': (result: DiceResult) => void;
+  
   // System events
   'system:notification': (notification: { type: string; message: string }) => void;
   'system:error': (error: { message: string; code?: string }) => void;
+  'connection:status': (status: { connected: boolean; latency?: number }) => void;
 }
 
 export class WebSocketService {
@@ -27,6 +34,9 @@ export class WebSocketService {
   private reconnectDelay = 1000;
   private sessionId: string | null = null;
   private playerId: string | null = null;
+  private pingInterval: NodeJS.Timeout | null = null;
+  private connectionStatus: 'connected' | 'connecting' | 'disconnected' | 'reconnecting' | 'error' = 'disconnected';
+  private statusCallbacks: ((status: string) => void)[] = [];
 
   constructor(
     private url: string = import.meta.env.VITE_WS_URL || 'ws://localhost:3000'
@@ -47,6 +57,7 @@ export class WebSocketService {
         this.socket.on('connect', () => {
           console.log('WebSocket connected');
           this.reconnectAttempts = 0;
+          this.updateConnectionStatus('connected');
           
           // Join the game session
           this.socket?.emit('join:session', {
@@ -54,20 +65,27 @@ export class WebSocketService {
             playerId,
           });
           
+          // Start ping/pong for connection monitoring
+          this.startPingPong();
+          
           resolve();
         });
 
         this.socket.on('disconnect', () => {
           console.log('WebSocket disconnected');
+          this.updateConnectionStatus('disconnected');
+          this.stopPingPong();
           this.handleReconnect();
         });
 
         this.socket.on('connect_error', (error) => {
           console.error('WebSocket connection error:', error);
+          this.updateConnectionStatus('error');
           this.handleReconnect();
           reject(error);
         });
 
+        this.updateConnectionStatus('connecting');
         this.socket.connect();
       } catch (error) {
         console.error('Failed to initialize WebSocket:', error);
@@ -98,12 +116,15 @@ export class WebSocketService {
       const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
       
       console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts}) in ${delay}ms`);
+      this.updateConnectionStatus('reconnecting');
       
       setTimeout(() => {
         this.connect(this.sessionId!, this.playerId!).catch((error) => {
           console.error('Reconnection failed:', error);
         });
       }, delay);
+    } else {
+      this.updateConnectionStatus('disconnected');
     }
   }
 
@@ -164,6 +185,73 @@ export class WebSocketService {
   // Get connection attempts
   getConnectionAttempts(): number {
     return this.reconnectAttempts;
+  }
+
+  // Get connection status
+  getConnectionStatus(): string {
+    return this.connectionStatus;
+  }
+
+  // Subscribe to connection status changes
+  onConnectionStatusChange(callback: (status: string) => void): () => void {
+    this.statusCallbacks.push(callback);
+    // Return unsubscribe function
+    return () => {
+      const index = this.statusCallbacks.indexOf(callback);
+      if (index > -1) {
+        this.statusCallbacks.splice(index, 1);
+      }
+    };
+  }
+
+  // Update connection status
+  private updateConnectionStatus(status: 'connected' | 'connecting' | 'disconnected' | 'reconnecting' | 'error'): void {
+    this.connectionStatus = status;
+    this.statusCallbacks.forEach(callback => callback(status));
+  }
+
+  // Start ping/pong for connection monitoring
+  private startPingPong(): void {
+    this.stopPingPong();
+    
+    this.pingInterval = setInterval(() => {
+      if (this.socket?.connected) {
+        const startTime = Date.now();
+        this.socket.emit('ping', () => {
+          const latency = Date.now() - startTime;
+          this.socket?.emit('connection:status', { 
+            connected: true, 
+            latency 
+          });
+        });
+      }
+    }, 5000); // Ping every 5 seconds
+  }
+
+  // Stop ping/pong
+  private stopPingPong(): void {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
+    }
+  }
+
+  // Emit game state request
+  requestGameState(): void {
+    if (this.socket && this.sessionId) {
+      this.socket.emit('game:request-state', {
+        sessionId: this.sessionId,
+      });
+    }
+  }
+
+  // Subscribe to real-time updates
+  subscribeToUpdates(): void {
+    if (this.socket && this.sessionId) {
+      this.socket.emit('game:subscribe-updates', {
+        sessionId: this.sessionId,
+      });
+    }
   }
 }
 

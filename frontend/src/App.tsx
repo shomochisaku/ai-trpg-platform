@@ -1,9 +1,12 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import './App.css'
 import ActionInput from './components/ActionInput'
 import StatusPanel from './components/StatusPanel'
 import ChatLog from './components/ChatLog'
+import DiceResult from './components/DiceResult'
+import ConnectionIndicator from './components/ConnectionIndicator'
 import { useCampaign, useChat, useGameState } from './hooks'
+import { useRealtimeSync } from './hooks/useRealtimeSync'
 import { useGameSessionStore, useChatStore } from './store'
 import { mockGameState, mockGameStateMinimal } from './types/mockData'
 import { GameState } from './types/status'
@@ -17,6 +20,7 @@ function App() {
   const [currentInput, setCurrentInput] = useState('')
   const [useMockData, setUseMockData] = useState(true)
   const [mockState, setMockState] = useState<GameState>(mockGameState)
+  const [activeDiceResultIndex, setActiveDiceResultIndex] = useState<number | null>(null)
   
   // Use direct Zustand selectors for consistent session state
   const session = useGameSessionStore((state) => {
@@ -51,6 +55,13 @@ function App() {
     gameState, 
     updatePlayerStatus 
   } = useGameState()
+  
+  // Real-time sync
+  const {
+    diceResults,
+    clearDiceResults,
+    stateChanges
+  } = useRealtimeSync(currentCampaign?.id)
 
   const handleCreateSession = useCallback(async () => {
     if (!characterName.trim()) return
@@ -147,6 +158,27 @@ function App() {
     setUseMockData(!useMockData)
     setMockState(useMockData ? mockGameStateMinimal : mockGameState)
   }
+  
+  // Handle dice results display
+  const handleCloseDiceResult = useCallback(() => {
+    if (activeDiceResultIndex !== null && diceResults.length > 0) {
+      // If there are more results, show the next one
+      if (activeDiceResultIndex < diceResults.length - 1) {
+        setActiveDiceResultIndex(activeDiceResultIndex + 1)
+      } else {
+        // Otherwise clear all
+        setActiveDiceResultIndex(null)
+        clearDiceResults()
+      }
+    }
+  }, [activeDiceResultIndex, diceResults.length, clearDiceResults])
+  
+  // Show new dice results as they come in
+  useEffect(() => {
+    if (diceResults.length > 0 && activeDiceResultIndex === null) {
+      setActiveDiceResultIndex(0)
+    }
+  }, [diceResults.length, activeDiceResultIndex])
 
 
   return (
@@ -326,8 +358,25 @@ function App() {
         </section>
       </div>
       <StatusPanel 
-        gameState={mockState}
+        gameState={useMockData ? mockState : mockState}
+        stateChanges={session.isConnected ? stateChanges : null}
         onUpdateGameState={(newState) => setMockState(prev => ({ ...prev, ...newState }))}
+      />
+      
+      {/* Dice Results Display */}
+      {activeDiceResultIndex !== null && diceResults[activeDiceResultIndex] && (
+        <DiceResult
+          result={diceResults[activeDiceResultIndex]}
+          onClose={handleCloseDiceResult}
+          autoClose={true}
+          autoCloseDelay={5000}
+        />
+      )}
+      
+      {/* Connection Indicator */}
+      <ConnectionIndicator 
+        showDetails={true}
+        position="bottom-right"
       />
     </div>
   )

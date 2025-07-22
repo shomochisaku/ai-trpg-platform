@@ -1,0 +1,251 @@
+.diceResultContainer {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.diceResultContainer.visible {
+  opacity: 1;
+}
+
+.diceResult {
+  background: var(--color-bg-secondary, #2a2a2a);
+  border: 2px solid var(--color-border, #444);
+  border-radius: 12px;
+  padding: 24px;
+  min-width: 300px;
+  max-width: 400px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  position: relative;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-20px) scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Success/Failure styling */
+.diceResult.success {
+  border-color: #4ade80;
+  background: linear-gradient(135deg, rgba(74, 222, 128, 0.1) 0%, transparent 100%);
+}
+
+.diceResult.failure {
+  border-color: #f87171;
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.1) 0%, transparent 100%);
+}
+
+.diceResult.neutral {
+  border-color: #60a5fa;
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.1) 0%, transparent 100%);
+}
+
+/* Close button */
+.closeButton {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: var(--color-text-secondary, #999);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: color 0.2s;
+}
+
+.closeButton:hover {
+  color: var(--color-text-primary, #fff);
+}
+
+/* Dice icon */
+.diceIcon {
+  font-size: 64px;
+  text-align: center;
+  margin-bottom: 16px;
+  line-height: 1;
+}
+
+.diceIcon.rolling {
+  animation: rollDice 1s ease-in-out;
+}
+
+@keyframes rollDice {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  25% {
+    transform: rotate(180deg) scale(1.1);
+  }
+  50% {
+    transform: rotate(360deg) scale(1);
+  }
+  75% {
+    transform: rotate(540deg) scale(1.1);
+  }
+  100% {
+    transform: rotate(720deg) scale(1);
+  }
+}
+
+/* Main result display */
+.mainResult {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.diceExpression {
+  font-size: 14px;
+  color: var(--color-text-secondary, #999);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.resultValue {
+  font-size: 48px;
+  font-weight: bold;
+  color: var(--color-text-primary, #fff);
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.target {
+  font-size: 24px;
+  color: var(--color-text-secondary, #999);
+}
+
+.resultText {
+  font-size: 20px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-top: 8px;
+}
+
+.success .resultText {
+  color: #4ade80;
+  text-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+}
+
+.failure .resultText {
+  color: #f87171;
+  text-shadow: 0 0 10px rgba(248, 113, 113, 0.5);
+}
+
+/* Breakdown */
+.breakdown {
+  text-align: center;
+  font-size: 14px;
+  color: var(--color-text-secondary, #999);
+  margin-bottom: 12px;
+  font-family: monospace;
+}
+
+/* Special roll indicators */
+.specialRoll {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.advantage,
+.disadvantage {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.advantage {
+  background: rgba(74, 222, 128, 0.2);
+  color: #4ade80;
+  border: 1px solid #4ade80;
+}
+
+.disadvantage {
+  background: rgba(248, 113, 113, 0.2);
+  color: #f87171;
+  border: 1px solid #f87171;
+}
+
+/* Reason/Details section */
+.reason {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border, #444);
+}
+
+.detailsToggle {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary, #999);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 8px;
+  margin-bottom: 8px;
+  transition: color 0.2s;
+}
+
+.detailsToggle:hover {
+  color: var(--color-text-primary, #fff);
+}
+
+.reasonText {
+  font-size: 14px;
+  color: var(--color-text-secondary, #999);
+  line-height: 1.5;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Timestamp */
+.timestamp {
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-text-tertiary, #666);
+  margin-top: 12px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .diceResult {
+    min-width: 280px;
+    padding: 20px;
+  }
+  
+  .diceIcon {
+    font-size: 48px;
+  }
+  
+  .resultValue {
+    font-size: 36px;
+  }
+  
+  .resultText {
+    font-size: 16px;
+  }
+}

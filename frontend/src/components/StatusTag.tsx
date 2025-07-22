@@ -1,13 +1,43 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { StatusTag as StatusTagType } from '../types/status';
 import styles from './StatusTag.module.css';
 
 interface StatusTagProps {
   tag: StatusTagType;
   showTooltip?: boolean;
+  isNew?: boolean;
+  isRemoving?: boolean;
+  isUpdated?: boolean;
+  onRemoveComplete?: () => void;
 }
 
-const StatusTag: React.FC<StatusTagProps> = ({ tag, showTooltip = true }) => {
+const StatusTag: React.FC<StatusTagProps> = ({ 
+  tag, 
+  showTooltip = true,
+  isNew = false,
+  isRemoving = false,
+  isUpdated = false,
+  onRemoveComplete
+}) => {
+  const [animationClass, setAnimationClass] = useState('');
+
+  useEffect(() => {
+    if (isNew) {
+      setAnimationClass(styles.entering);
+      const timer = setTimeout(() => setAnimationClass(''), 500);
+      return () => clearTimeout(timer);
+    } else if (isRemoving) {
+      setAnimationClass(styles.leaving);
+      const timer = setTimeout(() => {
+        onRemoveComplete?.();
+      }, 300);
+      return () => clearTimeout(timer);
+    } else if (isUpdated) {
+      setAnimationClass(styles.updating);
+      const timer = setTimeout(() => setAnimationClass(''), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isNew, isRemoving, isUpdated, onRemoveComplete]);
   const getTagColor = (type: StatusTagType['type']) => {
     switch (type) {
       case 'buff':
@@ -36,7 +66,7 @@ const StatusTag: React.FC<StatusTagProps> = ({ tag, showTooltip = true }) => {
   const hasStackCount = tag.stackable && tag.stackCount && tag.stackCount > 1;
 
   return (
-    <div className={`${styles.statusTag} ${getTagColor(tag.type)}`} title={showTooltip ? tag.description : undefined}>
+    <div className={`${styles.statusTag} ${getTagColor(tag.type)} ${animationClass}`} title={showTooltip ? tag.description : undefined}>
       <div className={styles.tagContent}>
         {tag.icon && <span className={styles.icon}>{tag.icon}</span>}
         <span className={styles.name}>{tag.name}</span>

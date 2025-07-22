@@ -1,19 +1,62 @@
-import React, { useState } from 'react';
-import { GameState } from '../types/status';
+import React, { useState, useEffect } from 'react';
+import { GameState, StateChanges } from '../types/status';
 import StatusTag from './StatusTag';
 import InventoryItem from './InventoryItem';
 import styles from './StatusPanel.module.css';
 
 interface StatusPanelProps {
   gameState: GameState;
+  stateChanges?: StateChanges | null;
   onUpdateGameState?: (newState: Partial<GameState>) => void;
 }
 
-const StatusPanel: React.FC<StatusPanelProps> = ({ gameState }) => {
+const StatusPanel: React.FC<StatusPanelProps> = ({ gameState, stateChanges }) => {
   const [activeTab, setActiveTab] = useState<'status' | 'inventory'>('status');
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [tagAnimationStates, setTagAnimationStates] = useState<{
+    [tagId: string]: 'new' | 'updated' | 'removing' | null;
+  }>({});
 
   const { player, scene } = gameState;
+
+  // Process state changes for animations
+  useEffect(() => {
+    if (!stateChanges) return;
+
+    const newStates: typeof tagAnimationStates = {};
+
+    // Mark new tags
+    stateChanges.addedTags.forEach(tag => {
+      newStates[tag.id] = 'new';
+    });
+
+    // Mark updated tags
+    stateChanges.updatedTags.forEach(tag => {
+      newStates[tag.id] = 'updated';
+    });
+
+    // Mark removed tags
+    stateChanges.removedTags.forEach(tagId => {
+      newStates[tagId] = 'removing';
+    });
+
+    setTagAnimationStates(prev => ({ ...prev, ...newStates }));
+
+    // Clear animation states after animation completes
+    const timer = setTimeout(() => {
+      setTagAnimationStates(prev => {
+        const cleared = { ...prev };
+        Object.keys(newStates).forEach(id => {
+          if (cleared[id] !== 'removing') {
+            cleared[id] = null;
+          }
+        });
+        return cleared;
+      });
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [stateChanges]);
 
   const getHealthPercentage = () => {
     return (player.status.health / player.status.maxHealth) * 100;
@@ -171,7 +214,20 @@ const StatusPanel: React.FC<StatusPanelProps> = ({ gameState }) => {
           <div className={styles.statusTagsContainer}>
             {player.statusTags.length > 0 ? (
               player.statusTags.map(tag => (
-                <StatusTag key={tag.id} tag={tag} />
+                <StatusTag 
+                  key={tag.id} 
+                  tag={tag}
+                  isNew={tagAnimationStates[tag.id] === 'new'}
+                  isUpdated={tagAnimationStates[tag.id] === 'updated'}
+                  isRemoving={tagAnimationStates[tag.id] === 'removing'}
+                  onRemoveComplete={() => {
+                    setTagAnimationStates(prev => {
+                      const updated = { ...prev };
+                      delete updated[tag.id];
+                      return updated;
+                    });
+                  }}
+                />
               ))
             ) : (
               <div className={styles.emptyState}>No active status effects</div>

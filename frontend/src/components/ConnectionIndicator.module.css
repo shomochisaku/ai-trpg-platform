@@ -1,0 +1,180 @@
+.connectionIndicator {
+  position: fixed;
+  background: var(--color-bg-secondary, #2a2a2a);
+  border: 1px solid var(--color-border, #444);
+  border-radius: 20px;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Position classes */
+.bottom_right {
+  bottom: 20px;
+  right: 20px;
+}
+
+.bottom_left {
+  bottom: 20px;
+  left: 20px;
+}
+
+.top_right {
+  top: 20px;
+  right: 20px;
+}
+
+.top_left {
+  top: 20px;
+  left: 20px;
+}
+
+/* Status classes */
+.connected {
+  border-color: #4ade80;
+  background: linear-gradient(135deg, rgba(74, 222, 128, 0.1) 0%, transparent 100%);
+}
+
+.connecting {
+  border-color: #fbbf24;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, transparent 100%);
+}
+
+.disconnected {
+  border-color: #f87171;
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.1) 0%, transparent 100%);
+}
+
+/* Status icon */
+.statusIcon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+.icon {
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* Spinner animation */
+.spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+/* Status text */
+.statusText {
+  color: var(--color-text-primary, #fff);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Hover effect */
+.connectionIndicator:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Expanded details */
+.expandedDetails {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  background: var(--color-bg-secondary, #2a2a2a);
+  border: 1px solid var(--color-border, #444);
+  border-radius: 8px;
+  padding: 12px;
+  min-width: 200px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.2s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.detailsContent {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detailRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+.detailLabel {
+  color: var(--color-text-secondary, #999);
+  font-weight: 500;
+}
+
+.detailValue {
+  color: var(--color-text-primary, #fff);
+  font-family: monospace;
+  font-size: 11px;
+}
+
+/* Pulse animation for connected state */
+.connected .icon {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+/* Mobile responsiveness */
+@media (max-width: 480px) {
+  .connectionIndicator {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  
+  .statusText {
+    display: none;
+  }
+  
+  .expandedDetails {
+    right: auto;
+    left: 0;
+  }
+}
