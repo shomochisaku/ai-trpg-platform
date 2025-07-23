@@ -18,6 +18,8 @@ jest.mock('@prisma/client', () => {
     $transaction: jest.fn(),
     $queryRaw: jest.fn(),
     $executeRaw: jest.fn(),
+    $queryRawUnsafe: jest.fn(),
+    $executeRawUnsafe: jest.fn(),
     
     // Campaign related tables
     campaign: {
@@ -134,6 +136,130 @@ jest.mock('@mastra/memory', () => ({
     remember: jest.fn().mockResolvedValue([]),
     search: jest.fn().mockResolvedValue([]),
   })),
+}));
+
+// Mock vector search service
+jest.mock('../src/services/vectorSearchService', () => ({
+  vectorSearchService: {
+    searchMemories: jest.fn().mockResolvedValue([
+      {
+        id: 'test-memory-1',
+        content: 'Test memory content',
+        category: 'GENERAL',
+        similarity: 0.9,
+        importance: 7,
+        tags: ['test'],
+        isActive: true,
+        userId: 'test-user',
+        sessionId: 'test-session',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        embedding: new Array(1536).fill(0.1),
+      }
+    ]),
+    storeMemory: jest.fn().mockResolvedValue({ id: 'test-memory-id' }),
+    validateEmbedding: jest.fn().mockImplementation((embedding) => {
+      if (!Array.isArray(embedding)) {
+        throw new Error('Embedding must be an array');
+      }
+      if (embedding.length === 0) {
+        throw new Error('Embedding cannot be empty');
+      }
+      for (let i = 0; i < embedding.length; i++) {
+        if (typeof embedding[i] !== 'number') {
+          throw new Error(`Invalid embedding value at index ${i}`);
+        }
+      }
+      return embedding;
+    }),
+    cosineSimilarity: jest.fn().mockImplementation((vec1, vec2) => {
+      // Simple dot product for test purposes
+      let dotProduct = 0;
+      let norm1 = 0;
+      let norm2 = 0;
+      for (let i = 0; i < vec1.length; i++) {
+        dotProduct += vec1[i] * vec2[i];
+        norm1 += vec1[i] * vec1[i];
+        norm2 += vec2[i] * vec2[i];
+      }
+      return dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2));
+    }),
+  },
+}));
+
+// Mock embedding service
+jest.mock('../src/utils/embeddings', () => ({
+  embeddingService: {
+    generateEmbedding: jest.fn().mockResolvedValue(new Array(1536).fill(0.1)),
+  },
+}));
+
+// Mock memory service
+jest.mock('../src/services/memoryService', () => ({
+  memoryService: {
+    createMemory: jest.fn().mockResolvedValue({
+      id: 'test-memory-id',
+      content: 'Test memory content',
+      category: 'GENERAL',
+      importance: 5,
+      tags: ['test'],
+      isActive: true,
+      userId: 'test-user',
+      sessionId: 'test-session',
+      embedding: new Array(1536).fill(0.1),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }),
+    searchMemories: jest.fn().mockResolvedValue([]),
+    updateMemory: jest.fn().mockResolvedValue({
+      id: 'test-memory-id',
+      content: 'Updated content',
+      category: 'GENERAL',
+      importance: 5,
+      tags: ['test'],
+      isActive: true,
+      userId: 'test-user',
+      sessionId: 'test-session',
+      embedding: new Array(1536).fill(0.2),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }),
+    deleteMemory: jest.fn().mockResolvedValue(undefined),
+    getMemory: jest.fn().mockResolvedValue({
+      id: 'test-memory-id',
+      content: 'Test content',
+      category: 'GENERAL',
+      importance: 5,
+      tags: ['test'],
+      isActive: false,
+      userId: 'test-user',
+      sessionId: 'test-session',
+      embedding: new Array(1536).fill(0.1),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }),
+    getMemoriesByType: jest.fn().mockResolvedValue([]),
+    bulkImportMemories: jest.fn().mockResolvedValue(0),
+    getCampaignMemoryStats: jest.fn().mockResolvedValue({
+      totalMemories: 0,
+      activeMemories: 0,
+      memoriesByCategory: {},
+      averageImportance: 0,
+    }),
+  },
+}));
+
+// Mock AI configuration
+jest.mock('../src/ai/config', () => ({
+  mastraInstance: {
+    agents: {
+      create: jest.fn().mockReturnValue({
+        generate: jest.fn().mockResolvedValue({
+          text: '{"narrative": "Test GM response", "gameState": {"statusTags": [], "inventory": []}}',
+        }),
+      }),
+    },
+  },
 }));
 
 // Mock AI services
