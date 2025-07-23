@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import helmet from 'helmet';
+import compression from 'compression';
 import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
@@ -16,38 +16,63 @@ import { aiService } from '@/ai/aiService';
 // import { memoryService } from '@/services/memory'; // MVP: Disabled for minimal schema
 // import { ragService } from '@/services/ragService'; // MVP: Disabled for minimal schema
 
+// Security middleware imports
+import { securityHeaders, additionalSecurityHeaders, enhancedCorsOptions, securityAudit } from '@/middleware/securityHeaders';
+import { generalRateLimit, slowDownMiddleware, authRateLimit, aiProcessingRateLimit, campaignCreationRateLimit } from '@/middleware/rateLimiter';
+import { sanitizeInput, validateContentLength } from '@/middleware/validation';
+import { apiKeyManager, validateEnvironmentSecurity } from '@/middleware/apiKeyManager';
+
 // Load environment variables
 dotenv.config();
+
+// Initialize test security for development/testing
+import { initializeTestSecurity } from '@/middleware/testSecurity';
+initializeTestSecurity();
 
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
-  cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-    methods: ['GET', 'POST'],
-  },
+  cors: enhancedCorsOptions,
 });
 
 const PORT = process.env.PORT || 3000;
 
-// Security middleware
-app.use(helmet());
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true,
+// Initialize API key manager and validate environment
+app.use(validateEnvironmentSecurity);
+
+// Security middleware (order matters!)
+app.use(compression()); // Compress responses
+app.use(generalRateLimit); // Rate limiting
+app.use(slowDownMiddleware); // Gradual slowdown
+app.use(securityHeaders); // Security headers via helmet
+app.use(additionalSecurityHeaders); // Additional custom headers
+app.use(cors(enhancedCorsOptions)); // Enhanced CORS
+app.use(securityAudit); // Security audit logging
+
+// Content validation
+app.use(validateContentLength(2 * 1024 * 1024)); // 2MB limit
+
+// Body parsing middleware with security
+app.use(express.json({ 
+  limit: '2mb',
+  strict: true // Only parse objects and arrays
+}));
+app.use(express.urlencoded({ 
+  extended: true, 
+  limit: '2mb',
+  parameterLimit: 50 // Limit number of parameters
 }));
 
-// Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Input sanitization
+app.use(sanitizeInput);
 
-// Routes
+// Routes with specific security middleware
 app.use('/api/health', healthRoutes);
-app.use('/api/auth', authRoutes);
-app.use('/api/ai', aiRoutes);
+app.use('/api/auth', authRateLimit, authRoutes);
+app.use('/api/ai', aiProcessingRateLimit, aiRoutes);
 app.use('/api/memory', memoryRoutes); // MVP: Re-enabled for vector search
 // app.use('/api/rag', ragRoutes); // MVP: Disabled for minimal schema
-app.use('/api/campaigns', campaignRoutes);
+app.use('/api/campaigns', campaignCreationRateLimit, campaignRoutes);
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
