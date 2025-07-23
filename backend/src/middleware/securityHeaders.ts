@@ -14,17 +14,17 @@ export const securityHeaders = helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
+      imgSrc: ["'self'", 'data:', 'https:'],
       connectSrc: [
         "'self'",
         frontendUrl,
         // Allow AI API connections (needed for backend)
-        "https://api.openai.com",
-        "https://api.anthropic.com",
+        'https://api.openai.com',
+        'https://api.anthropic.com',
         // WebSocket connections
-        isDevelopment ? "ws://localhost:*" : "'self'"
+        isDevelopment ? 'ws://localhost:*' : "'self'",
       ],
-      fontSrc: ["'self'", "https:", "data:"],
+      fontSrc: ["'self'", 'https:', 'data:'],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
       frameSrc: ["'none'"],
@@ -41,8 +41,8 @@ export const securityHeaders = helmet({
 
   // CSRF protection via same-origin policy
   crossOriginEmbedderPolicy: false, // Allow embedding for development tools
-  crossOriginOpenerPolicy: { policy: "same-origin" },
-  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginOpenerPolicy: { policy: 'same-origin' },
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
 
   // DNS prefetch control
   dnsPrefetchControl: { allow: false },
@@ -57,31 +57,42 @@ export const securityHeaders = helmet({
   noSniff: true,
 
   // Referrer policy
-  referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 
   // XSS filtering
   xssFilter: true,
 });
 
 // Additional security headers middleware
-export const additionalSecurityHeaders = (req: Request, res: Response, next: NextFunction): void => {
+export const additionalSecurityHeaders = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void => {
   // Add custom security headers
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
-  
+  res.setHeader(
+    'Strict-Transport-Security',
+    'max-age=31536000; includeSubDomains; preload'
+  );
+
   // Permissions Policy (Feature Policy)
-  res.setHeader('Permissions-Policy', 
+  res.setHeader(
+    'Permissions-Policy',
     'camera=(), microphone=(), geolocation=(), interest-cohort=()'
   );
 
   // Prevent MIME type confusion
   res.setHeader('X-Download-Options', 'noopen');
-  
+
   // Disable client-side caching for sensitive endpoints
   if (req.path.includes('/api/auth') || req.path.includes('/api/campaigns')) {
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader(
+      'Cache-Control',
+      'no-store, no-cache, must-revalidate, private'
+    );
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
   }
@@ -92,7 +103,7 @@ export const additionalSecurityHeaders = (req: Request, res: Response, next: Nex
       path: req.path,
       method: req.method,
       userAgent: req.get('User-Agent')?.substring(0, 100),
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -101,10 +112,13 @@ export const additionalSecurityHeaders = (req: Request, res: Response, next: Nex
 
 // CORS security enhancements
 export const enhancedCorsOptions = {
-  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+  origin: (
+    origin: string | undefined,
+    callback: (err: Error | null, allow?: boolean) => void
+  ): void => {
     // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
-    
+
     const allowedOrigins = [
       frontendUrl,
       'http://localhost:3000',
@@ -114,7 +128,9 @@ export const enhancedCorsOptions = {
 
     // In production, be more restrictive
     if (!isDevelopment) {
-      const productionOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [frontendUrl];
+      const productionOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
+        frontendUrl,
+      ];
       allowedOrigins.length = 0;
       allowedOrigins.push(...productionOrigins);
     }
@@ -125,7 +141,7 @@ export const enhancedCorsOptions = {
       logger.warn('CORS blocked request from unauthorized origin', {
         origin,
         allowedOrigins,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
       callback(new Error('Not allowed by CORS'), false);
     }
@@ -136,40 +152,46 @@ export const enhancedCorsOptions = {
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
     'Origin',
-    'X-Requested-With', 
+    'X-Requested-With',
     'Content-Type',
     'Accept',
     'Authorization',
-    'X-API-Key'
+    'X-API-Key',
   ],
   exposedHeaders: [
     'X-RateLimit-Limit',
     'X-RateLimit-Remaining',
-    'X-RateLimit-Reset'
+    'X-RateLimit-Reset',
   ],
 };
 
 // Security audit middleware
-export const securityAudit = (req: Request, res: Response, next: NextFunction): void => {
+export const securityAudit = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void => {
   // Log potentially suspicious requests
   const suspiciousPatterns = [
     // Common attack patterns
-    /\.\./,  // Directory traversal
-    /<script/i,  // XSS attempts
-    /union.*select/i,  // SQL injection
-    /javascript:/i,  // JavaScript protocol
-    /vbscript:/i,   // VBScript protocol
+    /\.\./, // Directory traversal
+    /<script/i, // XSS attempts
+    /union.*select/i, // SQL injection
+    /javascript:/i, // JavaScript protocol
+    /vbscript:/i, // VBScript protocol
   ];
 
   const requestString = JSON.stringify({
     url: req.url,
     query: req.query,
     body: req.body,
-    headers: req.headers
+    headers: req.headers,
   });
 
-  const isSuspicious = suspiciousPatterns.some(pattern => pattern.test(requestString));
-  
+  const isSuspicious = suspiciousPatterns.some(pattern =>
+    pattern.test(requestString)
+  );
+
   if (isSuspicious) {
     logger.error('Suspicious request detected', {
       ip: req.ip,
@@ -178,9 +200,9 @@ export const securityAudit = (req: Request, res: Response, next: NextFunction): 
       userAgent: req.get('User-Agent'),
       body: req.body,
       query: req.query,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
-    
+
     // You might want to implement additional actions here like:
     // - Blocking the IP temporarily
     // - Increasing rate limits for this IP

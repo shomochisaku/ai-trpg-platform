@@ -22,7 +22,7 @@ router.get('/security', (req: Request, res: Response) => {
   try {
     const apiKeyHealth = apiKeyManager.getHealthStatus();
     const memoryUsage = process.memoryUsage();
-    
+
     const securityHealth = {
       status: 'OK',
       timestamp: new Date().toISOString(),
@@ -61,7 +61,7 @@ router.get('/security', (req: Request, res: Response) => {
     res.json(securityHealth);
   } catch (error) {
     logger.error('Security health check failed', error);
-    
+
     res.status(500).json({
       status: 'ERROR',
       timestamp: new Date().toISOString(),

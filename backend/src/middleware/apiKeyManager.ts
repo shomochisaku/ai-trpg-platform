@@ -1,6 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import { logger } from '@/utils/logger';
 
+// Extend Express Request interface
+interface AuthenticatedRequest extends Request {
+  apiKey?: string;
+}
+
 // API Key management and security
 export interface ApiKeyInfo {
   name: string;
@@ -40,7 +45,9 @@ export class ApiKeyManager {
         });
       } else if (config.required) {
         logger.error(`Required API key missing: ${config.name}`);
-        throw new Error(`Missing required environment variable: ${config.name}`);
+        throw new Error(
+          `Missing required environment variable: ${config.name}`
+        );
       }
     });
   }
@@ -50,13 +57,13 @@ export class ApiKeyManager {
       {
         name: 'OPENAI_API_KEY',
         validator: (key: string) => key.startsWith('sk-') && key.length > 20,
-        message: 'OpenAI API key format is invalid'
+        message: 'OpenAI API key format is invalid',
       },
       {
         name: 'JWT_SECRET',
         validator: (key: string) => key.length >= 32,
-        message: 'JWT secret must be at least 32 characters long'
-      }
+        message: 'JWT secret must be at least 32 characters long',
+      },
     ];
 
     securityChecks.forEach(check => {
@@ -72,9 +79,12 @@ export class ApiKeyManager {
 
   private setupRotationMonitoring(): void {
     // Check for API key rotation needs every 24 hours
-    const rotationInterval = setInterval(() => {
-      this.checkRotationNeeds();
-    }, 24 * 60 * 60 * 1000);
+    const rotationInterval = setInterval(
+      () => {
+        this.checkRotationNeeds();
+      },
+      24 * 60 * 60 * 1000
+    );
 
     // Clean up on process exit
     process.on('SIGTERM', () => {
@@ -90,14 +100,16 @@ export class ApiKeyManager {
     this.apiKeys.forEach((keyInfo, keyName) => {
       if (keyInfo.lastRotated) {
         const daysSinceRotation = now.getTime() - keyInfo.lastRotated.getTime();
-        
+
         if (daysSinceRotation > rotationThreshold) {
           logger.warn(`API key rotation recommended: ${keyName}`, {
             lastRotated: keyInfo.lastRotated,
-            daysSinceRotation: Math.floor(daysSinceRotation / (24 * 60 * 60 * 1000)),
-            usageCount: keyInfo.usageCount
+            daysSinceRotation: Math.floor(
+              daysSinceRotation / (24 * 60 * 60 * 1000)
+            ),
+            usageCount: keyInfo.usageCount,
           });
-          
+
           // Emit rotation event (could be handled by monitoring system)
           this.emitRotationAlert(keyName, keyInfo);
         }
@@ -112,7 +124,7 @@ export class ApiKeyManager {
       lastRotated: keyInfo.lastRotated,
       usageCount: keyInfo.usageCount,
       action: 'rotation_recommended',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
 
     // TODO: Integrate with external alerting system
@@ -125,12 +137,12 @@ export class ApiKeyManager {
     const keyInfo = this.apiKeys.get(keyName);
     if (keyInfo) {
       keyInfo.usageCount = (keyInfo.usageCount || 0) + 1;
-      
+
       // Log high usage patterns
       if (keyInfo.usageCount % 1000 === 0) {
         logger.info(`API key usage milestone: ${keyName}`, {
           usageCount: keyInfo.usageCount,
-          lastRotated: keyInfo.lastRotated
+          lastRotated: keyInfo.lastRotated,
         });
       }
     }
@@ -143,7 +155,7 @@ export class ApiKeyManager {
   public getSecuredKey(keyName: string): string | undefined {
     const keyInfo = this.apiKeys.get(keyName);
     if (!keyInfo) return undefined;
-    
+
     this.incrementUsage(keyName);
     return keyInfo.key;
   }
@@ -160,7 +172,7 @@ export class ApiKeyManager {
     logger.info(`API key rotated successfully: ${keyName}`, {
       previousKeyPreview: oldKey.substring(0, 8) + '...',
       newKeyPreview: newKey.substring(0, 8) + '...',
-      rotatedAt: keyInfo.lastRotated
+      rotatedAt: keyInfo.lastRotated,
     });
 
     return true;
@@ -174,12 +186,14 @@ export class ApiKeyManager {
   } {
     const now = new Date();
     const rotationThreshold = 30 * 24 * 60 * 60 * 1000; // 30 days
-    
+
     let keysNeedingRotation = 0;
-    
+
     this.apiKeys.forEach(keyInfo => {
-      if (keyInfo.lastRotated && 
-          (now.getTime() - keyInfo.lastRotated.getTime()) > rotationThreshold) {
+      if (
+        keyInfo.lastRotated &&
+        now.getTime() - keyInfo.lastRotated.getTime() > rotationThreshold
+      ) {
         keysNeedingRotation++;
       }
     });
@@ -188,7 +202,7 @@ export class ApiKeyManager {
       totalKeys: this.apiKeys.size,
       validKeys: this.apiKeys.size, // All loaded keys are considered valid
       keysNeedingRotation,
-      lastCheck: now
+      lastCheck: now,
     };
   }
 }
@@ -205,12 +219,19 @@ export const getApiKeyManager = (): ApiKeyManager => {
 
 // Backward compatibility
 export const apiKeyManager = {
-  get instance() { return getApiKeyManager(); },
-  getHealthStatus: () => getApiKeyManager().getHealthStatus(),
-  incrementUsage: (keyName: string) => getApiKeyManager().incrementUsage(keyName),
-  getKeyInfo: (keyName: string) => getApiKeyManager().getKeyInfo(keyName),
-  getSecuredKey: (keyName: string) => getApiKeyManager().getSecuredKey(keyName),
-  rotateKey: (keyName: string, newKey: string) => getApiKeyManager().rotateKey(keyName, newKey),
+  get instance(): ApiKeyManager {
+    return getApiKeyManager();
+  },
+  getHealthStatus: (): ReturnType<ApiKeyManager['getHealthStatus']> =>
+    getApiKeyManager().getHealthStatus(),
+  incrementUsage: (keyName: string): void =>
+    getApiKeyManager().incrementUsage(keyName),
+  getKeyInfo: (keyName: string): ApiKeyInfo | undefined =>
+    getApiKeyManager().getKeyInfo(keyName),
+  getSecuredKey: (keyName: string): string | undefined =>
+    getApiKeyManager().getSecuredKey(keyName),
+  rotateKey: (keyName: string, newKey: string): boolean =>
+    getApiKeyManager().rotateKey(keyName, newKey),
 };
 
 // Middleware to track API key usage
@@ -218,13 +239,13 @@ export const trackApiKeyUsage = (keyName: string) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     // Track usage when the request is processed
     getApiKeyManager().incrementUsage(keyName);
-    
+
     // Add usage info to response headers (for monitoring)
     const keyInfo = getApiKeyManager().getKeyInfo(keyName);
     if (keyInfo) {
       res.setHeader('X-API-Key-Usage', keyInfo.usageCount || 0);
     }
-    
+
     next();
   };
 };
@@ -233,31 +254,35 @@ export const trackApiKeyUsage = (keyName: string) => {
 export const requireApiKey = (keyName: string) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     const key = getApiKeyManager().getSecuredKey(keyName);
-    
+
     if (!key) {
       logger.error(`Required API key not available: ${keyName}`, {
         path: req.path,
         method: req.method,
-        ip: req.ip
+        ip: req.ip,
       });
-      
+
       res.status(503).json({
         success: false,
         error: 'Service temporarily unavailable',
         code: 'API_KEY_UNAVAILABLE',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
       return;
     }
-    
+
     // Store the key in request context for use by the route handler
-    (req as any).apiKey = key;
+    (req as AuthenticatedRequest).apiKey = key;
     next();
   };
 };
 
 // Environment security validation middleware
-export const validateEnvironmentSecurity = (req: Request, res: Response, next: NextFunction): void => {
+export const validateEnvironmentSecurity = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void => {
   const isDevelopment = process.env.NODE_ENV === 'development';
   const securityIssues: string[] = [];
 
@@ -267,17 +292,25 @@ export const validateEnvironmentSecurity = (req: Request, res: Response, next: N
     if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
       securityIssues.push('TLS certificate validation is disabled');
     }
-    
+
     if (process.env.JWT_SECRET === 'development-secret') {
       securityIssues.push('Using default JWT secret in development');
     }
   } else {
     // Enforce strict security in production
-    if (!process.env.NODE_TLS_REJECT_UNAUTHORIZED || process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
-      securityIssues.push('TLS certificate validation must be enabled in production');
+    if (
+      !process.env.NODE_TLS_REJECT_UNAUTHORIZED ||
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0'
+    ) {
+      securityIssues.push(
+        'TLS certificate validation must be enabled in production'
+      );
     }
-    
-    if (process.env.JWT_SECRET === 'development-secret' || !process.env.JWT_SECRET) {
+
+    if (
+      process.env.JWT_SECRET === 'development-secret' ||
+      !process.env.JWT_SECRET
+    ) {
       securityIssues.push('Production JWT secret is required');
     }
   }
@@ -286,14 +319,14 @@ export const validateEnvironmentSecurity = (req: Request, res: Response, next: N
     logger.warn('Environment security issues detected', {
       issues: securityIssues,
       environment: process.env.NODE_ENV || 'unknown',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
 
     if (!isDevelopment) {
       res.status(500).json({
         success: false,
         error: 'Environment security validation failed',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
       return;
     }
@@ -303,7 +336,9 @@ export const validateEnvironmentSecurity = (req: Request, res: Response, next: N
 };
 
 export const apiKeyMiddleware = {
-  get manager() { return getApiKeyManager(); },
+  get manager(): ApiKeyManager {
+    return getApiKeyManager();
+  },
   trackUsage: trackApiKeyUsage,
   requireKey: requireApiKey,
   validateEnvironment: validateEnvironmentSecurity,
