@@ -9,13 +9,18 @@ describe('Game Workflow Integration Tests', () => {
   let mockContext: GameActionContext;
 
   beforeAll(async () => {
-    // Skip tests if Mastra is not available
-    if (!mastraInstance) {
-      console.warn('Mastra instance not available, skipping workflow integration tests');
-      return;
-    }
+    // Use mocked Mastra instance for testing
+    const mockMastraInstance = {
+      agents: {
+        create: jest.fn().mockReturnValue({
+          generate: jest.fn().mockResolvedValue({
+            text: '{"narrative": "Test GM response", "gameState": {"statusTags": [], "inventory": []}}',
+          }),
+        }),
+      },
+    };
     
-    gameWorkflow = new GameWorkflow(mastraInstance, {
+    gameWorkflow = new GameWorkflow(mockMastraInstance as any, {
       maxRetries: 2,
       timeout: 15000,
       verbose: true
@@ -62,11 +67,6 @@ describe('Game Workflow Integration Tests', () => {
 
   describe('Full Workflow Processing', () => {
     it('should process a combat action successfully', async () => {
-      if (!mastraInstance) {
-        console.warn('Skipping test - Mastra not available');
-        return;
-      }
-
       const result = await gameWorkflow.processGameAction(mockContext);
 
       expect(result).toBeDefined();
@@ -80,10 +80,6 @@ describe('Game Workflow Integration Tests', () => {
     });
 
     it('should handle social action successfully', async () => {
-      if (!mastraInstance) {
-        console.warn('Skipping test - Mastra not available');
-        return;
-      }
 
       const socialContext = {
         ...mockContext,
@@ -110,10 +106,6 @@ describe('Game Workflow Integration Tests', () => {
     });
 
     it('should handle exploration action successfully', async () => {
-      if (!mastraInstance) {
-        console.warn('Skipping test - Mastra not available');
-        return;
-      }
 
       const explorationContext = {
         ...mockContext,
@@ -135,10 +127,6 @@ describe('Game Workflow Integration Tests', () => {
 
   describe('Error Handling', () => {
     it('should handle invalid action gracefully', async () => {
-      if (!mastraInstance) {
-        console.warn('Skipping test - Mastra not available');
-        return;
-      }
 
       const invalidContext = {
         ...mockContext,
@@ -154,10 +142,6 @@ describe('Game Workflow Integration Tests', () => {
     });
 
     it('should handle missing game state gracefully', async () => {
-      if (!mastraInstance) {
-        console.warn('Skipping test - Mastra not available');
-        return;
-      }
 
       const incompleteContext = {
         ...mockContext,
@@ -182,10 +166,6 @@ describe('Game Workflow Integration Tests', () => {
 
   describe('Workflow Features', () => {
     it('should include dice results for combat actions', async () => {
-      if (!mastraInstance) {
-        console.warn('Skipping test - Mastra not available');
-        return;
-      }
 
       const combatContext = {
         ...mockContext,
@@ -204,10 +184,6 @@ describe('Game Workflow Integration Tests', () => {
     });
 
     it('should provide meaningful suggested actions', async () => {
-      if (!mastraInstance) {
-        console.warn('Skipping test - Mastra not available');
-        return;
-      }
 
       const result = await gameWorkflow.processGameAction(mockContext);
 
@@ -224,10 +200,6 @@ describe('Game Workflow Integration Tests', () => {
     });
 
     it('should maintain game state consistency', async () => {
-      if (!mastraInstance) {
-        console.warn('Skipping test - Mastra not available');
-        return;
-      }
 
       const result = await gameWorkflow.processGameAction(mockContext);
 
@@ -264,10 +236,6 @@ describe('Game Workflow Integration Tests', () => {
 
   describe('Performance Tests', () => {
     it('should complete processing within reasonable time', async () => {
-      if (!mastraInstance) {
-        console.warn('Skipping test - Mastra not available');
-        return;
-      }
 
       const startTime = Date.now();
       
@@ -281,10 +249,6 @@ describe('Game Workflow Integration Tests', () => {
     });
 
     it('should handle multiple concurrent requests', async () => {
-      if (!mastraInstance) {
-        console.warn('Skipping test - Mastra not available');
-        return;
-      }
 
       const contexts = [
         { ...mockContext, playerAction: 'I attack' },
