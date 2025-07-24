@@ -6,6 +6,7 @@ import ProgressMessage from '../ProgressMessage';
 describe('ProgressMessage', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00Z'));
   });
 
   afterEach(() => {
@@ -21,8 +22,11 @@ describe('ProgressMessage', () => {
   });
 
   it('shows initial message after 3 seconds', async () => {
-    const startTime = Date.now() - 4000; // 4 seconds ago
+    const startTime = Date.now();
     render(<ProgressMessage startTime={startTime} />);
+    
+    // Advance time by 4 seconds
+    vi.advanceTimersByTime(4000);
     
     await waitFor(() => {
       expect(screen.getByText('AI is processing your request...')).toBeInTheDocument();
@@ -31,8 +35,11 @@ describe('ProgressMessage', () => {
   });
 
   it('shows extended message after 15 seconds', async () => {
-    const startTime = Date.now() - 16000; // 16 seconds ago
+    const startTime = Date.now();
     render(<ProgressMessage startTime={startTime} />);
+    
+    // Advance time by 16 seconds
+    vi.advanceTimersByTime(16000);
     
     await waitFor(() => {
       expect(screen.getByText('This is taking longer than usual. The AI is working on a complex response.')).toBeInTheDocument();
@@ -41,8 +48,11 @@ describe('ProgressMessage', () => {
   });
 
   it('shows timeout message after 45 seconds', async () => {
-    const startTime = Date.now() - 46000; // 46 seconds ago
+    const startTime = Date.now();
     render(<ProgressMessage startTime={startTime} />);
+    
+    // Advance time by 46 seconds
+    vi.advanceTimersByTime(46000);
     
     await waitFor(() => {
       expect(screen.getByText('The request is taking much longer than expected. You can cancel and try again.')).toBeInTheDocument();
@@ -52,9 +62,12 @@ describe('ProgressMessage', () => {
 
   it('shows cancel button after 15 seconds when onCancel is provided', async () => {
     const onCancel = vi.fn();
-    const startTime = Date.now() - 16000; // 16 seconds ago
+    const startTime = Date.now();
     
     render(<ProgressMessage startTime={startTime} onCancel={onCancel} />);
+    
+    // Advance time by 16 seconds
+    vi.advanceTimersByTime(16000);
     
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Cancel request' })).toBeInTheDocument();
@@ -64,9 +77,12 @@ describe('ProgressMessage', () => {
   it('calls onCancel when cancel button is clicked', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     const onCancel = vi.fn();
-    const startTime = Date.now() - 16000; // 16 seconds ago
+    const startTime = Date.now();
     
     render(<ProgressMessage startTime={startTime} onCancel={onCancel} />);
+    
+    // Advance time by 16 seconds
+    vi.advanceTimersByTime(16000);
     
     await waitFor(() => {
       const cancelButton = screen.getByRole('button', { name: 'Cancel request' });
@@ -86,8 +102,11 @@ describe('ProgressMessage', () => {
       timeout: 'Custom timeout message',
     };
     
-    const startTime = Date.now() - 4000; // 4 seconds ago
+    const startTime = Date.now();
     render(<ProgressMessage startTime={startTime} customMessages={customMessages} />);
+    
+    // Advance time by 4 seconds
+    vi.advanceTimersByTime(4000);
     
     await waitFor(() => {
       expect(screen.getByText('Custom initial message')).toBeInTheDocument();
@@ -95,8 +114,11 @@ describe('ProgressMessage', () => {
   });
 
   it('has proper accessibility attributes', async () => {
-    const startTime = Date.now() - 4000; // 4 seconds ago
+    const startTime = Date.now();
     render(<ProgressMessage startTime={startTime} />);
+    
+    // Advance time by 4 seconds
+    vi.advanceTimersByTime(4000);
     
     await waitFor(() => {
       const status = screen.getByRole('status');
@@ -106,15 +128,18 @@ describe('ProgressMessage', () => {
   });
 
   it('updates elapsed time display', async () => {
-    const startTime = Date.now() - 5000; // 5 seconds ago
+    const startTime = Date.now();
     render(<ProgressMessage startTime={startTime} />);
+    
+    // Advance time by 5 seconds
+    vi.advanceTimersByTime(5000);
     
     // Wait for initial render
     await waitFor(() => {
       expect(screen.getByText('5s')).toBeInTheDocument();
     });
 
-    // Advance time by 2 seconds
+    // Advance time by 2 more seconds (total 7 seconds)
     vi.advanceTimersByTime(2000);
     
     await waitFor(() => {
