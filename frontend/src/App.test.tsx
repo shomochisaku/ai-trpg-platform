@@ -11,7 +11,7 @@ describe('App', () => {
 
   it('renders the create campaign button', () => {
     render(<App />)
-    const button = screen.getByRole('button', { name: /Create Campaign/i })
+    const button = screen.getByRole('button', { name: /詳細設定でキャンペーン作成/i })
     expect(button).toBeInTheDocument()
   })
 
