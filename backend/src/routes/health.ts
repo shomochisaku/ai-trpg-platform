@@ -1,9 +1,13 @@
 import { Router, Request, Response } from 'express';
 import { logger } from '@/utils/logger';
 import { apiKeyManager } from '@/middleware/apiKeyManager';
+import { monitoringService } from '@/services/monitoringService';
+import { circuitBreakerManager } from '@/utils/circuitBreaker';
+import { asyncHandler } from '@/middleware/errorHandler';
 
 const router = Router();
 
+// Basic health check
 router.get('/', (req: Request, res: Response) => {
   const healthInfo = {
     status: 'OK',
@@ -15,6 +19,55 @@ router.get('/', (req: Request, res: Response) => {
 
   logger.info('Health check requested');
   res.json(healthInfo);
+});
+
+// Comprehensive health check with monitoring data
+router.get('/detailed', asyncHandler(async (req: Request, res: Response) => {
+  const healthStatus = await monitoringService.getHealthStatus();
+  
+  logger.info('Detailed health check requested', {
+    status: healthStatus.status,
+    requesterIp: req.ip,
+  });
+
+  // Set appropriate HTTP status based on health
+  const httpStatus = healthStatus.status === 'healthy' ? 200 :
+                     healthStatus.status === 'degraded' ? 200 : 503;
+
+  res.status(httpStatus).json(healthStatus);
+}));
+
+// Circuit breaker status endpoint
+router.get('/circuit-breakers', (req: Request, res: Response) => {
+  const circuitBreakerHealth = circuitBreakerManager.getHealthStatus();
+  
+  logger.info('Circuit breaker health check requested', {
+    healthy: circuitBreakerHealth.healthy,
+    requesterIp: req.ip,
+  });
+
+  const httpStatus = circuitBreakerHealth.healthy ? 200 : 503;
+  
+  res.status(httpStatus).json({
+    status: circuitBreakerHealth.healthy ? 'healthy' : 'degraded',
+    timestamp: new Date().toISOString(),
+    circuitBreakers: circuitBreakerHealth,
+  });
+});
+
+// System metrics endpoint
+router.get('/metrics', (req: Request, res: Response) => {
+  const metrics = monitoringService.getSystemMetrics();
+  
+  logger.debug('System metrics requested', {
+    requesterIp: req.ip,
+  });
+
+  res.json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    metrics,
+  });
 });
 
 // Enhanced security health check endpoint

@@ -3,6 +3,9 @@ import { OpenAI } from 'openai';
 import { Anthropic } from '@anthropic-ai/sdk';
 import { logger } from '../../utils/logger';
 import { mastraInstance, mastraConfig } from '../config';
+import { withRetry, RetryableError } from '../../utils/retryHandler';
+import { circuitBreakerManager } from '../../utils/circuitBreaker';
+import { createAIServiceError } from '../../middleware/errorHandler';
 
 // Import Mastra types conditionally
 let Agent: any = null;
@@ -310,81 +313,204 @@ ${contextSummary}
   }
 
   /**
-   * Chat with Mastra Agent
+   * Chat with Mastra Agent with retry and circuit breaker
    */
   private async chatWithMastra(session: GMSession): Promise<string> {
-    try {
-      // Convert messages to Mastra format
-      const messages = session.messages.map(msg => ({
-        role: msg.role as 'system' | 'user' | 'assistant',
-        content: msg.content,
-      }));
+    const circuitBreaker = circuitBreakerManager.getCircuitBreaker('mastra');
 
-      // Simple message generation with Mastra
-      const response = await this.mastraAgent.generate({
-        messages,
-        temperature: this.config.temperature,
-        maxTokens: this.config.maxTokens,
-      });
+    return circuitBreaker.execute(
+      async () => {
+        return withRetry(async () => {
+          try {
+            // Convert messages to Mastra format
+            const messages = session.messages.map(msg => ({
+              role: msg.role as 'system' | 'user' | 'assistant',
+              content: msg.content,
+            }));
 
-      return response.text || response.content || 'I apologize, but I was unable to generate a response.';
-    } catch (error) {
-      logger.error('Mastra chat failed:', error);
-      throw error;
-    }
+            // Simple message generation with Mastra
+            const response = await this.mastraAgent.generate({
+              messages,
+              temperature: this.config.temperature,
+              maxTokens: this.config.maxTokens,
+            });
+
+            return response.text || response.content || 'I apologize, but I was unable to generate a response.';
+          } catch (error: any) {
+            logger.error('Mastra chat failed:', error);
+            
+            // Enhance error with service information
+            const enhancedError = error as RetryableError;
+            enhancedError.isRetryable = this.isRetryableAIError(error);
+            
+            throw createAIServiceError(
+              `Mastra AI service error: ${error.message}`,
+              'mastra',
+              error
+            );
+          }
+        });
+      },
+      async () => {
+        // Fallback when circuit breaker is open
+        logger.warn('Mastra circuit breaker open, using fallback response');
+        return "I'm experiencing some technical difficulties right now. The adventure continues, but I might need a moment to gather my thoughts. Please try again shortly.";
+      }
+    );
   }
 
   /**
-   * Chat with OpenAI GPT-4 (fallback)
+   * Chat with OpenAI GPT-4 with retry and circuit breaker
    */
   private async chatWithOpenAI(session: GMSession): Promise<string> {
-    const messages = session.messages.map(msg => ({
-      role: msg.role as 'system' | 'user' | 'assistant',
-      content: msg.content,
-    }));
+    const circuitBreaker = circuitBreakerManager.getCircuitBreaker('openai');
 
-    const response = await this.openai.chat.completions.create({
-      model: this.config.model!,
-      messages,
-      temperature: this.config.temperature,
-      max_tokens: this.config.maxTokens,
-    });
+    return circuitBreaker.execute(
+      async () => {
+        return withRetry(async () => {
+          try {
+            const messages = session.messages.map(msg => ({
+              role: msg.role as 'system' | 'user' | 'assistant',
+              content: msg.content,
+            }));
 
-    const choice = response.choices[0];
-    
-    if (!choice) {
-      throw new Error('No response choices received from OpenAI');
-    }
+            const response = await this.openai.chat.completions.create({
+              model: this.config.model!,
+              messages,
+              temperature: this.config.temperature,
+              max_tokens: this.config.maxTokens,
+            });
 
-    return choice.message.content || 'I apologize, but I was unable to generate a response.';
+            const choice = response.choices[0];
+            
+            if (!choice) {
+              throw new Error('No response choices received from OpenAI');
+            }
+
+            return choice.message.content || 'I apologize, but I was unable to generate a response.';
+          } catch (error: any) {
+            logger.error('OpenAI chat failed:', error);
+            
+            // Enhance error with service information
+            const enhancedError = error as RetryableError;
+            enhancedError.isRetryable = this.isRetryableAIError(error);
+            
+            // Handle OpenAI specific error codes
+            if (error.status) {
+              enhancedError.status = error.status;
+            }
+            
+            throw createAIServiceError(
+              `OpenAI API service error: ${error.message}`,
+              'openai',
+              error
+            );
+          }
+        });
+      },
+      async () => {
+        // Fallback when circuit breaker is open
+        logger.warn('OpenAI circuit breaker open, using fallback response');
+        return "I'm experiencing some technical difficulties with my AI systems right now. The adventure continues, but I might need a moment to reconnect. Please try again shortly.";
+      }
+    );
   }
 
   /**
-   * Chat with Anthropic Claude (fallback)
+   * Chat with Anthropic Claude with retry and circuit breaker
    */
   private async chatWithAnthropic(session: GMSession): Promise<string> {
-    const messages = session.messages.filter(msg => msg.role !== 'system').map(msg => ({
-      role: msg.role as 'user' | 'assistant',
-      content: msg.content,
-    }));
+    const circuitBreaker = circuitBreakerManager.getCircuitBreaker('anthropic');
 
-    const systemMessage = session.messages.find(msg => msg.role === 'system')?.content;
+    return circuitBreaker.execute(
+      async () => {
+        return withRetry(async () => {
+          try {
+            const messages = session.messages.filter(msg => msg.role !== 'system').map(msg => ({
+              role: msg.role as 'user' | 'assistant',
+              content: msg.content,
+            }));
 
-    const response = await this.anthropic.messages.create({
-      model: this.config.model!,
-      max_tokens: this.config.maxTokens!,
-      temperature: this.config.temperature,
-      system: systemMessage || 'You are a helpful AI assistant.',
-      messages,
-    });
+            const systemMessage = session.messages.find(msg => msg.role === 'system')?.content;
 
-    const firstContent = response.content[0];
-    if (!firstContent) {
-      return 'I apologize, but I was unable to generate a response.';
-    }
-    return firstContent.type === 'text' ? firstContent.text : 'I apologize, but I was unable to generate a response.';
+            const response = await this.anthropic.messages.create({
+              model: this.config.model!,
+              max_tokens: this.config.maxTokens!,
+              temperature: this.config.temperature,
+              system: systemMessage || 'You are a helpful AI assistant.',
+              messages,
+            });
+
+            const firstContent = response.content[0];
+            if (!firstContent) {
+              return 'I apologize, but I was unable to generate a response.';
+            }
+            return firstContent.type === 'text' ? firstContent.text : 'I apologize, but I was unable to generate a response.';
+          } catch (error: any) {
+            logger.error('Anthropic chat failed:', error);
+            
+            // Enhance error with service information
+            const enhancedError = error as RetryableError;
+            enhancedError.isRetryable = this.isRetryableAIError(error);
+            
+            // Handle Anthropic specific error codes
+            if (error.status) {
+              enhancedError.status = error.status;
+            }
+            
+            throw createAIServiceError(
+              `Anthropic API service error: ${error.message}`,
+              'anthropic',
+              error
+            );
+          }
+        });
+      },
+      async () => {
+        // Fallback when circuit breaker is open
+        logger.warn('Anthropic circuit breaker open, using fallback response');
+        return "I'm experiencing some technical difficulties with my AI systems right now. The adventure continues, but I might need a moment to reconnect. Please try again shortly.";
+      }
+    );
   }
 
+
+  /**
+   * Determine if an AI service error should be retried
+   */
+  private isRetryableAIError(error: any): boolean {
+    // Rate limiting errors should be retried
+    if (error.status === 429 || error.message?.toLowerCase().includes('rate limit')) {
+      return true;
+    }
+
+    // Server errors should be retried
+    if (error.status >= 500) {
+      return true;
+    }
+
+    // Timeout errors should be retried
+    if (error.code === 'ETIMEDOUT' || error.message?.toLowerCase().includes('timeout')) {
+      return true;
+    }
+
+    // Connection errors should be retried
+    if (error.code && ['ECONNRESET', 'ENOTFOUND', 'ECONNREFUSED'].includes(error.code)) {
+      return true;
+    }
+
+    // OpenAI specific retryable errors
+    if (error.type === 'insufficient_quota' || error.type === 'server_error') {
+      return true;
+    }
+
+    // Anthropic specific retryable errors
+    if (error.type === 'overloaded_error' || error.type === 'api_error') {
+      return true;
+    }
+
+    return false;
+  }
 
   /**
    * Handle tool function calls

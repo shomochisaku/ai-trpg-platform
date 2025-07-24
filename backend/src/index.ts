@@ -6,6 +6,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { logger } from '@/utils/logger';
 import { errorHandler } from '@/middleware/errorHandler';
+import { requestTrackingMiddleware } from '@/middleware/requestTracking';
 import { authRoutes } from '@/routes/auth';
 import { healthRoutes } from '@/routes/health';
 import { aiRoutes } from '@/routes/ai';
@@ -65,6 +66,9 @@ app.use(express.urlencoded({
 
 // Input sanitization
 app.use(sanitizeInput);
+
+// Request tracking for monitoring
+app.use(requestTrackingMiddleware);
 
 // Routes with specific security middleware
 app.use('/api/health', healthRoutes);
