@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { CampaignFormData, CampaignPreset, FormValidationErrors, GameStyle, GMBehavior } from '../types';
+import { CampaignFormData, FormValidationErrors, GameStyle, GMBehavior } from '../types';
 import { campaignPresets, getPresetById } from '../data/campaignPresets';
 import './CampaignCreationForm.css';
 
