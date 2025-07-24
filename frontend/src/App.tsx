@@ -5,6 +5,7 @@ import StatusPanel from './components/StatusPanel'
 import ChatLog from './components/ChatLog'
 import DiceResult from './components/DiceResult'
 import ConnectionIndicator from './components/ConnectionIndicator'
+import CampaignCreationPage from './pages/CampaignCreationPage'
 import { useCampaign, useChat, useGameState } from './hooks'
 import { useRealtimeSync } from './hooks/useRealtimeSync'
 import { useGameSessionStore, useChatStore } from './store'
@@ -12,6 +13,8 @@ import { mockGameState, mockGameStateMinimal } from './types/mockData'
 import { GameState } from './types/status'
 import { getGameSessionState } from './store/gameSessionStore'
 import { adaptChatStoreForChatLog } from './utils/messageAdapter'
+
+type AppView = 'main' | 'campaign-creation';
 
 function App() {
   const [characterName, setCharacterName] = useState('')
@@ -21,6 +24,7 @@ function App() {
   const [useMockData, setUseMockData] = useState(true)
   const [mockState, setMockState] = useState<GameState>(mockGameState)
   const [activeDiceResultIndex, setActiveDiceResultIndex] = useState<number | null>(null)
+  const [currentView, setCurrentView] = useState<AppView>('main')
   
   // Use direct Zustand selectors for consistent session state
   const session = useGameSessionStore((state) => {
@@ -180,6 +184,30 @@ function App() {
     }
   }, [diceResults.length, activeDiceResultIndex])
 
+  // View switching handlers
+  const handleShowCampaignCreation = useCallback(() => {
+    setCurrentView('campaign-creation');
+  }, []);
+
+  const handleCancelCampaignCreation = useCallback(() => {
+    setCurrentView('main');
+  }, []);
+
+  const handleCampaignCreationSuccess = useCallback((campaignId: string) => {
+    console.log('[App.tsx] Campaign created successfully:', campaignId);
+    setCurrentView('main');
+    // The campaign creation process should have automatically joined the campaign
+  }, []);
+
+  // Render campaign creation form if that's the current view
+  if (currentView === 'campaign-creation') {
+    return (
+      <CampaignCreationPage
+        onCancel={handleCancelCampaignCreation}
+        onSuccess={handleCampaignCreationSuccess}
+      />
+    );
+  }
 
   return (
     <div className="app">
@@ -248,51 +276,89 @@ function App() {
         {!session.isConnected && (
           <section style={{ backgroundColor: '#1f2937', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>
             <h2 style={{ marginBottom: '16px', fontSize: '1.5rem' }}>Create or Join Campaign</h2>
-            <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
-              <input
-                type="text"
-                placeholder="Character Name"
-                value={characterName}
-                onChange={(e) => setCharacterName(e.target.value)}
-                style={{ flex: 1, padding: '8px', borderRadius: '4px', border: 'none' }}
-                disabled={campaignLoading}
-              />
+            
+            {/* Enhanced Campaign Creation Button */}
+            <div style={{ marginBottom: '20px', padding: '16px', backgroundColor: '#374151', borderRadius: '8px', border: '2px solid #3b82f6' }}>
+              <h3 style={{ margin: '0 0 12px 0', fontSize: '1.2rem', color: '#3b82f6' }}>🎲 新しいキャンペーンを作成</h3>
+              <p style={{ margin: '0 0 16px 0', color: '#9ca3af', fontSize: '0.9rem' }}>
+                シナリオ設定、世界観、GM人格を詳細にカスタマイズできる高機能フォームを使用
+              </p>
               <button 
-                onClick={handleCreateSession} 
+                onClick={handleShowCampaignCreation}
                 disabled={campaignLoading}
                 style={{ 
-                  padding: '8px 16px', 
-                  borderRadius: '4px', 
+                  padding: '12px 24px', 
+                  borderRadius: '8px', 
                   border: 'none', 
-                  backgroundColor: campaignLoading ? '#6b7280' : '#3b82f6', 
-                  color: 'white' 
+                  background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                  color: 'white',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: campaignLoading ? 'not-allowed' : 'pointer',
+                  opacity: campaignLoading ? 0.6 : 1,
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+                  width: '100%'
                 }}
               >
-                {campaignLoading ? 'Creating...' : 'Create Campaign'}
+                🎭 詳細設定でキャンペーン作成
               </button>
             </div>
-            <div style={{ display: 'flex', gap: '16px' }}>
-              <input
-                type="text"
-                placeholder="Campaign ID"
-                value={sessionId}
-                onChange={(e) => setSessionId(e.target.value)}
-                style={{ flex: 1, padding: '8px', borderRadius: '4px', border: 'none' }}
-                disabled={campaignLoading}
-              />
-              <button 
-                onClick={handleJoinSession} 
-                disabled={campaignLoading}
-                style={{ 
-                  padding: '8px 16px', 
-                  borderRadius: '4px', 
-                  border: 'none', 
-                  backgroundColor: campaignLoading ? '#6b7280' : '#3b82f6', 
-                  color: 'white' 
-                }}
-              >
-                {campaignLoading ? 'Joining...' : 'Join Campaign'}
-              </button>
+
+            {/* Quick Campaign Creation */}
+            <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#374151', borderRadius: '6px' }}>
+              <h4 style={{ margin: '0 0 8px 0', fontSize: '1rem', color: '#e5e7eb' }}>クイック作成</h4>
+              <div style={{ display: 'flex', gap: '16px' }}>
+                <input
+                  type="text"
+                  placeholder="Character Name"
+                  value={characterName}
+                  onChange={(e) => setCharacterName(e.target.value)}
+                  style={{ flex: 1, padding: '8px', borderRadius: '4px', border: 'none' }}
+                  disabled={campaignLoading}
+                />
+                <button 
+                  onClick={handleCreateSession} 
+                  disabled={campaignLoading}
+                  style={{ 
+                    padding: '8px 16px', 
+                    borderRadius: '4px', 
+                    border: 'none', 
+                    backgroundColor: campaignLoading ? '#6b7280' : '#10b981', 
+                    color: 'white' 
+                  }}
+                >
+                  {campaignLoading ? 'Creating...' : 'Quick Create'}
+                </button>
+              </div>
+            </div>
+
+            {/* Join Campaign */}
+            <div style={{ padding: '12px', backgroundColor: '#374151', borderRadius: '6px' }}>
+              <h4 style={{ margin: '0 0 8px 0', fontSize: '1rem', color: '#e5e7eb' }}>既存キャンペーンに参加</h4>
+              <div style={{ display: 'flex', gap: '16px' }}>
+                <input
+                  type="text"
+                  placeholder="Campaign ID"
+                  value={sessionId}
+                  onChange={(e) => setSessionId(e.target.value)}
+                  style={{ flex: 1, padding: '8px', borderRadius: '4px', border: 'none' }}
+                  disabled={campaignLoading}
+                />
+                <button 
+                  onClick={handleJoinSession} 
+                  disabled={campaignLoading}
+                  style={{ 
+                    padding: '8px 16px', 
+                    borderRadius: '4px', 
+                    border: 'none', 
+                    backgroundColor: campaignLoading ? '#6b7280' : '#3b82f6', 
+                    color: 'white' 
+                  }}
+                >
+                  {campaignLoading ? 'Joining...' : 'Join Campaign'}
+                </button>
+              </div>
             </div>
           </section>
         )}

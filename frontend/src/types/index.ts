@@ -108,3 +108,40 @@ export interface RootStore {
   gameState: GameStateStore;
   websocket: WebSocketStore;
 }
+
+// Campaign Form Types
+export type GameStyle = 'classic_fantasy' | 'cyberpunk' | 'modern_mystery' | 'cosmic_horror' | 'custom';
+
+export interface GMBehavior {
+  narrativeStyle: 'descriptive' | 'concise' | 'theatrical';
+  playerAgency: 'high' | 'medium' | 'guided';
+  difficultyAdjustment: 'adaptive' | 'static' | 'escalating';
+}
+
+export interface CampaignFormData {
+  title: string;
+  description?: string;
+  scenarioSettings: {
+    gmPersonality: string;
+    worldSetting: string;
+    storyIntroduction: string;
+    gameStyle: GameStyle;
+    gmBehavior: GMBehavior;
+  };
+}
+
+export interface CampaignPreset {
+  id: string;
+  title: string;
+  description: string;
+  formData: CampaignFormData;
+}
+
+export interface FormValidationErrors {
+  title?: string;
+  gmPersonality?: string;
+  worldSetting?: string;
+  storyIntroduction?: string;
+  gameStyle?: string;
+  general?: string;
+}
