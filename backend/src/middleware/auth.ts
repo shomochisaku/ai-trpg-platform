@@ -1,12 +1,17 @@
 import { Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { verifyAccessToken, extractTokenFromHeader, TokenPayload } from '@/utils/jwt';
+import {
+  verifyAccessToken,
+  extractTokenFromHeader,
+  TokenPayload,
+} from '@/utils/jwt';
 import { logger } from '@/utils/logger';
 
 const prisma = new PrismaClient();
 
 // Extend Express Request interface to include user
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       user?: {
@@ -22,10 +27,14 @@ declare global {
 /**
  * Authentication middleware - verifies JWT token and attaches user to request
  */
-export async function authenticate(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function authenticate(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   try {
     const token = extractTokenFromHeader(req.headers.authorization);
-    
+
     if (!token) {
       res.status(401).json({
         success: false,
@@ -69,8 +78,13 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
       return;
     }
 
-    // Attach user to request
-    req.user = user;
+    // Attach user to request with proper type conversion
+    req.user = {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      displayName: user.displayName ?? undefined,
+    };
     next();
   } catch (error) {
     logger.error('Authentication middleware error:', error);
@@ -85,10 +99,14 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
 /**
  * Optional authentication middleware - doesn't fail if no token is provided
  */
-export async function optionalAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function optionalAuth(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   try {
     const token = extractTokenFromHeader(req.headers.authorization);
-    
+
     if (!token) {
       next();
       return;
@@ -97,7 +115,7 @@ export async function optionalAuth(req: Request, res: Response, next: NextFuncti
     // Try to verify token, but don't fail if invalid
     try {
       const decoded = verifyAccessToken(token);
-      
+
       const user = await prisma.user.findUnique({
         where: { id: decoded.userId },
         select: {
@@ -109,7 +127,12 @@ export async function optionalAuth(req: Request, res: Response, next: NextFuncti
       });
 
       if (user) {
-        req.user = user;
+        req.user = {
+          id: user.id,
+          email: user.email,
+          username: user.username,
+          displayName: user.displayName ?? undefined,
+        };
       }
     } catch (error) {
       // Token is invalid, but we continue without user
@@ -127,7 +150,11 @@ export async function optionalAuth(req: Request, res: Response, next: NextFuncti
  * Resource ownership middleware - ensures user owns the requested resource
  */
 export function requireResourceOwnership(resourceIdParam: string = 'id') {
-  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  return async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       if (!req.user) {
         res.status(401).json({
@@ -180,7 +207,11 @@ export function requireResourceOwnership(resourceIdParam: string = 'id') {
 /**
  * Admin role middleware - ensures user has admin privileges
  */
-export async function requireAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function requireAdmin(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   try {
     if (!req.user) {
       res.status(401).json({
@@ -194,7 +225,7 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
     // Check if user has admin role (would need to add role field to User schema)
     // For now, we'll use a simple email check or env variable
     const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
-    
+
     if (!adminEmails.includes(req.user.email)) {
       res.status(403).json({
         success: false,
@@ -228,16 +259,21 @@ const loginAttempts = new Map<string, LoginAttempt>();
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
 
-export function checkLoginAttempts(identifier: string): { allowed: boolean; lockoutTimeRemaining?: number } {
+export function checkLoginAttempts(identifier: string): {
+  allowed: boolean;
+  lockoutTimeRemaining?: number;
+} {
   const attempt = loginAttempts.get(identifier);
-  
+
   if (!attempt) {
     return { allowed: true };
   }
 
   // Check if account is locked
   if (attempt.lockedUntil && attempt.lockedUntil > new Date()) {
-    const timeRemaining = Math.ceil((attempt.lockedUntil.getTime() - Date.now()) / 1000);
+    const timeRemaining = Math.ceil(
+      (attempt.lockedUntil.getTime() - Date.now()) / 1000
+    );
     return { allowed: false, lockoutTimeRemaining: timeRemaining };
   }
 
@@ -252,24 +288,29 @@ export function checkLoginAttempts(identifier: string): { allowed: boolean; lock
 
 export function recordFailedLogin(identifier: string): void {
   const now = new Date();
-  const attempt = loginAttempts.get(identifier) || { count: 0, lastAttempt: now };
-  
+  const attempt = loginAttempts.get(identifier) || {
+    count: 0,
+    lastAttempt: now,
+  };
+
   // Reset count if last attempt was more than 15 minutes ago
   if (now.getTime() - attempt.lastAttempt.getTime() > LOCKOUT_DURATION) {
     attempt.count = 1;
   } else {
     attempt.count++;
   }
-  
+
   attempt.lastAttempt = now;
-  
+
   // Lock account if max attempts reached
   if (attempt.count >= MAX_LOGIN_ATTEMPTS) {
     attempt.lockedUntil = new Date(now.getTime() + LOCKOUT_DURATION);
   }
-  
+
   loginAttempts.set(identifier, attempt);
-  logger.warn(`Failed login attempt for ${identifier}. Count: ${attempt.count}`);
+  logger.warn(
+    `Failed login attempt for ${identifier}. Count: ${attempt.count}`
+  );
 }
 
 export function recordSuccessfulLogin(identifier: string): void {

@@ -20,14 +20,20 @@ const usernameSchema = z
   .string()
   .min(3, 'Username must be at least 3 characters long')
   .max(30, 'Username must be no more than 30 characters')
-  .regex(/^[a-zA-Z0-9_-]+$/, 'Username can only contain letters, numbers, underscores, and hyphens');
+  .regex(
+    /^[a-zA-Z0-9_-]+$/,
+    'Username can only contain letters, numbers, underscores, and hyphens'
+  );
 
 // User registration schema
 export const registerSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
   username: usernameSchema.optional(),
-  displayName: z.string().max(100, 'Display name must be no more than 100 characters').optional(),
+  displayName: z
+    .string()
+    .max(100, 'Display name must be no more than 100 characters')
+    .optional(),
 });
 
 // User login schema
@@ -50,8 +56,14 @@ export const changePasswordSchema = z.object({
 // Update profile schema
 export const updateProfileSchema = z.object({
   username: usernameSchema.optional(),
-  displayName: z.string().max(100, 'Display name must be no more than 100 characters').optional(),
-  bio: z.string().max(500, 'Bio must be no more than 500 characters').optional(),
+  displayName: z
+    .string()
+    .max(100, 'Display name must be no more than 100 characters')
+    .optional(),
+  bio: z
+    .string()
+    .max(500, 'Bio must be no more than 500 characters')
+    .optional(),
 });
 
 // Password reset request schema
@@ -71,7 +83,9 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
-export type PasswordResetRequestInput = z.infer<typeof passwordResetRequestSchema>;
+export type PasswordResetRequestInput = z.infer<
+  typeof passwordResetRequestSchema
+>;
 export type PasswordResetInput = z.infer<typeof passwordResetSchema>;
 
 // Validation helper function
@@ -85,9 +99,11 @@ export function validateInput<T>(schema: z.ZodSchema<T>, data: unknown): T {
         field: err.path.join('.'),
         message: err.message,
       }));
-      
-      const customError = new Error('Validation failed');
-      (customError as any).validationErrors = formattedErrors;
+
+      const customError = new Error('Validation failed') as Error & {
+        validationErrors: Array<{ field: string; message: string }>;
+      };
+      customError.validationErrors = formattedErrors;
       throw customError;
     }
     throw error;

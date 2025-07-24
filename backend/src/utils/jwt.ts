@@ -21,11 +21,16 @@ export interface TokenPair {
 }
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
+const JWT_REFRESH_SECRET =
+  process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
 
 if (!JWT_SECRET) {
   throw new Error('JWT_SECRET environment variable is required');
 }
+
+// Type-safe secret values
+const VERIFIED_JWT_SECRET: string = JWT_SECRET;
+const VERIFIED_JWT_REFRESH_SECRET: string = JWT_REFRESH_SECRET || JWT_SECRET;
 
 // Token expiration times
 const ACCESS_TOKEN_EXPIRES_IN = '15m';
@@ -40,7 +45,7 @@ export function generateAccessToken(userId: string, email: string): string {
     email,
   };
 
-  return jwt.sign(payload, JWT_SECRET, {
+  return jwt.sign(payload, VERIFIED_JWT_SECRET, {
     expiresIn: ACCESS_TOKEN_EXPIRES_IN,
     issuer: 'ai-trpg-platform',
     audience: 'ai-trpg-users',
@@ -50,13 +55,16 @@ export function generateAccessToken(userId: string, email: string): string {
 /**
  * Generate refresh token
  */
-export function generateRefreshToken(userId: string, tokenVersion?: number): string {
+export function generateRefreshToken(
+  userId: string,
+  tokenVersion?: number
+): string {
   const payload: Omit<RefreshTokenPayload, 'iat' | 'exp'> = {
     userId,
     tokenVersion,
   };
 
-  return jwt.sign(payload, JWT_REFRESH_SECRET, {
+  return jwt.sign(payload, VERIFIED_JWT_REFRESH_SECRET, {
     expiresIn: REFRESH_TOKEN_EXPIRES_IN,
     issuer: 'ai-trpg-platform',
     audience: 'ai-trpg-refresh',
@@ -66,7 +74,11 @@ export function generateRefreshToken(userId: string, tokenVersion?: number): str
 /**
  * Generate both access and refresh tokens
  */
-export function generateTokenPair(userId: string, email: string, tokenVersion?: number): TokenPair {
+export function generateTokenPair(
+  userId: string,
+  email: string,
+  tokenVersion?: number
+): TokenPair {
   return {
     accessToken: generateAccessToken(userId, email),
     refreshToken: generateRefreshToken(userId, tokenVersion),
@@ -78,7 +90,7 @@ export function generateTokenPair(userId: string, email: string, tokenVersion?: 
  */
 export function verifyAccessToken(token: string): TokenPayload {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET, {
+    const decoded = jwt.verify(token, VERIFIED_JWT_SECRET, {
       issuer: 'ai-trpg-platform',
       audience: 'ai-trpg-users',
     }) as TokenPayload;
@@ -86,7 +98,7 @@ export function verifyAccessToken(token: string): TokenPayload {
     return decoded;
   } catch (error) {
     logger.debug('Access token verification failed:', error);
-    
+
     if (error instanceof jwt.TokenExpiredError) {
       throw new Error('Access token expired');
     } else if (error instanceof jwt.JsonWebTokenError) {
@@ -102,7 +114,7 @@ export function verifyAccessToken(token: string): TokenPayload {
  */
 export function verifyRefreshToken(token: string): RefreshTokenPayload {
   try {
-    const decoded = jwt.verify(token, JWT_REFRESH_SECRET, {
+    const decoded = jwt.verify(token, VERIFIED_JWT_REFRESH_SECRET, {
       issuer: 'ai-trpg-platform',
       audience: 'ai-trpg-refresh',
     }) as RefreshTokenPayload;
@@ -110,7 +122,7 @@ export function verifyRefreshToken(token: string): RefreshTokenPayload {
     return decoded;
   } catch (error) {
     logger.debug('Refresh token verification failed:', error);
-    
+
     if (error instanceof jwt.TokenExpiredError) {
       throw new Error('Refresh token expired');
     } else if (error instanceof jwt.JsonWebTokenError) {
@@ -134,7 +146,7 @@ export function extractTokenFromHeader(authHeader?: string): string | null {
     return null;
   }
 
-  return parts[1];
+  return parts[1] || null;
 }
 
 /**
@@ -142,7 +154,7 @@ export function extractTokenFromHeader(authHeader?: string): string | null {
  */
 export function getTokenExpiration(token: string): number | null {
   try {
-    const decoded = jwt.decode(token) as any;
+    const decoded = jwt.decode(token) as { exp?: number } | null;
     return decoded?.exp || null;
   } catch (error) {
     logger.debug('Failed to decode token for expiration:', error);
@@ -156,6 +168,6 @@ export function getTokenExpiration(token: string): number | null {
 export function isTokenExpired(token: string): boolean {
   const exp = getTokenExpiration(token);
   if (!exp) return true;
-  
+
   return Date.now() >= exp * 1000;
 }

@@ -3,18 +3,18 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { logger } from '@/utils/logger';
 import { generateTokenPair, verifyRefreshToken } from '@/utils/jwt';
-import { 
-  validateInput, 
-  registerSchema, 
-  loginSchema, 
+import {
+  validateInput,
+  registerSchema,
+  loginSchema,
   refreshTokenSchema,
-  isDisposableEmail 
+  isDisposableEmail,
 } from '@/utils/validation';
-import { 
-  authenticate, 
-  checkLoginAttempts, 
-  recordFailedLogin, 
-  recordSuccessfulLogin 
+import {
+  authenticate,
+  checkLoginAttempts,
+  recordFailedLogin,
+  recordSuccessfulLogin,
 } from '@/middleware/auth';
 import { authRateLimit } from '@/middleware/rateLimiter';
 
@@ -28,7 +28,10 @@ const prisma = new PrismaClient();
 router.post('/register', authRateLimit, async (req: Request, res: Response) => {
   try {
     // Validate input
-    const { email, password, username, displayName } = validateInput(registerSchema, req.body);
+    const { email, password, username, displayName } = validateInput(
+      registerSchema,
+      req.body
+    );
 
     // Check for disposable email
     if (isDisposableEmail(email)) {
@@ -42,10 +45,7 @@ router.post('/register', authRateLimit, async (req: Request, res: Response) => {
     // Check if user already exists
     const existingUser = await prisma.user.findFirst({
       where: {
-        OR: [
-          { email },
-          ...(username ? [{ username }] : []),
-        ],
+        OR: [{ email }, ...(username ? [{ username }] : [])],
       },
     });
 
@@ -102,11 +102,11 @@ router.post('/register', authRateLimit, async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    if ((error as any).validationErrors) {
+    if (error && typeof error === 'object' && 'validationErrors' in error) {
       return res.status(400).json({
         success: false,
         error: 'Validation failed',
-        details: (error as any).validationErrors,
+        details: (error as { validationErrors: unknown }).validationErrors,
         code: 'VALIDATION_ERROR',
       });
     }
@@ -134,7 +134,8 @@ router.post('/login', authRateLimit, async (req: Request, res: Response) => {
     if (!loginCheck.allowed) {
       return res.status(429).json({
         success: false,
-        error: 'Account temporarily locked due to too many failed login attempts',
+        error:
+          'Account temporarily locked due to too many failed login attempts',
         lockoutTimeRemaining: loginCheck.lockoutTimeRemaining,
         code: 'ACCOUNT_LOCKED',
       });
@@ -186,7 +187,8 @@ router.post('/login', authRateLimit, async (req: Request, res: Response) => {
     recordSuccessfulLogin(email);
 
     // Remove password from response
-    const { password: _, ...userWithoutPassword } = user;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password: _password, ...userWithoutPassword } = user;
 
     logger.info(`User logged in: ${user.email}`);
 
@@ -199,11 +201,11 @@ router.post('/login', authRateLimit, async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    if ((error as any).validationErrors) {
+    if (error && typeof error === 'object' && 'validationErrors' in error) {
       return res.status(400).json({
         success: false,
         error: 'Validation failed',
-        details: (error as any).validationErrors,
+        details: (error as { validationErrors: unknown }).validationErrors,
         code: 'VALIDATION_ERROR',
       });
     }
@@ -269,11 +271,11 @@ router.post('/refresh', authRateLimit, async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    if ((error as any).validationErrors) {
+    if (error && typeof error === 'object' && 'validationErrors' in error) {
       return res.status(400).json({
         success: false,
         error: 'Validation failed',
-        details: (error as any).validationErrors,
+        details: (error as { validationErrors: unknown }).validationErrors,
         code: 'VALIDATION_ERROR',
       });
     }
