@@ -282,6 +282,59 @@ jest.mock('../src/ai/aiService', () => ({
   },
 }));
 
+// Mock Circuit Breaker to prevent timeout issues in tests
+jest.mock('../src/utils/circuitBreaker', () => ({
+  circuitBreakerManager: {
+    getCircuitBreaker: jest.fn().mockReturnValue({
+      execute: jest.fn().mockImplementation(async (fn) => fn()),
+      isOpen: jest.fn().mockReturnValue(false),
+      isHalfOpen: jest.fn().mockReturnValue(false),
+      isClosed: jest.fn().mockReturnValue(true),
+      getStats: jest.fn().mockReturnValue({
+        name: 'test-breaker',
+        state: 'CLOSED',
+        stats: {}
+      }),
+      open: jest.fn(),
+      close: jest.fn()
+    }),
+    getAllStats: jest.fn().mockReturnValue({}),
+    getHealthStatus: jest.fn().mockReturnValue({ 
+      healthy: true, 
+      services: {} 
+    })
+  },
+  AICircuitBreaker: jest.fn().mockImplementation(() => ({
+    execute: jest.fn().mockImplementation(async (fn) => fn()),
+    isOpen: jest.fn().mockReturnValue(false),
+    getStats: jest.fn().mockReturnValue({})
+  })),
+  DEFAULT_AI_CIRCUIT_BREAKER_OPTIONS: {
+    timeout: 30000,
+    errorThresholdPercentage: 50,
+    resetTimeout: 30000
+  }
+}));
+
+// Mock Retry Handler to prevent retry delays in tests
+jest.mock('../src/utils/retryHandler', () => ({
+  withRetry: jest.fn().mockImplementation(async (fn) => fn()),
+  isRetryableError: jest.fn().mockReturnValue(false),
+  createRetryWrapper: jest.fn().mockReturnValue((fn) => fn),
+  DEFAULT_AI_RETRY_OPTIONS: {
+    retries: 3,
+    factor: 2,
+    minTimeout: 1000,
+    maxTimeout: 10000
+  }
+}));
+
+// Mock opossum directly
+jest.mock('opossum', () => jest.fn());
+
+// Mock p-retry directly  
+jest.mock('p-retry', () => jest.fn().mockImplementation(async (fn) => fn()));
+
 // Set test environment variables
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test-secret';
@@ -304,8 +357,12 @@ beforeAll(() => {
   // Setup code that runs before all tests
 });
 
-afterAll(() => {
+afterAll(async () => {
   // Cleanup code that runs after all tests
+  // Force close any open handles
+  if (global.gc) {
+    global.gc();
+  }
 });
 
 beforeEach(() => {
