@@ -5,6 +5,8 @@ import {
   updateCampaignSchema,
 } from '@/services/campaignService';
 import { logger } from '@/utils/logger';
+import { authenticate, requireResourceOwnership } from '@/middleware/auth';
+import { aiProcessingRateLimit, campaignCreationRateLimit } from '@/middleware/rateLimiter';
 import { z } from 'zod';
 
 const router = Router();
@@ -13,10 +15,20 @@ const router = Router();
  * @route POST /api/campaigns
  * @desc Create new campaign
  */
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', authenticate, campaignCreationRateLimit, async (req: Request, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required',
+      });
+    }
+
     const data = createCampaignSchema.parse(req.body);
-    const campaign = await campaignService.createCampaign(data);
+    const campaign = await campaignService.createCampaign({
+      ...data,
+      createdBy: req.user.id,
+    });
 
     res.status(201).json({
       success: true,
@@ -43,18 +55,18 @@ router.post('/', async (req: Request, res: Response) => {
  * @route GET /api/campaigns
  * @desc List campaigns for user
  */
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', authenticate, async (req: Request, res: Response) => {
   try {
-    const { userId, status, limit, offset } = req.query;
-
-    if (!userId) {
-      return res.status(400).json({
+    if (!req.user) {
+      return res.status(401).json({
         success: false,
-        error: 'userId is required',
+        error: 'Authentication required',
       });
     }
 
-    const result = await campaignService.listCampaigns(userId as string, {
+    const { status, limit, offset } = req.query;
+
+    const result = await campaignService.listCampaigns(req.user.id, {
       status: status as string,
       limit: limit ? parseInt(limit as string) : undefined,
       offset: offset ? parseInt(offset as string) : undefined,
@@ -78,7 +90,7 @@ router.get('/', async (req: Request, res: Response) => {
  * @route GET /api/campaigns/:id
  * @desc Get campaign by ID
  */
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', authenticate, requireResourceOwnership(), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -115,7 +127,7 @@ router.get('/:id', async (req: Request, res: Response) => {
  * @route PUT /api/campaigns/:id
  * @desc Update campaign
  */
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', authenticate, requireResourceOwnership(), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -154,7 +166,7 @@ router.put('/:id', async (req: Request, res: Response) => {
  * @route DELETE /api/campaigns/:id
  * @desc Delete campaign
  */
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', authenticate, requireResourceOwnership(), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -184,7 +196,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
  * @route GET /api/campaigns/:id/stats
  * @desc Get campaign statistics
  */
-router.get('/:id/stats', async (req: Request, res: Response) => {
+router.get('/:id/stats', authenticate, requireResourceOwnership(), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -214,10 +226,17 @@ router.get('/:id/stats', async (req: Request, res: Response) => {
  * @route POST /api/campaigns/:id/action
  * @desc Process player action using workflow system
  */
-router.post('/:id/action', async (req: Request, res: Response) => {
+router.post('/:id/action', authenticate, requireResourceOwnership(), aiProcessingRateLimit, async (req: Request, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required',
+      });
+    }
+
     const { id } = req.params;
-    const { action, playerId } = req.body;
+    const { action } = req.body;
 
     if (!id) {
       return res.status(400).json({
@@ -233,13 +252,6 @@ router.post('/:id/action', async (req: Request, res: Response) => {
       });
     }
 
-    if (!playerId) {
-      return res.status(400).json({
-        success: false,
-        error: 'playerId is required',
-      });
-    }
-
     // Get campaign to verify it exists
     const campaign = await campaignService.getCampaign(id);
     if (!campaign) {
@@ -252,7 +264,7 @@ router.post('/:id/action', async (req: Request, res: Response) => {
     // Process player action through workflow system
     const result = await campaignService.processPlayerAction(
       id,
-      playerId,
+      req.user.id,
       action
     );
 
@@ -260,7 +272,7 @@ router.post('/:id/action', async (req: Request, res: Response) => {
       success: true,
       data: {
         campaignId: id,
-        playerId,
+        playerId: req.user.id,
         action,
         narrative: result.narrative,
         gameState: result.gameState,
