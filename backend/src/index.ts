@@ -10,6 +10,8 @@ import { requestTrackingMiddleware } from '@/middleware/requestTracking';
 import { authRoutes } from '@/routes/auth';
 import { healthRoutes } from '@/routes/health';
 import { aiRoutes } from '@/routes/ai';
+import { aiProxyRoutes } from '@/routes/aiProxy';
+import { securityRoutes } from '@/routes/security';
 import memoryRoutes from '@/routes/memory'; // MVP: Re-enabled for vector search
 // import { ragRoutes } from '@/routes/rag'; // MVP: Disabled for minimal schema
 import { campaignRoutes } from '@/routes/campaigns';
@@ -74,6 +76,8 @@ app.use(requestTrackingMiddleware);
 app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRateLimit, authRoutes);
 app.use('/api/ai', aiProcessingRateLimit, aiRoutes);
+app.use('/api/ai-proxy', aiProcessingRateLimit, aiProxyRoutes); // Secure AI proxy
+app.use('/api/security', authRateLimit, securityRoutes); // Security admin endpoints
 app.use('/api/memory', memoryRoutes); // MVP: Re-enabled for vector search
 // app.use('/api/rag', ragRoutes); // MVP: Disabled for minimal schema
 app.use('/api/campaigns', campaignCreationRateLimit, campaignRoutes);
