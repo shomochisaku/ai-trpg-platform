@@ -3,6 +3,12 @@ export { useGameSessionStore } from './gameSessionStore';
 export { useChatStore } from './chatStore';
 export { useGameStateStore } from './gameStateStore';
 export { useWebSocketStore } from './webSocketStore';
+export { 
+  useLoadingStore, 
+  useAIResponseLoading, 
+  useCampaignCreationLoading,
+  useLoadingTimeout 
+} from './loadingStore';
 
 // Export types for convenience
 export type {
@@ -19,3 +25,5 @@ export type {
   WebSocketStore,
   RootStore,
 } from '../types';
+
+export type { LoadingState } from './loadingStore';
