@@ -45,6 +45,9 @@ jest.mock('@prisma/client', () => {
       findMany: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
+      deleteMany: jest.fn(),
+      count: jest.fn(),
+      upsert: jest.fn(),
     },
     
     memoryEntry: {
