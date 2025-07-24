@@ -20,13 +20,13 @@ const ProgressMessage: React.FC<ProgressMessageProps> = ({
   const [elapsedTime, setElapsedTime] = useState(0);
   const [currentMessage, setCurrentMessage] = useState('');
 
-  const messages = {
-    initial: customMessages.initial || 'AI is processing your request...',
-    extended: customMessages.extended || 'This is taking longer than usual. The AI is working on a complex response.',
-    timeout: customMessages.timeout || 'The request is taking much longer than expected. You can cancel and try again.',
-  };
-
   useEffect(() => {
+    const messages = {
+      initial: customMessages.initial || 'AI is processing your request...',
+      extended: customMessages.extended || 'This is taking longer than usual. The AI is working on a complex response.',
+      timeout: customMessages.timeout || 'The request is taking much longer than expected. You can cancel and try again.',
+    };
+
     const interval = setInterval(() => {
       const now = Date.now();
       const elapsed = Math.floor((now - startTime) / 1000);
@@ -44,7 +44,7 @@ const ProgressMessage: React.FC<ProgressMessageProps> = ({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [startTime, messages]);
+  }, [startTime, customMessages]);
 
   if (!currentMessage) {
     return null;

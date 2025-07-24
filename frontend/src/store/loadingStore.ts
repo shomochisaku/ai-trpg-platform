@@ -75,7 +75,8 @@ export const useLoadingStore = create<LoadingStore>()(
 
     stopLoading: (id: string) => {
       set((state) => {
-        const { [id]: removed, ...remainingStates } = state.loadingStates;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { [id]: _removed, ...remainingStates } = state.loadingStates;
         return {
           loadingStates: remainingStates,
           isAnyLoading: Object.keys(remainingStates).length > 0,

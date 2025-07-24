@@ -14,7 +14,7 @@ vi.mock('../TypingIndicator', () => ({
 
 vi.mock('../ProgressMessage', () => ({
   default: ({ startTime, onCancel }: { startTime: number; onCancel?: () => void }) => (
-    <div data-testid="progress-message">
+    <div data-testid="progress-message" data-start-time={startTime}>
       Progress Message
       {onCancel && <button onClick={onCancel}>Cancel</button>}
     </div>
