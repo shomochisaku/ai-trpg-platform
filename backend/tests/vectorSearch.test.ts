@@ -1,6 +1,3 @@
-// Set test database URL before importing PrismaClient
-process.env.DATABASE_URL = 'postgresql://shou@localhost:5432/aitrpg';
-
 import { PrismaClient, MemoryType } from '@prisma/client';
 import { vectorSearchService } from '@/services/vectorSearchService';
 import { memoryService } from '@/services/memoryService';
@@ -10,26 +7,37 @@ const prisma = new PrismaClient();
 
 describe('Vector Search Integration Tests', () => {
   beforeAll(async () => {
-    // Clean up test data
-    await prisma.memoryEntry.deleteMany({
-      where: {
-        content: {
-          startsWith: '[TEST]',
-        },
+    // Mock setup for memory entry creation
+    (prisma.memoryEntry.create as jest.Mock).mockImplementation(async (params) => ({
+      id: 'test-memory-id',
+      content: params.data.content,
+      category: params.data.category,
+      importance: params.data.importance,
+      tags: params.data.tags,
+      embedding: new Array(1536).fill(0.1),
+      isActive: true,
+      userId: params.data.userId || null,
+      sessionId: params.data.sessionId || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
+
+    // Mock vector search queries
+    (prisma.$queryRawUnsafe as jest.Mock).mockResolvedValue([
+      {
+        id: 'test-memory-id',
+        content: '[TEST] Mock vector search result',
+        category: 'EVENT',
+        importance: 8,
+        similarity: 0.9,
+        tags: JSON.stringify(['test', 'mock']),
+        created_at: new Date(),
       },
-    });
+    ]);
   });
 
   afterAll(async () => {
-    // Clean up test data
-    await prisma.memoryEntry.deleteMany({
-      where: {
-        content: {
-          startsWith: '[TEST]',
-        },
-      },
-    });
-    await prisma.$disconnect();
+    jest.clearAllMocks();
   });
 
   describe('Basic Vector Operations', () => {
