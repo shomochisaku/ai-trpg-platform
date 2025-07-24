@@ -1,4 +1,5 @@
 import rateLimit, { RateLimitRequestHandler } from 'express-rate-limit';
+import { ipKeyGenerator } from 'express-rate-limit';
 import slowDown from 'express-slow-down';
 import { Request, RequestHandler } from 'express';
 import { logger } from '@/utils/logger';
@@ -73,8 +74,8 @@ export const aiProcessingRateLimit = rateLimit({
   legacyHeaders: false,
   handler: rateLimitHandler,
   keyGenerator: req => {
-    // Use user ID if authenticated, otherwise use IP address
-    return (req as AuthenticatedRequest).user?.id || req.ip || 'anonymous';
+    // Use user ID if authenticated, otherwise use IPv6-safe IP generator
+    return (req as AuthenticatedRequest).user?.id || ipKeyGenerator(req);
   },
 });
 
@@ -94,8 +95,8 @@ export const campaignCreationRateLimit = rateLimit({
   legacyHeaders: false,
   handler: rateLimitHandler,
   keyGenerator: req => {
-    // Use user ID if authenticated, otherwise use IP address
-    return (req as AuthenticatedRequest).user?.id || req.ip || 'anonymous';
+    // Use user ID if authenticated, otherwise use IPv6-safe IP generator
+    return (req as AuthenticatedRequest).user?.id || ipKeyGenerator(req);
   },
 });
 
