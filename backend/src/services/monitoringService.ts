@@ -9,7 +9,7 @@ export interface SystemMetrics {
     total: number;
     percentage: number;
   };
-  circuitBreakers: Record<string, any>;
+  circuitBreakers: Record<string, unknown>;
   errors: {
     total: number;
     byType: Record<string, number>;
@@ -48,7 +48,7 @@ export interface ServiceHealth {
   lastCheck: string;
   responseTime?: number;
   errorRate?: number;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 /**
@@ -108,7 +108,7 @@ export class MonitoringService {
    */
   recordRequest(successful: boolean, responseTime: number): void {
     this.requestMetrics.total++;
-    
+
     if (successful) {
       this.requestMetrics.successful++;
     } else {
@@ -119,7 +119,8 @@ export class MonitoringService {
 
     // Keep only last 1000 response times
     if (this.requestMetrics.responseTimes.length > 1000) {
-      this.requestMetrics.responseTimes = this.requestMetrics.responseTimes.slice(-1000);
+      this.requestMetrics.responseTimes =
+        this.requestMetrics.responseTimes.slice(-1000);
     }
   }
 
@@ -137,9 +138,11 @@ export class MonitoringService {
     }
 
     // Calculate average response time
-    const avgResponseTime = this.requestMetrics.responseTimes.length > 0
-      ? this.requestMetrics.responseTimes.reduce((a, b) => a + b, 0) / this.requestMetrics.responseTimes.length
-      : 0;
+    const avgResponseTime =
+      this.requestMetrics.responseTimes.length > 0
+        ? this.requestMetrics.responseTimes.reduce((a, b) => a + b, 0) /
+          this.requestMetrics.responseTimes.length
+        : 0;
 
     return {
       timestamp: new Date().toISOString(),
@@ -171,29 +174,41 @@ export class MonitoringService {
     try {
       const breakerHealth = circuitBreakerManager.getHealthStatus();
       const aiServices = ['openai', 'anthropic', 'mastra'];
-      
+
       let healthyServices = 0;
       let totalServices = 0;
       let totalErrorRate = 0;
 
       for (const service of aiServices) {
-        if (breakerHealth.services[service]) {
+        const serviceHealth = breakerHealth.services[service] as any;
+        if (serviceHealth) {
           totalServices++;
-          if (breakerHealth.services[service].healthy) {
+          if (serviceHealth.healthy) {
             healthyServices++;
           }
-          
+
           // Calculate error rate from circuit breaker stats
-          const stats = breakerHealth.services[service].stats?.stats;
-          if (stats && stats.fires > 0) {
-            const errorRate = (stats.failures / stats.fires) * 100;
-            totalErrorRate += errorRate;
+          const stats = serviceHealth.stats?.stats;
+          if (
+            stats &&
+            typeof stats === 'object' &&
+            'fires' in stats &&
+            'failures' in stats
+          ) {
+            const fires = (stats as any).fires;
+            const failures = (stats as any).failures;
+            if (fires > 0) {
+              const errorRate = (failures / fires) * 100;
+              totalErrorRate += errorRate;
+            }
           }
         }
       }
 
-      const avgErrorRate = totalServices > 0 ? totalErrorRate / totalServices : 0;
-      const healthPercentage = totalServices > 0 ? (healthyServices / totalServices) * 100 : 100;
+      const avgErrorRate =
+        totalServices > 0 ? totalErrorRate / totalServices : 0;
+      const healthPercentage =
+        totalServices > 0 ? (healthyServices / totalServices) * 100 : 100;
 
       let status: 'healthy' | 'degraded' | 'unhealthy';
       if (healthPercentage >= 100) {
@@ -234,12 +249,17 @@ export class MonitoringService {
       // This would typically include actual database connectivity checks
       // For now, we'll do a simple check based on recent database errors
       const dbErrors = this.errorMetrics.filter(
-        error => error.type === 'DATABASE_ERROR' && 
-        new Date(error.timestamp).getTime() > Date.now() - 5 * 60 * 1000 // Last 5 minutes
+        error =>
+          error.type === 'DATABASE_ERROR' &&
+          new Date(error.timestamp).getTime() > Date.now() - 5 * 60 * 1000 // Last 5 minutes
       );
 
-      const status = dbErrors.length === 0 ? 'healthy' : 
-                    dbErrors.length < 5 ? 'degraded' : 'unhealthy';
+      const status =
+        dbErrors.length === 0
+          ? 'healthy'
+          : dbErrors.length < 5
+            ? 'degraded'
+            : 'unhealthy';
 
       return {
         status,
@@ -265,8 +285,9 @@ export class MonitoringService {
    */
   private checkSystemHealth(): ServiceHealth {
     const memoryUsage = process.memoryUsage();
-    const memoryPercentage = (memoryUsage.heapUsed / memoryUsage.heapTotal) * 100;
-    
+    const memoryPercentage =
+      (memoryUsage.heapUsed / memoryUsage.heapTotal) * 100;
+
     let status: 'healthy' | 'degraded' | 'unhealthy';
     if (memoryPercentage < 70) {
       status = 'healthy';
@@ -300,7 +321,7 @@ export class MonitoringService {
     // Determine overall status
     const services = { ai: aiHealth, database: dbHealth, system: systemHealth };
     const statuses = Object.values(services).map(s => s.status);
-    
+
     let overallStatus: 'healthy' | 'degraded' | 'unhealthy';
     if (statuses.every(s => s === 'healthy')) {
       overallStatus = 'healthy';
@@ -323,27 +344,31 @@ export class MonitoringService {
    */
   private startPeriodicHealthChecks(): void {
     // Log system metrics every 5 minutes
-    setInterval(async () => {
-      try {
-        const healthStatus = await this.getHealthStatus();
-        logger.info('Periodic health check', {
-          status: healthStatus.status,
-          metrics: {
-            memory: healthStatus.metrics.memory,
-            circuitBreakers: Object.keys(healthStatus.metrics.circuitBreakers).length,
-            errors: healthStatus.metrics.errors.total,
-            requests: healthStatus.metrics.requests,
-          },
-        });
+    setInterval(
+      async () => {
+        try {
+          const healthStatus = await this.getHealthStatus();
+          logger.info('Periodic health check', {
+            status: healthStatus.status,
+            metrics: {
+              memory: healthStatus.metrics.memory,
+              circuitBreakers: Object.keys(healthStatus.metrics.circuitBreakers)
+                .length,
+              errors: healthStatus.metrics.errors.total,
+              requests: healthStatus.metrics.requests,
+            },
+          });
 
-        // Log warning if system is not healthy
-        if (healthStatus.status !== 'healthy') {
-          logger.warn('System health degraded', healthStatus);
+          // Log warning if system is not healthy
+          if (healthStatus.status !== 'healthy') {
+            logger.warn('System health degraded', healthStatus);
+          }
+        } catch (error) {
+          logger.error('Periodic health check failed:', error);
         }
-      } catch (error) {
-        logger.error('Periodic health check failed:', error);
-      }
-    }, 5 * 60 * 1000); // 5 minutes
+      },
+      5 * 60 * 1000
+    ); // 5 minutes
 
     logger.info('Monitoring service started with periodic health checks');
   }

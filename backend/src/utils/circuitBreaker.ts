@@ -31,9 +31,11 @@ export class AICircuitBreaker {
   private breaker: CircuitBreaker;
   private options: CircuitBreakerOptions;
 
-  constructor(options: CircuitBreakerOptions = DEFAULT_AI_CIRCUIT_BREAKER_OPTIONS) {
+  constructor(
+    options: CircuitBreakerOptions = DEFAULT_AI_CIRCUIT_BREAKER_OPTIONS
+  ) {
     this.options = { ...DEFAULT_AI_CIRCUIT_BREAKER_OPTIONS, ...options };
-    
+
     this.breaker = new CircuitBreaker(this.executeWithFallback.bind(this), {
       timeout: this.options.timeout!,
       errorThresholdPercentage: this.options.errorThresholdPercentage!,
@@ -54,7 +56,7 @@ export class AICircuitBreaker {
     operation: () => Promise<T>,
     fallback?: () => Promise<T> | T
   ): Promise<T> {
-    return this.breaker.fire(operation, fallback);
+    return this.breaker.fire(operation, fallback) as Promise<T>;
   }
 
   /**
@@ -73,7 +75,9 @@ export class AICircuitBreaker {
       });
 
       if (fallback) {
-        logger.info(`Executing fallback for circuit breaker: ${this.options.name}`);
+        logger.info(
+          `Executing fallback for circuit breaker: ${this.options.name}`
+        );
         return await fallback();
       }
 
@@ -103,7 +107,7 @@ export class AICircuitBreaker {
       });
     });
 
-    this.breaker.on('failure', (error) => {
+    this.breaker.on('failure', error => {
       logger.warn(`Circuit breaker failure: ${this.options.name}`, {
         error: error instanceof Error ? error.message : 'Unknown error',
         stats: this.getStats(),
@@ -131,10 +135,14 @@ export class AICircuitBreaker {
   /**
    * Get circuit breaker statistics
    */
-  getStats() {
+  getStats(): Record<string, unknown> {
     return {
       name: this.options.name,
-      state: this.breaker.opened ? 'OPEN' : this.breaker.halfOpen ? 'HALF_OPEN' : 'CLOSED',
+      state: this.breaker.opened
+        ? 'OPEN'
+        : this.breaker.halfOpen
+          ? 'HALF_OPEN'
+          : 'CLOSED',
       stats: this.breaker.stats,
       options: {
         timeout: this.options.timeout,
@@ -200,7 +208,7 @@ export class CircuitBreakerManager {
         ...options,
         name: `${serviceName}_CIRCUIT_BREAKER`,
       };
-      
+
       this.breakers.set(serviceName, new AICircuitBreaker(breakerOptions));
       logger.info(`Created circuit breaker for service: ${serviceName}`);
     }
@@ -211,9 +219,9 @@ export class CircuitBreakerManager {
   /**
    * Get all circuit breaker statistics
    */
-  getAllStats() {
-    const stats: Record<string, any> = {};
-    
+  getAllStats(): Record<string, unknown> {
+    const stats: Record<string, unknown> = {};
+
     for (const [serviceName, breaker] of this.breakers) {
       stats[serviceName] = breaker.getStats();
     }
@@ -224,21 +232,25 @@ export class CircuitBreakerManager {
   /**
    * Check health of all circuit breakers
    */
-  getHealthStatus() {
+  getHealthStatus(): { healthy: boolean; services: Record<string, unknown> } {
     const health = {
       healthy: true,
-      services: {} as Record<string, any>,
+      services: {} as Record<string, unknown>,
     };
 
     for (const [serviceName, breaker] of this.breakers) {
       const serviceHealth = {
         healthy: breaker.isClosed(),
-        state: breaker.isOpen() ? 'OPEN' : breaker.isHalfOpen() ? 'HALF_OPEN' : 'CLOSED',
+        state: breaker.isOpen()
+          ? 'OPEN'
+          : breaker.isHalfOpen()
+            ? 'HALF_OPEN'
+            : 'CLOSED',
         stats: breaker.getStats(),
       };
 
       health.services[serviceName] = serviceHealth;
-      
+
       if (!serviceHealth.healthy) {
         health.healthy = false;
       }

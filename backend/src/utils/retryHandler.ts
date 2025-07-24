@@ -7,7 +7,7 @@ export interface RetryOptions {
   minTimeout?: number;
   maxTimeout?: number;
   randomize?: boolean;
-  onFailedAttempt?: (error: pRetry.FailedAttemptError) => void;
+  onFailedAttempt?: (error: any) => void;
 }
 
 export interface RetryableError extends Error {
@@ -25,7 +25,7 @@ export const DEFAULT_AI_RETRY_OPTIONS: RetryOptions = {
   minTimeout: 1000,
   maxTimeout: 10000,
   randomize: true,
-  onFailedAttempt: (error) => {
+  onFailedAttempt: error => {
     logger.warn(`Retry attempt ${error.attemptNumber} failed:`, {
       error: error.message,
       retriesLeft: error.retriesLeft,
@@ -39,7 +39,12 @@ export const DEFAULT_AI_RETRY_OPTIONS: RetryOptions = {
  */
 export function isRetryableError(error: RetryableError): boolean {
   // Network errors (typically ECONNRESET, ENOTFOUND, etc.)
-  if (error.code && ['ECONNRESET', 'ENOTFOUND', 'ECONNREFUSED', 'ETIMEDOUT'].includes(error.code)) {
+  if (
+    error.code &&
+    ['ECONNRESET', 'ENOTFOUND', 'ECONNREFUSED', 'ETIMEDOUT'].includes(
+      error.code
+    )
+  ) {
     return true;
   }
 
@@ -59,7 +64,7 @@ export function isRetryableError(error: RetryableError): boolean {
       'server error',
       'service unavailable',
     ];
-    
+
     const lowerMessage = error.message.toLowerCase();
     return retryableMessages.some(msg => lowerMessage.includes(msg));
   }
@@ -85,7 +90,7 @@ export async function withRetry<T>(
         return await operation();
       } catch (error) {
         const retryableError = error as RetryableError;
-        
+
         // Only retry if the error is retryable
         if (!isRetryableError(retryableError)) {
           logger.error('Non-retryable error encountered:', {
@@ -93,7 +98,10 @@ export async function withRetry<T>(
             code: retryableError.code,
             status: retryableError.status,
           });
-          throw new pRetry.AbortError(retryableError);
+          // Throw as AbortError to prevent retry
+          const abortError = new Error(retryableError.message) as any;
+          abortError.name = 'AbortError';
+          throw abortError;
         }
 
         logger.warn('Retryable error encountered:', {
@@ -101,7 +109,7 @@ export async function withRetry<T>(
           code: retryableError.code,
           status: retryableError.status,
         });
-        
+
         throw retryableError;
       }
     },
@@ -110,8 +118,12 @@ export async function withRetry<T>(
       factor: options.factor || DEFAULT_AI_RETRY_OPTIONS.factor!,
       minTimeout: options.minTimeout || DEFAULT_AI_RETRY_OPTIONS.minTimeout!,
       maxTimeout: options.maxTimeout || DEFAULT_AI_RETRY_OPTIONS.maxTimeout!,
-      randomize: options.randomize !== undefined ? options.randomize : DEFAULT_AI_RETRY_OPTIONS.randomize!,
-      onFailedAttempt: options.onFailedAttempt || DEFAULT_AI_RETRY_OPTIONS.onFailedAttempt!,
+      randomize:
+        options.randomize !== undefined
+          ? options.randomize
+          : DEFAULT_AI_RETRY_OPTIONS.randomize!,
+      onFailedAttempt:
+        options.onFailedAttempt || DEFAULT_AI_RETRY_OPTIONS.onFailedAttempt!,
     }
   );
 }
@@ -119,6 +131,8 @@ export async function withRetry<T>(
 /**
  * Create a retry wrapper with custom options
  */
-export function createRetryWrapper(options: RetryOptions) {
+export function createRetryWrapper(
+  options: RetryOptions
+): <T>(operation: () => Promise<T>) => Promise<T> {
   return <T>(operation: () => Promise<T>) => withRetry(operation, options);
 }

@@ -11,10 +11,11 @@ export const requestTrackingMiddleware = (
   next: NextFunction
 ): void => {
   const startTime = Date.now();
-  
+
   // Generate request ID if not present
   if (!req.headers['x-request-id']) {
-    req.headers['x-request-id'] = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    req.headers['x-request-id'] =
+      `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
   // Set request ID in response header
@@ -24,7 +25,7 @@ export const requestTrackingMiddleware = (
   const originalEnd = res.end;
   let responseRecorded = false;
 
-  res.end = function(chunk?: any, encoding?: any, cb?: any) {
+  res.end = function (this: Response, ...args: unknown[]): Response {
     if (!responseRecorded) {
       const responseTime = Date.now() - startTime;
       const successful = res.statusCode < 400;
@@ -47,9 +48,9 @@ export const requestTrackingMiddleware = (
       responseRecorded = true;
     }
 
-    // Call original end method
-    return originalEnd.call(this, chunk, encoding, cb);
-  };
+    // Call original end method with all arguments
+    return (originalEnd as any).apply(this, args);
+  } as any;
 
   next();
 };

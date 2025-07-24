@@ -22,32 +22,39 @@ router.get('/', (req: Request, res: Response) => {
 });
 
 // Comprehensive health check with monitoring data
-router.get('/detailed', asyncHandler(async (req: Request, res: Response) => {
-  const healthStatus = await monitoringService.getHealthStatus();
-  
-  logger.info('Detailed health check requested', {
-    status: healthStatus.status,
-    requesterIp: req.ip,
-  });
+router.get(
+  '/detailed',
+  asyncHandler(async (req: Request, res: Response) => {
+    const healthStatus = await monitoringService.getHealthStatus();
 
-  // Set appropriate HTTP status based on health
-  const httpStatus = healthStatus.status === 'healthy' ? 200 :
-                     healthStatus.status === 'degraded' ? 200 : 503;
+    logger.info('Detailed health check requested', {
+      status: healthStatus.status,
+      requesterIp: req.ip,
+    });
 
-  res.status(httpStatus).json(healthStatus);
-}));
+    // Set appropriate HTTP status based on health
+    const httpStatus =
+      healthStatus.status === 'healthy'
+        ? 200
+        : healthStatus.status === 'degraded'
+          ? 200
+          : 503;
+
+    res.status(httpStatus).json(healthStatus);
+  })
+);
 
 // Circuit breaker status endpoint
 router.get('/circuit-breakers', (req: Request, res: Response) => {
   const circuitBreakerHealth = circuitBreakerManager.getHealthStatus();
-  
+
   logger.info('Circuit breaker health check requested', {
     healthy: circuitBreakerHealth.healthy,
     requesterIp: req.ip,
   });
 
   const httpStatus = circuitBreakerHealth.healthy ? 200 : 503;
-  
+
   res.status(httpStatus).json({
     status: circuitBreakerHealth.healthy ? 'healthy' : 'degraded',
     timestamp: new Date().toISOString(),
@@ -58,7 +65,7 @@ router.get('/circuit-breakers', (req: Request, res: Response) => {
 // System metrics endpoint
 router.get('/metrics', (req: Request, res: Response) => {
   const metrics = monitoringService.getSystemMetrics();
-  
+
   logger.debug('System metrics requested', {
     requesterIp: req.ip,
   });

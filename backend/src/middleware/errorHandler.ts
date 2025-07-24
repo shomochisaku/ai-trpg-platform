@@ -7,7 +7,7 @@ export interface CustomError extends Error {
   statusCode?: number;
   code?: string;
   isOperational?: boolean;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   service?: string;
 }
 
@@ -18,7 +18,7 @@ export interface ErrorResponse {
     message: string;
     userMessage: string;
     code?: string;
-    context?: Record<string, any>;
+    context?: Record<string, unknown>;
     stack?: string;
     timestamp: string;
     requestId?: string;
@@ -49,7 +49,7 @@ export function createError(
   message: string,
   statusCode: number = 500,
   type: ErrorType = ErrorType.INTERNAL,
-  context?: Record<string, any>,
+  context?: Record<string, unknown>,
   service?: string
 ): CustomError {
   const error = new Error(message) as CustomError;
@@ -70,52 +70,72 @@ export function classifyError(error: CustomError): {
   userMessage: string;
 } {
   // AI Service errors
-  if (error.service && ['openai', 'anthropic', 'mastra'].includes(error.service)) {
+  if (
+    error.service &&
+    ['openai', 'anthropic', 'mastra'].includes(error.service)
+  ) {
     if (error.message?.toLowerCase().includes('rate limit')) {
       return {
         type: ErrorType.RATE_LIMIT,
         statusCode: 429,
-        userMessage: 'AI service is temporarily busy. Please try again in a moment.',
+        userMessage:
+          'AI service is temporarily busy. Please try again in a moment.',
       };
     }
     if (error.message?.toLowerCase().includes('timeout')) {
       return {
         type: ErrorType.TIMEOUT,
         statusCode: 504,
-        userMessage: 'AI service is taking longer than expected. Please try again.',
+        userMessage:
+          'AI service is taking longer than expected. Please try again.',
       };
     }
     return {
       type: ErrorType.AI_SERVICE,
       statusCode: 503,
-      userMessage: 'AI service is temporarily unavailable. Please try again later.',
+      userMessage:
+        'AI service is temporarily unavailable. Please try again later.',
     };
   }
 
   // Network errors
-  if (error.code && ['ECONNRESET', 'ENOTFOUND', 'ECONNREFUSED', 'ETIMEDOUT'].includes(error.code)) {
+  if (
+    error.code &&
+    ['ECONNRESET', 'ENOTFOUND', 'ECONNREFUSED', 'ETIMEDOUT'].includes(
+      error.code
+    )
+  ) {
     return {
       type: ErrorType.NETWORK,
       statusCode: 503,
-      userMessage: 'Network connection issue. Please check your connection and try again.',
+      userMessage:
+        'Network connection issue. Please check your connection and try again.',
     };
   }
 
   // Circuit breaker errors
-  if (error.message?.includes('circuit breaker') || error.code === 'EOPENBREAKER') {
+  if (
+    error.message?.includes('circuit breaker') ||
+    error.code === 'EOPENBREAKER'
+  ) {
     return {
       type: ErrorType.CIRCUIT_BREAKER,
       statusCode: 503,
-      userMessage: 'Service is temporarily unavailable due to high error rates. Please try again later.',
+      userMessage:
+        'Service is temporarily unavailable due to high error rates. Please try again later.',
     };
   }
 
   // Database errors
-  if (error.message?.includes('prisma') || error.message?.includes('database')) {
+  if (
+    error.message?.includes('prisma') ||
+    error.message?.includes('database')
+  ) {
     return {
       type: ErrorType.DATABASE,
       statusCode: 503,
-      userMessage: 'Database service is temporarily unavailable. Please try again later.',
+      userMessage:
+        'Database service is temporarily unavailable. Please try again later.',
     };
   }
 
@@ -140,7 +160,8 @@ export function classifyError(error: CustomError): {
     return {
       type: ErrorType.VALIDATION,
       statusCode: 400,
-      userMessage: 'Invalid input provided. Please check your data and try again.',
+      userMessage:
+        'Invalid input provided. Please check your data and try again.',
     };
   }
 
@@ -158,7 +179,8 @@ export function classifyError(error: CustomError): {
     return {
       type: ErrorType.RATE_LIMIT,
       statusCode: 429,
-      userMessage: 'Too many requests. Please wait a moment before trying again.',
+      userMessage:
+        'Too many requests. Please wait a moment before trying again.',
     };
   }
 
@@ -177,10 +199,13 @@ export const errorHandler = (
   err: CustomError,
   req: Request,
   res: Response,
-  next: NextFunction
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _next: NextFunction
 ): void => {
   // Generate request ID for tracking
-  const requestId = req.headers['x-request-id'] as string || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const requestId =
+    (req.headers['x-request-id'] as string) ||
+    `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
   // Classify the error
   const { type, statusCode, userMessage } = classifyError(err);
@@ -248,7 +273,7 @@ export const errorHandler = (
 
   // Set response headers
   res.setHeader('X-Request-ID', requestId);
-  
+
   // Send error response
   res.status(statusCode).json(errorResponse);
 };
@@ -256,8 +281,10 @@ export const errorHandler = (
 /**
  * Async error wrapper for route handlers
  */
-export const asyncHandler = (fn: Function) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+export const asyncHandler = (
+  fn: (req: Request, res: Response, next: NextFunction) => Promise<void>
+) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     Promise.resolve(fn(req, res, next)).catch(next);
   };
 };
