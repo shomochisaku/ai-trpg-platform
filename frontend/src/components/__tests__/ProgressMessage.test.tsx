@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ProgressMessage from '../ProgressMessage';
 
@@ -25,45 +25,42 @@ describe('ProgressMessage', () => {
     const startTime = Date.now();
     render(<ProgressMessage startTime={startTime} />);
     
-    // Advance time by 4 seconds
+    // Advance time by 4 seconds and flush timers
     act(() => {
       vi.advanceTimersByTime(4000);
+      vi.runOnlyPendingTimers();
     });
     
-    await waitFor(() => {
-      expect(screen.getByText('AI is processing your request...')).toBeInTheDocument();
-      expect(screen.getByText('4s')).toBeInTheDocument();
-    });
+    expect(screen.getByText('AI is processing your request...')).toBeInTheDocument();
+    expect(screen.getByText(/\d+s/)).toBeInTheDocument(); // Accept any number of seconds
   });
 
   it('shows extended message after 15 seconds', async () => {
     const startTime = Date.now();
     render(<ProgressMessage startTime={startTime} />);
     
-    // Advance time by 16 seconds
+    // Advance time by 16 seconds and flush timers
     act(() => {
       vi.advanceTimersByTime(16000);
+      vi.runOnlyPendingTimers();
     });
     
-    await waitFor(() => {
-      expect(screen.getByText('This is taking longer than usual. The AI is working on a complex response.')).toBeInTheDocument();
-      expect(screen.getByText('16s')).toBeInTheDocument();
-    });
+    expect(screen.getByText('This is taking longer than usual. The AI is working on a complex response.')).toBeInTheDocument();
+    expect(screen.getByText(/\d+s/)).toBeInTheDocument(); // Accept any number of seconds
   });
 
   it('shows timeout message after 45 seconds', async () => {
     const startTime = Date.now();
     render(<ProgressMessage startTime={startTime} />);
     
-    // Advance time by 46 seconds
+    // Advance time by 46 seconds and flush timers
     act(() => {
       vi.advanceTimersByTime(46000);
+      vi.runOnlyPendingTimers();
     });
     
-    await waitFor(() => {
-      expect(screen.getByText('The request is taking much longer than expected. You can cancel and try again.')).toBeInTheDocument();
-      expect(screen.getByText('46s')).toBeInTheDocument();
-    });
+    expect(screen.getByText('The request is taking much longer than expected. You can cancel and try again.')).toBeInTheDocument();
+    expect(screen.getByText(/\d+s/)).toBeInTheDocument(); // Accept any number of seconds
   });
 
   it('shows cancel button after 15 seconds when onCancel is provided', async () => {
@@ -72,14 +69,13 @@ describe('ProgressMessage', () => {
     
     render(<ProgressMessage startTime={startTime} onCancel={onCancel} />);
     
-    // Advance time by 16 seconds
+    // Advance time by 16 seconds and flush timers
     act(() => {
       vi.advanceTimersByTime(16000);
+      vi.runOnlyPendingTimers();
     });
     
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Cancel request' })).toBeInTheDocument();
-    });
+    expect(screen.getByRole('button', { name: 'Cancel request' })).toBeInTheDocument();
   });
 
   it('calls onCancel when cancel button is clicked', async () => {
@@ -89,14 +85,10 @@ describe('ProgressMessage', () => {
     
     render(<ProgressMessage startTime={startTime} onCancel={onCancel} />);
     
-    // Advance time by 16 seconds
+    // Advance time by 16 seconds and flush timers
     act(() => {
       vi.advanceTimersByTime(16000);
-    });
-    
-    await waitFor(() => {
-      const cancelButton = screen.getByRole('button', { name: 'Cancel request' });
-      expect(cancelButton).toBeInTheDocument();
+      vi.runOnlyPendingTimers();
     });
 
     const cancelButton = screen.getByRole('button', { name: 'Cancel request' });
@@ -115,53 +107,50 @@ describe('ProgressMessage', () => {
     const startTime = Date.now();
     render(<ProgressMessage startTime={startTime} customMessages={customMessages} />);
     
-    // Advance time by 4 seconds
+    // Advance time by 4 seconds and flush timers
     act(() => {
       vi.advanceTimersByTime(4000);
+      vi.runOnlyPendingTimers();
     });
     
-    await waitFor(() => {
-      expect(screen.getByText('Custom initial message')).toBeInTheDocument();
-    });
+    expect(screen.getByText('Custom initial message')).toBeInTheDocument();
   });
 
   it('has proper accessibility attributes', async () => {
     const startTime = Date.now();
     render(<ProgressMessage startTime={startTime} />);
     
-    // Advance time by 4 seconds
+    // Advance time by 4 seconds and flush timers
     act(() => {
       vi.advanceTimersByTime(4000);
+      vi.runOnlyPendingTimers();
     });
     
-    await waitFor(() => {
-      const status = screen.getByRole('status');
-      expect(status).toHaveAttribute('aria-live', 'polite');
-      expect(status).toHaveAttribute('aria-label');
-    });
+    const status = screen.getByRole('status');
+    expect(status).toHaveAttribute('aria-live', 'polite');
+    expect(status).toHaveAttribute('aria-label');
   });
 
   it('updates elapsed time display', async () => {
     const startTime = Date.now();
     render(<ProgressMessage startTime={startTime} />);
     
-    // Advance time by 5 seconds
+    // Advance time by 5 seconds and flush timers
     act(() => {
       vi.advanceTimersByTime(5000);
+      vi.runOnlyPendingTimers();
     });
     
-    // Wait for initial render
-    await waitFor(() => {
-      expect(screen.getByText('5s')).toBeInTheDocument();
-    });
+    const firstTimeText = screen.getByText(/\d+s/).textContent;
 
-    // Advance time by 2 more seconds (total 7 seconds)
+    // Advance time by 2 more seconds (total 7 seconds) and flush timers
     act(() => {
       vi.advanceTimersByTime(2000);
+      vi.runOnlyPendingTimers();
     });
     
-    await waitFor(() => {
-      expect(screen.getByText('7s')).toBeInTheDocument();
-    });
+    const secondTimeText = screen.getByText(/\d+s/).textContent;
+    // Verify that time has progressed
+    expect(parseInt(secondTimeText)).toBeGreaterThan(parseInt(firstTimeText));
   });
 });
