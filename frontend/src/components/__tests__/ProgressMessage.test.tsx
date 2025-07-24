@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ProgressMessage from '../ProgressMessage';
 
@@ -26,7 +26,9 @@ describe('ProgressMessage', () => {
     render(<ProgressMessage startTime={startTime} />);
     
     // Advance time by 4 seconds
-    vi.advanceTimersByTime(4000);
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('AI is processing your request...')).toBeInTheDocument();
@@ -39,7 +41,9 @@ describe('ProgressMessage', () => {
     render(<ProgressMessage startTime={startTime} />);
     
     // Advance time by 16 seconds
-    vi.advanceTimersByTime(16000);
+    act(() => {
+      vi.advanceTimersByTime(16000);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('This is taking longer than usual. The AI is working on a complex response.')).toBeInTheDocument();
@@ -52,7 +56,9 @@ describe('ProgressMessage', () => {
     render(<ProgressMessage startTime={startTime} />);
     
     // Advance time by 46 seconds
-    vi.advanceTimersByTime(46000);
+    act(() => {
+      vi.advanceTimersByTime(46000);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('The request is taking much longer than expected. You can cancel and try again.')).toBeInTheDocument();
@@ -67,7 +73,9 @@ describe('ProgressMessage', () => {
     render(<ProgressMessage startTime={startTime} onCancel={onCancel} />);
     
     // Advance time by 16 seconds
-    vi.advanceTimersByTime(16000);
+    act(() => {
+      vi.advanceTimersByTime(16000);
+    });
     
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Cancel request' })).toBeInTheDocument();
@@ -82,7 +90,9 @@ describe('ProgressMessage', () => {
     render(<ProgressMessage startTime={startTime} onCancel={onCancel} />);
     
     // Advance time by 16 seconds
-    vi.advanceTimersByTime(16000);
+    act(() => {
+      vi.advanceTimersByTime(16000);
+    });
     
     await waitFor(() => {
       const cancelButton = screen.getByRole('button', { name: 'Cancel request' });
@@ -106,7 +116,9 @@ describe('ProgressMessage', () => {
     render(<ProgressMessage startTime={startTime} customMessages={customMessages} />);
     
     // Advance time by 4 seconds
-    vi.advanceTimersByTime(4000);
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('Custom initial message')).toBeInTheDocument();
@@ -118,7 +130,9 @@ describe('ProgressMessage', () => {
     render(<ProgressMessage startTime={startTime} />);
     
     // Advance time by 4 seconds
-    vi.advanceTimersByTime(4000);
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
     
     await waitFor(() => {
       const status = screen.getByRole('status');
@@ -132,7 +146,9 @@ describe('ProgressMessage', () => {
     render(<ProgressMessage startTime={startTime} />);
     
     // Advance time by 5 seconds
-    vi.advanceTimersByTime(5000);
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
     
     // Wait for initial render
     await waitFor(() => {
@@ -140,7 +156,9 @@ describe('ProgressMessage', () => {
     });
 
     // Advance time by 2 more seconds (total 7 seconds)
-    vi.advanceTimersByTime(2000);
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('7s')).toBeInTheDocument();
