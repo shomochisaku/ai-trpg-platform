@@ -24,6 +24,7 @@ import { securityHeaders, additionalSecurityHeaders, enhancedCorsOptions, securi
 import { generalRateLimit, slowDownMiddleware, authRateLimit, aiProcessingRateLimit, campaignCreationRateLimit } from '@/middleware/rateLimiter';
 import { sanitizeInput, validateContentLength } from '@/middleware/validation';
 import { apiKeyManager, validateEnvironmentSecurity } from '@/middleware/apiKeyManager';
+import { securityMonitoringService } from '@/services/securityMonitoringService';
 
 // Load environment variables
 dotenv.config();
@@ -100,6 +101,15 @@ async function startServer() {
     // Initialize AI service
     await aiService.initialize();
     logger.info('AI service initialized successfully');
+    
+    // Initialize security monitoring service
+    try {
+      securityMonitoringService.start();
+      logger.info('Security monitoring service started successfully');
+    } catch (error) {
+      logger.error('Failed to start security monitoring service:', error);
+      // Continue without security monitoring service for now
+    }
     
     // Initialize memory service
     // try {
