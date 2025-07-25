@@ -265,12 +265,14 @@ describe('Security Routes Integration Tests', () => {
       expect(response.body).toMatchObject({
         success: true,
         data: expect.objectContaining({
-          isConfigured: expect.any(Boolean),
-          isProduction: expect.any(Boolean),
+          environmentType: expect.stringMatching(/^(production|non-production)$/),
+          encryptionEnabled: expect.any(Boolean),
           healthStatus: expect.stringMatching(/^(healthy|degraded|critical)$/),
           recommendations: expect.any(Array),
+          securityLevel: expect.stringMatching(/^(high|medium|low)$/),
         }),
         timestamp: expect.any(String),
+        note: expect.any(String),
       });
     });
 
@@ -382,16 +384,18 @@ describe('Security Routes Integration Tests', () => {
         success: true,
         data: expect.objectContaining({
           keyName: 'test-key',
-          key: expect.any(String),
           keyPreview: expect.any(String),
           generated: expect.any(String),
+          warning: expect.any(String),
         }),
-        message: 'New API key generated successfully',
+        message: 'API key generated successfully. Only preview shown for security.',
         timestamp: expect.any(String),
       });
+      
+      // Ensure full key is NOT returned for security
+      expect(response.body.data.key).toBeUndefined();
 
-      // Verify key is properly formatted
-      expect(response.body.data.key.length).toBeGreaterThan(64);
+      // Verify key preview is properly formatted
       expect(response.body.data.keyPreview).toMatch(/^.{8}\.\.\.$/);
     });
 

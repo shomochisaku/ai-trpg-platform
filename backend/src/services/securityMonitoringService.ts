@@ -38,7 +38,12 @@ export interface SecurityAuditDetails {
 
 export interface SecurityAlert {
   id: string;
-  type: 'SCORE_DETERIORATION' | 'CRITICAL_ISSUE' | 'KEY_EXPIRY' | 'ENCRYPTION_FAILURE' | 'CONFIGURATION_ERROR';
+  type:
+    | 'SCORE_DETERIORATION'
+    | 'CRITICAL_ISSUE'
+    | 'KEY_EXPIRY'
+    | 'ENCRYPTION_FAILURE'
+    | 'CONFIGURATION_ERROR';
   severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
   title: string;
   description: string;
@@ -65,6 +70,8 @@ export class SecurityMonitoringService {
   private isRunning = false;
   private dailyAuditInterval?: NodeJS.Timeout;
   private hourlyCleanupInterval?: NodeJS.Timeout;
+  private auditMutex: boolean = false; // Simple mutex for audit operations
+  private alertCleanupInterval?: NodeJS.Timeout; // Cleanup resolved alerts
 
   constructor() {
     this.initializeMonitoring();
@@ -78,9 +85,9 @@ export class SecurityMonitoringService {
 
     // Note: In production, consider using a proper cron library like node-cron
     // for more precise scheduling. For now, using intervals for simplicity.
-    
+
     // Perform initial audit on startup
-    this.performInitialAudit();
+    void this.performInitialAudit();
   }
 
   /**
@@ -95,18 +102,33 @@ export class SecurityMonitoringService {
     this.isRunning = true;
 
     // Setup daily security audit (every 24 hours)
-    this.dailyAuditInterval = setInterval(async () => {
-      await this.performDailySecurityAudit();
-    }, 24 * 60 * 60 * 1000); // 24 hours
+    this.dailyAuditInterval = setInterval(
+      async () => {
+        await this.performDailySecurityAudit();
+      },
+      24 * 60 * 60 * 1000
+    ); // 24 hours
 
     // Setup hourly API key cleanup (every hour)
-    this.hourlyCleanupInterval = setInterval(async () => {
-      await this.performApiKeyCleanup();
-    }, 60 * 60 * 1000); // 1 hour
+    this.hourlyCleanupInterval = setInterval(
+      async () => {
+        await this.performApiKeyCleanup();
+      },
+      60 * 60 * 1000
+    ); // 1 hour
+
+    // Setup resolved alert cleanup (every 6 hours)
+    this.alertCleanupInterval = setInterval(
+      () => {
+        this.cleanupResolvedAlerts();
+      },
+      6 * 60 * 60 * 1000
+    ); // 6 hours
 
     logger.info('Security monitoring service started', {
       dailyAuditInterval: '24 hours',
-      hourlyCleanupInterval: '1 hour'
+      hourlyCleanupInterval: '1 hour',
+      alertCleanupInterval: '6 hours',
     });
   }
 
@@ -117,15 +139,20 @@ export class SecurityMonitoringService {
     if (!this.isRunning) return;
 
     this.isRunning = false;
-    
+
     if (this.dailyAuditInterval) {
       clearInterval(this.dailyAuditInterval);
       this.dailyAuditInterval = undefined;
     }
-    
+
     if (this.hourlyCleanupInterval) {
       clearInterval(this.hourlyCleanupInterval);
       this.hourlyCleanupInterval = undefined;
+    }
+
+    if (this.alertCleanupInterval) {
+      clearInterval(this.alertCleanupInterval);
+      this.alertCleanupInterval = undefined;
     }
 
     logger.info('Security monitoring service stopped');
@@ -138,7 +165,7 @@ export class SecurityMonitoringService {
     try {
       logger.info('Performing initial security audit');
       const audit = await this.calculateSecurityScore();
-      
+
       // Check for critical issues
       if (audit.criticalIssues > 0) {
         await this.generateAlert({
@@ -149,14 +176,18 @@ export class SecurityMonitoringService {
           affectedComponents: this.extractAffectedComponents(audit.details),
           timestamp: new Date(),
           resolved: false,
-          metadata: { auditId: audit.id, initialAudit: true }
+          metadata: { auditId: audit.id, initialAudit: true },
         });
       }
 
       logger.info('Initial security audit completed', {
         score: audit.overallScore,
         criticalIssues: audit.criticalIssues,
-        totalIssues: audit.criticalIssues + audit.highIssues + audit.mediumIssues + audit.lowIssues
+        totalIssues:
+          audit.criticalIssues +
+          audit.highIssues +
+          audit.mediumIssues +
+          audit.lowIssues,
       });
     } catch (error) {
       logger.error('Failed to perform initial security audit', error);
@@ -167,16 +198,41 @@ export class SecurityMonitoringService {
    * Perform daily security audit and score calculation
    */
   public async performDailySecurityAudit(): Promise<SecurityAuditRecord> {
+    // Prevent concurrent audit execution with mutex
+    if (this.auditMutex) {
+      logger.warn(
+        'Security audit already in progress, skipping concurrent execution'
+      );
+      // Return the most recent audit if available
+      const lastAudit = this.auditHistory[this.auditHistory.length - 1];
+      if (lastAudit) {
+        return lastAudit;
+      }
+      // If no history, wait a bit and retry once
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (this.auditMutex) {
+        throw new Error(
+          'Unable to perform audit: concurrent execution in progress'
+        );
+      }
+    }
+
+    this.auditMutex = true;
+
     try {
       logger.info('Starting daily security audit');
-      
+
       const audit = await this.calculateSecurityScore();
+
+      // Atomic operation: add audit and cleanup in one step
       this.auditHistory.push(audit);
 
       // Keep only last 90 days of audit history
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - 90);
-      this.auditHistory = this.auditHistory.filter(record => record.timestamp > cutoffDate);
+      this.auditHistory = this.auditHistory.filter(
+        record => record.timestamp > cutoffDate
+      );
 
       // Check for score deterioration
       await this.checkScoreDeterioration(audit);
@@ -188,13 +244,16 @@ export class SecurityMonitoringService {
         auditId: audit.id,
         score: audit.overallScore,
         scoreChange: audit.scoreChange,
-        criticalIssues: audit.criticalIssues
+        criticalIssues: audit.criticalIssues,
       });
 
       return audit;
     } catch (error) {
       logger.error('Failed to perform daily security audit', error);
       throw error;
+    } finally {
+      // Always release the mutex
+      this.auditMutex = false;
     }
   }
 
@@ -207,10 +266,10 @@ export class SecurityMonitoringService {
 
     // Get API key manager audit
     const apiKeyAudit = getApiKeyManager().performSecurityAudit();
-    
+
     // Perform encryption tests
     const encryptionAudit = this.performEncryptionAudit();
-    
+
     // Check environment configuration
     const environmentAudit = this.performEnvironmentAudit();
 
@@ -223,17 +282,28 @@ export class SecurityMonitoringService {
     // Count API key issues
     apiKeyAudit.issues.forEach(issue => {
       switch (issue.severity) {
-        case 'critical': criticalIssues++; break;
-        case 'high': highIssues++; break;
-        case 'medium': mediumIssues++; break;
-        case 'low': lowIssues++; break;
+        case 'critical':
+          criticalIssues++;
+          break;
+        case 'high':
+          highIssues++;
+          break;
+        case 'medium':
+          mediumIssues++;
+          break;
+        case 'low':
+          lowIssues++;
+          break;
       }
     });
 
     // Count encryption issues
     if (!encryptionAudit.masterKeyConfigured) criticalIssues++;
     if (!encryptionAudit.encryptionTestPassed) criticalIssues++;
-    if (!encryptionAudit.productionSecurityEnabled && process.env.NODE_ENV === 'production') {
+    if (
+      !encryptionAudit.productionSecurityEnabled &&
+      process.env.NODE_ENV === 'production'
+    ) {
       highIssues++;
     }
 
@@ -247,14 +317,19 @@ export class SecurityMonitoringService {
     });
 
     // Calculate overall score (0-100)
-    const totalIssues = criticalIssues * 4 + highIssues * 2 + mediumIssues * 1 + lowIssues * 0.5;
+    const totalIssues =
+      criticalIssues * 4 + highIssues * 2 + mediumIssues * 1 + lowIssues * 0.5;
     const maxPossibleIssues = 20; // Estimate based on checks
-    const overallScore = Math.max(0, Math.round(100 - (totalIssues / maxPossibleIssues) * 100));
+    const overallScore = Math.max(
+      0,
+      Math.round(100 - (totalIssues / maxPossibleIssues) * 100)
+    );
 
     // Get previous score for comparison
     const previousAudit = this.auditHistory[this.auditHistory.length - 1];
     const previousScore = previousAudit?.overallScore;
-    const scoreChange = previousScore !== undefined ? overallScore - previousScore : undefined;
+    const scoreChange =
+      previousScore !== undefined ? overallScore - previousScore : undefined;
 
     const auditRecord: SecurityAuditRecord = {
       id: auditId,
@@ -274,7 +349,7 @@ export class SecurityMonitoringService {
             .flatMap(i => i.affected),
           weakKeys: apiKeyAudit.issues
             .filter(i => i.category === 'Key Strength')
-            .flatMap(i => i.affected),  
+            .flatMap(i => i.affected),
           keysNeedingRotation: apiKeyAudit.issues
             .filter(i => i.category === 'Key Rotation')
             .flatMap(i => i.affected),
@@ -287,8 +362,8 @@ export class SecurityMonitoringService {
           productionIssues: environmentAudit.productionIssues,
           configurationIssues: environmentAudit.configurationIssues,
           tlsEnabled: environmentAudit.tlsEnabled,
-        }
-      }
+        },
+      },
     };
 
     return auditRecord;
@@ -303,11 +378,13 @@ export class SecurityMonitoringService {
     productionSecurityEnabled: boolean;
   } {
     const healthCheck = secretsService.healthCheck();
-    
+
     return {
       masterKeyConfigured: !!process.env.MASTER_ENCRYPTION_KEY,
       encryptionTestPassed: healthCheck.status === 'healthy',
-      productionSecurityEnabled: process.env.NODE_ENV !== 'production' || !!process.env.MASTER_ENCRYPTION_KEY
+      productionSecurityEnabled:
+        process.env.NODE_ENV !== 'production' ||
+        !!process.env.MASTER_ENCRYPTION_KEY,
     };
   }
 
@@ -321,18 +398,23 @@ export class SecurityMonitoringService {
   } {
     const productionIssues: string[] = [];
     const configurationIssues: string[] = [];
-    
+
     if (process.env.NODE_ENV === 'production') {
       if (!process.env.MASTER_ENCRYPTION_KEY) {
         productionIssues.push('Missing MASTER_ENCRYPTION_KEY in production');
       }
-      
-      if (process.env.JWT_SECRET === 'development-secret' || !process.env.JWT_SECRET) {
+
+      if (
+        process.env.JWT_SECRET === 'development-secret' ||
+        !process.env.JWT_SECRET
+      ) {
         productionIssues.push('Invalid JWT secret in production');
       }
-      
+
       if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
-        productionIssues.push('TLS certificate validation disabled in production');
+        productionIssues.push(
+          'TLS certificate validation disabled in production'
+        );
       }
     }
 
@@ -348,22 +430,26 @@ export class SecurityMonitoringService {
     return {
       productionIssues,
       configurationIssues,
-      tlsEnabled: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0'
+      tlsEnabled: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0',
     };
   }
 
   /**
    * Check for score deterioration and generate alerts
    */
-  private async checkScoreDeterioration(audit: SecurityAuditRecord): Promise<void> {
-    if (audit.scoreChange === undefined || audit.previousScore === undefined) return;
+  private async checkScoreDeterioration(
+    audit: SecurityAuditRecord
+  ): Promise<void> {
+    if (audit.scoreChange === undefined || audit.previousScore === undefined)
+      return;
 
     const scoreDropThreshold = 10; // Alert if score drops by 10+ points
     const significantDropThreshold = 20; // Critical alert if score drops by 20+ points
 
     if (audit.scoreChange <= -scoreDropThreshold) {
-      const severity = audit.scoreChange <= -significantDropThreshold ? 'CRITICAL' : 'HIGH';
-      
+      const severity =
+        audit.scoreChange <= -significantDropThreshold ? 'CRITICAL' : 'HIGH';
+
       await this.generateAlert({
         type: 'SCORE_DETERIORATION',
         severity,
@@ -372,12 +458,12 @@ export class SecurityMonitoringService {
         affectedComponents: this.extractAffectedComponents(audit.details),
         timestamp: new Date(),
         resolved: false,
-        metadata: { 
+        metadata: {
           auditId: audit.id,
           previousScore: audit.previousScore,
           currentScore: audit.overallScore,
-          scoreChange: audit.scoreChange
-        }
+          scoreChange: audit.scoreChange,
+        },
       });
     }
   }
@@ -392,11 +478,12 @@ export class SecurityMonitoringService {
         type: 'CRITICAL_ISSUE',
         severity: 'CRITICAL',
         title: `${audit.criticalIssues} Critical Security Issues Found`,
-        description: 'Critical security vulnerabilities require immediate attention',
+        description:
+          'Critical security vulnerabilities require immediate attention',
         affectedComponents: this.extractAffectedComponents(audit.details),
         timestamp: new Date(),
         resolved: false,
-        metadata: { auditId: audit.id, criticalCount: audit.criticalIssues }
+        metadata: { auditId: audit.id, criticalCount: audit.criticalIssues },
       });
     }
 
@@ -410,7 +497,10 @@ export class SecurityMonitoringService {
         affectedComponents: audit.details.apiKeyAudit.expiredKeys,
         timestamp: new Date(),
         resolved: false,
-        metadata: { auditId: audit.id, expiredKeys: audit.details.apiKeyAudit.expiredKeys }
+        metadata: {
+          auditId: audit.id,
+          expiredKeys: audit.details.apiKeyAudit.expiredKeys,
+        },
       });
     }
 
@@ -424,7 +514,7 @@ export class SecurityMonitoringService {
         affectedComponents: ['SecretsService'],
         timestamp: new Date(),
         resolved: false,
-        metadata: { auditId: audit.id }
+        metadata: { auditId: audit.id },
       });
     }
   }
@@ -435,14 +525,16 @@ export class SecurityMonitoringService {
   public async performApiKeyCleanup(): Promise<ApiKeyCleanupResult> {
     try {
       logger.info('Starting API key cleanup process');
-      
+
       const cleanedKeys: string[] = [];
       const errors: string[] = [];
       const apiKeyManager = getApiKeyManager();
       const auditResult = apiKeyManager.performSecurityAudit();
 
       // Process expired keys
-      for (const expiredKey of auditResult.issues.filter(i => i.category === 'Key Expiration')) {
+      for (const expiredKey of auditResult.issues.filter(
+        i => i.category === 'Key Expiration'
+      )) {
         try {
           for (const keyName of expiredKey.affected) {
             // In a real implementation, this would involve:
@@ -450,13 +542,13 @@ export class SecurityMonitoringService {
             // 2. Generating rotation tokens
             // 3. Scheduling automatic rotation if configured
             // 4. Disabling the key if no automatic rotation is set up
-            
+
             logger.warn(`Expired API key detected: ${keyName}`, {
               action: 'cleanup_scheduled',
               keyName,
-              timestamp: new Date().toISOString()
+              timestamp: new Date().toISOString(),
             });
-            
+
             cleanedKeys.push(keyName);
           }
         } catch (error) {
@@ -475,13 +567,12 @@ export class SecurityMonitoringService {
         summary: {
           totalProcessed: cleanedKeys.length + errors.length,
           successfulCleanups: cleanedKeys.length,
-          failedCleanups: errors.length
-        }
+          failedCleanups: errors.length,
+        },
       };
 
       logger.info('API key cleanup completed', result.summary);
       return result;
-
     } catch (error) {
       logger.error('Failed to perform API key cleanup', error);
       throw error;
@@ -499,7 +590,7 @@ export class SecurityMonitoringService {
     if (healthStatus.securityAudit.highUsageKeys.length > 0) {
       logger.info('Analyzing high usage API keys', {
         highUsageKeys: healthStatus.securityAudit.highUsageKeys,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       // In a real implementation, this would:
@@ -526,42 +617,56 @@ export class SecurityMonitoringService {
     const isProduction = process.env.NODE_ENV === 'production';
     const isConfigured = !!process.env.MASTER_ENCRYPTION_KEY;
     const secretsHealth = secretsService.healthCheck();
-    
+
     const recommendations: string[] = [];
     let healthStatus: 'healthy' | 'degraded' | 'critical' = 'healthy';
 
     if (isProduction && !isConfigured) {
       healthStatus = 'critical';
-      recommendations.push('Set MASTER_ENCRYPTION_KEY environment variable for production');
+      recommendations.push(
+        'Set MASTER_ENCRYPTION_KEY environment variable for production'
+      );
     }
 
     if (secretsHealth.status !== 'healthy') {
-      healthStatus = secretsHealth.status as 'healthy' | 'degraded' | 'critical';
-      recommendations.push('Fix secrets service issues to ensure proper encryption');
+      // Only downgrade if not already critical
+      if (healthStatus !== 'critical') {
+        healthStatus = secretsHealth.status as
+          | 'healthy'
+          | 'degraded'
+          | 'critical';
+      }
+      recommendations.push(
+        'Fix secrets service issues to ensure proper encryption'
+      );
     }
 
     if (!isProduction && !isConfigured) {
       healthStatus = 'degraded';
-      recommendations.push('Consider setting MASTER_ENCRYPTION_KEY even in development for testing');
+      recommendations.push(
+        'Consider setting MASTER_ENCRYPTION_KEY even in development for testing'
+      );
     }
 
     return {
       isConfigured,
       isProduction,
       healthStatus,
-      recommendations
+      recommendations,
     };
   }
 
   /**
    * Generate and manage security alerts
    */
-  private async generateAlert(alertData: Omit<SecurityAlert, 'id'>): Promise<string> {
+  private async generateAlert(
+    alertData: Omit<SecurityAlert, 'id'>
+  ): Promise<string> {
     const alertId = `alert_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
     const alert: SecurityAlert = {
       id: alertId,
-      ...alertData
+      ...alertData,
     };
 
     this.activeAlerts.set(alertId, alert);
@@ -572,7 +677,7 @@ export class SecurityMonitoringService {
       type: alert.type,
       severity: alert.severity,
       title: alert.title,
-      affectedComponents: alert.affectedComponents
+      affectedComponents: alert.affectedComponents,
     });
 
     // In a real implementation, this would:
@@ -600,7 +705,7 @@ export class SecurityMonitoringService {
     logger.info('Security alert resolved', {
       alertId,
       resolvedAt: alert.resolvedAt,
-      resolution
+      resolution,
     });
 
     return true;
@@ -610,7 +715,9 @@ export class SecurityMonitoringService {
    * Get active alerts
    */
   public getActiveAlerts(): SecurityAlert[] {
-    return Array.from(this.activeAlerts.values()).filter(alert => !alert.resolved);
+    return Array.from(this.activeAlerts.values()).filter(
+      alert => !alert.resolved
+    );
   }
 
   /**
@@ -627,7 +734,7 @@ export class SecurityMonitoringService {
   } {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days);
-    
+
     const recentAudits = this.auditHistory
       .filter(audit => audit.timestamp > cutoffDate)
       .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
@@ -639,18 +746,35 @@ export class SecurityMonitoringService {
           averageScore: 0,
           scoreImprovement: 0,
           criticalIssuesTrend: 0,
-          lastAuditDate: new Date()
-        }
+          lastAuditDate: new Date(),
+        },
       };
     }
 
-    const averageScore = recentAudits.reduce((sum, audit) => sum + audit.overallScore, 0) / recentAudits.length;
-    const firstScore = recentAudits[0].overallScore;
-    const lastScore = recentAudits[recentAudits.length - 1].overallScore;
+    const averageScore =
+      recentAudits.reduce((sum, audit) => sum + audit.overallScore, 0) /
+      recentAudits.length;
+    const firstAudit = recentAudits[0];
+    const lastAudit = recentAudits[recentAudits.length - 1];
+
+    if (!firstAudit || !lastAudit) {
+      return {
+        audits: recentAudits,
+        trends: {
+          averageScore: Math.round(averageScore * 100) / 100,
+          scoreImprovement: 0,
+          criticalIssuesTrend: 0,
+          lastAuditDate: new Date(),
+        },
+      };
+    }
+
+    const firstScore = firstAudit.overallScore;
+    const lastScore = lastAudit.overallScore;
     const scoreImprovement = lastScore - firstScore;
 
-    const firstCritical = recentAudits[0].criticalIssues;
-    const lastCritical = recentAudits[recentAudits.length - 1].criticalIssues;
+    const firstCritical = firstAudit.criticalIssues;
+    const lastCritical = lastAudit.criticalIssues;
     const criticalIssuesTrend = lastCritical - firstCritical;
 
     return {
@@ -659,8 +783,8 @@ export class SecurityMonitoringService {
         averageScore: Math.round(averageScore * 100) / 100,
         scoreImprovement: Math.round(scoreImprovement * 100) / 100,
         criticalIssuesTrend,
-        lastAuditDate: recentAudits[recentAudits.length - 1].timestamp
-      }
+        lastAuditDate: lastAudit.timestamp,
+      },
     };
   }
 
@@ -669,24 +793,49 @@ export class SecurityMonitoringService {
    */
   private extractAffectedComponents(details: SecurityAuditDetails): string[] {
     const components: string[] = [];
-    
+
     if (details.apiKeyAudit.expiredKeys.length > 0) {
       components.push('API Key Management');
     }
-    
+
     if (details.apiKeyAudit.weakKeys.length > 0) {
       components.push('API Key Security');
     }
-    
+
     if (!details.encryptionAudit.encryptionTestPassed) {
       components.push('Encryption Service');
     }
-    
+
     if (details.environmentAudit.productionIssues.length > 0) {
       components.push('Production Configuration');
     }
-    
+
     return components;
+  }
+
+  /**
+   * Clean up resolved alerts that are older than 24 hours
+   */
+  private cleanupResolvedAlerts(): void {
+    const cutoffTime = new Date();
+    cutoffTime.setHours(cutoffTime.getHours() - 24); // 24 hours ago
+
+    let cleanedCount = 0;
+
+    for (const [alertId, alert] of this.activeAlerts.entries()) {
+      if (alert.resolved && alert.resolvedAt && alert.resolvedAt < cutoffTime) {
+        this.activeAlerts.delete(alertId);
+        cleanedCount++;
+      }
+    }
+
+    if (cleanedCount > 0) {
+      logger.info(`Cleaned up ${cleanedCount} resolved alerts from memory`, {
+        cleanedCount,
+        remainingAlerts: this.activeAlerts.size,
+        timestamp: new Date().toISOString(),
+      });
+    }
   }
 
   /**
@@ -700,13 +849,13 @@ export class SecurityMonitoringService {
     cleanupInterval: string;
   } {
     const lastAudit = this.auditHistory[this.auditHistory.length - 1];
-    
+
     return {
       isRunning: this.isRunning,
       lastAuditDate: lastAudit?.timestamp,
       activeAlertsCount: this.getActiveAlerts().length,
       auditInterval: '24 hours',
-      cleanupInterval: '1 hour'
+      cleanupInterval: '1 hour',
     };
   }
 }

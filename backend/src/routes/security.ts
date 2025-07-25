@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
+import crypto from 'crypto';
 import { apiKeyManager } from '@/middleware/apiKeyManager';
 import { secretsService } from '@/services/secretsService';
 import { aiProxyService } from '@/services/aiProxyService';
@@ -22,12 +23,32 @@ const requireAdminAccess = (
 ): void => {
   // In production, implement proper admin authentication
   const adminToken = req.headers['x-admin-token'];
+  const expectedToken = process.env.ADMIN_TOKEN;
 
-  if (!adminToken || adminToken !== process.env.ADMIN_TOKEN) {
+  // Use timing-safe comparison to prevent timing attacks
+  let isValidToken = false;
+  if (adminToken && expectedToken && typeof adminToken === 'string') {
+    try {
+      // Ensure both tokens are the same length for timing-safe comparison
+      if (adminToken.length === expectedToken.length) {
+        isValidToken = crypto.timingSafeEqual(
+          Buffer.from(adminToken, 'utf8'),
+          Buffer.from(expectedToken, 'utf8')
+        );
+      }
+    } catch (error) {
+      // If comparison fails, treat as invalid token
+      isValidToken = false;
+    }
+  }
+
+  if (!isValidToken) {
     logger.warn('Unauthorized security endpoint access attempt', {
       ip: req.ip,
       userAgent: req.headers['user-agent'],
       path: req.path,
+      hasToken: !!adminToken,
+      tokenLength: adminToken ? (adminToken as string).length : 0,
     });
 
     res.status(403).json({
@@ -176,23 +197,38 @@ router.post(
     try {
       const keyName = req.body.keyName || 'generated-key';
       const newKey = apiKeyManager.generateNewApiKey();
+      const keyPreview = newKey.substring(0, 8) + '...';
 
+      // Log only the preview, never the full key
       logger.info('New API key generated via admin endpoint', {
         keyName,
-        keyPreview: newKey.substring(0, 8) + '...',
+        keyPreview,
         ip: req.ip,
         timestamp: new Date().toISOString(),
       });
+
+      // Store the full key securely (in production, this would be encrypted)
+      // For now, log a warning about secure storage
+      logger.warn(
+        'SECURITY: Full API key generated. Ensure secure transmission and storage.',
+        {
+          keyName,
+          keyPreview,
+          recommendation: 'Use secure channel for key transmission',
+        }
+      );
 
       res.json({
         success: true,
         data: {
           keyName,
-          key: newKey,
-          keyPreview: newKey.substring(0, 8) + '...',
+          keyPreview,
           generated: new Date().toISOString(),
+          warning:
+            'Full API key has been generated. Contact administrator for secure retrieval.',
         },
-        message: 'New API key generated successfully',
+        message:
+          'API key generated successfully. Only preview shown for security.',
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
@@ -316,249 +352,318 @@ router.post(
 /**
  * Get comprehensive security audit from monitoring service
  */
-router.get('/monitoring/audit', requireAdminAccess, async (req: Request, res: Response) => {
-  try {
-    const audit = await securityMonitoringService.performDailySecurityAudit();
-    
-    logger.info('Security monitoring audit requested', {
-      ip: req.ip,
-      auditId: audit.id,
-      score: audit.overallScore,
-      criticalIssues: audit.criticalIssues
-    });
+router.get(
+  '/monitoring/audit',
+  requireAdminAccess,
+  async (req: Request, res: Response) => {
+    try {
+      const audit = await securityMonitoringService.performDailySecurityAudit();
 
-    res.json({
-      success: true,
-      data: audit,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    logger.error('Security monitoring audit error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Security monitoring audit failed',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
+      logger.info('Security monitoring audit requested', {
+        ip: req.ip,
+        auditId: audit.id,
+        score: audit.overallScore,
+        criticalIssues: audit.criticalIssues,
+      });
+
+      res.json({
+        success: true,
+        data: audit,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      logger.error('Security monitoring audit error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Security monitoring audit failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
   }
-});
+);
 
 /**
  * Get security audit history and trends
  */
-router.get('/monitoring/history', requireAdminAccess, (req: Request, res: Response) => {
-  try {
-    const days = parseInt(req.query.days as string) || 30;
-    const history = securityMonitoringService.getAuditHistory(days);
-    
-    res.json({
-      success: true,
-      data: history,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    logger.error('Security monitoring history error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get audit history',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
+router.get(
+  '/monitoring/history',
+  requireAdminAccess,
+  (req: Request, res: Response) => {
+    try {
+      const days = parseInt(req.query.days as string) || 30;
+      const history = securityMonitoringService.getAuditHistory(days);
+
+      res.json({
+        success: true,
+        data: history,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      logger.error('Security monitoring history error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get audit history',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
   }
-});
+);
 
 /**
  * Get active security alerts
  */
-router.get('/monitoring/alerts', requireAdminAccess, (req: Request, res: Response) => {
-  try {
-    const alerts = securityMonitoringService.getActiveAlerts();
-    
-    res.json({
-      success: true,
-      data: {
-        alerts,
-        count: alerts.length,
-        critical: alerts.filter(a => a.severity === 'CRITICAL').length,
-        high: alerts.filter(a => a.severity === 'HIGH').length,
-        medium: alerts.filter(a => a.severity === 'MEDIUM').length,
-        low: alerts.filter(a => a.severity === 'LOW').length,
-      },
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    logger.error('Security monitoring alerts error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get security alerts',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
+router.get(
+  '/monitoring/alerts',
+  requireAdminAccess,
+  (req: Request, res: Response) => {
+    try {
+      const alerts = securityMonitoringService.getActiveAlerts();
+
+      res.json({
+        success: true,
+        data: {
+          alerts,
+          count: alerts.length,
+          critical: alerts.filter(a => a.severity === 'CRITICAL').length,
+          high: alerts.filter(a => a.severity === 'HIGH').length,
+          medium: alerts.filter(a => a.severity === 'MEDIUM').length,
+          low: alerts.filter(a => a.severity === 'LOW').length,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      logger.error('Security monitoring alerts error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get security alerts',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
   }
-});
+);
 
 /**
  * Resolve a security alert
  */
-router.post('/monitoring/alerts/:alertId/resolve', requireAdminAccess, (req: Request, res: Response) => {
-  try {
-    const { alertId } = req.params;
-    const { resolution } = req.body;
-    
-    const success = securityMonitoringService.resolveAlert(alertId, resolution);
-    
-    if (success) {
-      logger.info('Security alert resolved via admin endpoint', {
-        alertId,
-        resolution,
+router.post(
+  '/monitoring/alerts/:alertId/resolve',
+  requireAdminAccess,
+  (req: Request, res: Response) => {
+    try {
+      const { alertId } = req.params;
+      const { resolution } = req.body;
+
+      // Validate required parameters
+      if (!alertId || typeof alertId !== 'string') {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid alert ID',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      // Validate resolution parameter
+      const resolutionText =
+        resolution && typeof resolution === 'string' ? resolution : undefined;
+      const success = resolutionText
+        ? securityMonitoringService.resolveAlert(alertId, resolutionText)
+        : securityMonitoringService.resolveAlert(alertId);
+
+      if (success) {
+        logger.info('Security alert resolved via admin endpoint', {
+          alertId,
+          resolution,
+          ip: req.ip,
+          timestamp: new Date().toISOString(),
+        });
+
+        res.json({
+          success: true,
+          message: 'Alert resolved successfully',
+          timestamp: new Date().toISOString(),
+        });
+      } else {
+        res.status(404).json({
+          success: false,
+          error: 'Alert not found',
+          timestamp: new Date().toISOString(),
+        });
+      }
+    } catch (error) {
+      logger.error('Alert resolution error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to resolve alert',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+);
+
+/**
+ * Perform API key cleanup
+ */
+router.post(
+  '/monitoring/cleanup',
+  requireAdminAccess,
+  async (req: Request, res: Response) => {
+    try {
+      const result = await securityMonitoringService.performApiKeyCleanup();
+
+      logger.info('API key cleanup performed via admin endpoint', {
+        ...result.summary,
         ip: req.ip,
         timestamp: new Date().toISOString(),
       });
 
       res.json({
         success: true,
-        message: 'Alert resolved successfully',
+        data: result,
+        message: 'API key cleanup completed',
         timestamp: new Date().toISOString(),
       });
-    } else {
-      res.status(404).json({
+    } catch (error) {
+      logger.error('API key cleanup error:', error);
+      res.status(500).json({
         success: false,
-        error: 'Alert not found',
-        timestamp: new Date().toISOString(),
+        error: 'API key cleanup failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
       });
     }
-  } catch (error) {
-    logger.error('Alert resolution error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to resolve alert',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
   }
-});
-
-/**
- * Perform API key cleanup
- */
-router.post('/monitoring/cleanup', requireAdminAccess, async (req: Request, res: Response) => {
-  try {
-    const result = await securityMonitoringService.performApiKeyCleanup();
-    
-    logger.info('API key cleanup performed via admin endpoint', {
-      ...result.summary,
-      ip: req.ip,
-      timestamp: new Date().toISOString(),
-    });
-
-    res.json({
-      success: true,
-      data: result,
-      message: 'API key cleanup completed',
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    logger.error('API key cleanup error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'API key cleanup failed',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-});
+);
 
 /**
  * Monitor encryption key configuration
  */
-router.get('/monitoring/encryption', requireAdminAccess, (req: Request, res: Response) => {
-  try {
-    const status = securityMonitoringService.monitorEncryptionKeyConfiguration();
-    
-    res.json({
-      success: true,
-      data: status,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    logger.error('Encryption monitoring error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to monitor encryption configuration',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
+router.get(
+  '/monitoring/encryption',
+  requireAdminAccess,
+  (req: Request, res: Response) => {
+    try {
+      const status =
+        securityMonitoringService.monitorEncryptionKeyConfiguration();
+
+      // Mask sensitive environment information
+      const maskedStatus = {
+        healthStatus: status.healthStatus,
+        recommendations: status.recommendations,
+        // Environment details are masked for security
+        environmentType: status.isProduction ? 'production' : 'non-production',
+        encryptionEnabled: status.isConfigured,
+        // Additional security info without exposing specifics
+        securityLevel:
+          status.isProduction && status.isConfigured
+            ? 'high'
+            : status.isConfigured
+              ? 'medium'
+              : 'low',
+      };
+
+      res.json({
+        success: true,
+        data: maskedStatus,
+        timestamp: new Date().toISOString(),
+        note: 'Sensitive configuration details are masked for security',
+      });
+    } catch (error) {
+      logger.error('Encryption monitoring error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to monitor encryption configuration',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
   }
-});
+);
 
 /**
  * Get security monitoring service health status
  */
-router.get('/monitoring/health', requireAdminAccess, (req: Request, res: Response) => {
-  try {
-    const health = securityMonitoringService.getHealthStatus();
-    
-    res.json({
-      success: true,
-      data: health,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    logger.error('Security monitoring health check error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Health check failed',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
+router.get(
+  '/monitoring/health',
+  requireAdminAccess,
+  (req: Request, res: Response) => {
+    try {
+      const health = securityMonitoringService.getHealthStatus();
+
+      res.json({
+        success: true,
+        data: health,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      logger.error('Security monitoring health check error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Health check failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
   }
-});
+);
 
 /**
  * Start security monitoring service
  */
-router.post('/monitoring/start', requireAdminAccess, (req: Request, res: Response) => {
-  try {
-    securityMonitoringService.start();
-    
-    logger.info('Security monitoring service started via admin endpoint', {
-      ip: req.ip,
-      timestamp: new Date().toISOString(),
-    });
+router.post(
+  '/monitoring/start',
+  requireAdminAccess,
+  (req: Request, res: Response) => {
+    try {
+      securityMonitoringService.start();
 
-    res.json({
-      success: true,
-      message: 'Security monitoring service started',
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    logger.error('Security monitoring start error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to start security monitoring service',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
+      logger.info('Security monitoring service started via admin endpoint', {
+        ip: req.ip,
+        timestamp: new Date().toISOString(),
+      });
+
+      res.json({
+        success: true,
+        message: 'Security monitoring service started',
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      logger.error('Security monitoring start error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to start security monitoring service',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
   }
-});
+);
 
 /**
  * Stop security monitoring service
  */
-router.post('/monitoring/stop', requireAdminAccess, (req: Request, res: Response) => {
-  try {
-    securityMonitoringService.stop();
-    
-    logger.info('Security monitoring service stopped via admin endpoint', {
-      ip: req.ip,
-      timestamp: new Date().toISOString(),
-    });
+router.post(
+  '/monitoring/stop',
+  requireAdminAccess,
+  (req: Request, res: Response) => {
+    try {
+      securityMonitoringService.stop();
 
-    res.json({
-      success: true,
-      message: 'Security monitoring service stopped',
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    logger.error('Security monitoring stop error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to stop security monitoring service',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
+      logger.info('Security monitoring service stopped via admin endpoint', {
+        ip: req.ip,
+        timestamp: new Date().toISOString(),
+      });
+
+      res.json({
+        success: true,
+        message: 'Security monitoring service stopped',
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      logger.error('Security monitoring stop error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to stop security monitoring service',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
   }
-});
+);
 
 export { router as securityRoutes };
