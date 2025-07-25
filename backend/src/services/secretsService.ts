@@ -54,21 +54,18 @@ export class SecretsService {
   }
 
   /**
-   * Encrypt a secret value
+   * Encrypt a secret value using AES-256-GCM
    */
   public encryptSecret(plaintext: string): EncryptedSecret {
     try {
-      const iv = crypto.randomBytes(12); // 12 bytes for GCM
-      const cipher = crypto.createCipher(this.algorithm, this.masterKey);
+      const iv = crypto.randomBytes(12); // 12 bytes is optimal for GCM
+      const cipher = crypto.createCipheriv('aes-256-gcm', this.masterKey, iv);
 
       let encrypted = cipher.update(plaintext, 'utf8', 'hex');
       encrypted += cipher.final('hex');
 
-      // For GCM mode, we need to create the tag manually using HMAC
-      const hmac = crypto.createHmac('sha256', this.masterKey);
-      hmac.update(encrypted);
-      hmac.update(iv);
-      const tag = hmac.digest();
+      // Get authentic GCM authentication tag
+      const tag = cipher.getAuthTag();
 
       return {
         iv: iv.toString('hex'),
@@ -82,24 +79,20 @@ export class SecretsService {
   }
 
   /**
-   * Decrypt a secret value
+   * Decrypt a secret value using AES-256-GCM
    */
   public decryptSecret(encryptedSecret: EncryptedSecret): string {
     try {
       const iv = Buffer.from(encryptedSecret.iv, 'hex');
+      const decipher = crypto.createDecipheriv(
+        'aes-256-gcm',
+        this.masterKey,
+        iv
+      );
 
-      // Verify the tag first
-      const hmac = crypto.createHmac('sha256', this.masterKey);
-      hmac.update(encryptedSecret.encryptedData);
-      hmac.update(iv);
-      const expectedTag = hmac.digest();
-      const providedTag = Buffer.from(encryptedSecret.tag, 'hex');
+      // Set the authentication tag for GCM verification
+      decipher.setAuthTag(Buffer.from(encryptedSecret.tag, 'hex'));
 
-      if (!crypto.timingSafeEqual(expectedTag, providedTag)) {
-        throw new Error('Authentication tag verification failed');
-      }
-
-      const decipher = crypto.createDecipher(this.algorithm, this.masterKey);
       let decrypted = decipher.update(
         encryptedSecret.encryptedData,
         'hex',
