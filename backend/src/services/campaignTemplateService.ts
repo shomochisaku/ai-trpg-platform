@@ -458,33 +458,44 @@ export class CampaignTemplateService {
   }
 
   /**
-   * Get monthly usage statistics with efficient database aggregation
+   * Get monthly usage statistics with secure database-agnostic aggregation
    */
   private async getMonthlyUsageStats(templateId: string): Promise<Array<{ month: string; count: number }>> {
     const now = new Date();
     const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
-    // Use database-agnostic approach for monthly aggregation
-    const monthlyStats = await prisma.$queryRaw<Array<{ month: string; count: bigint }>>`
-      SELECT 
-        strftime('%Y-%m', createdAt) as month,
-        COUNT(*) as count
-      FROM TemplateUsage 
-      WHERE templateId = ${templateId}
-        AND createdAt >= ${twelveMonthsAgo}
-        AND createdAt <= ${now}
-      GROUP BY strftime('%Y-%m', createdAt)
-      ORDER BY month ASC
-    `;
+    // Use secure Prisma API instead of raw SQL to prevent injection attacks
+    const usageData = await prisma.templateUsage.findMany({
+      where: {
+        templateId: templateId,
+        createdAt: {
+          gte: twelveMonthsAgo,
+          lte: now,
+        },
+      },
+      select: {
+        createdAt: true,
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+    });
+
+    // Process data in application layer for database-agnostic approach
+    const monthlyStats: { [key: string]: number } = {};
+    
+    usageData.forEach(record => {
+      const monthKey = record.createdAt.toISOString().substring(0, 7); // YYYY-MM format
+      monthlyStats[monthKey] = (monthlyStats[monthKey] || 0) + 1;
+    });
 
     // Create a complete 12-month array with zero-filled missing months
     const monthsData = Array.from({ length: 12 }, (_, i) => {
       const date = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1);
       const monthStr = date.toISOString().substring(0, 7);
-      const existingData = monthlyStats.find(stat => stat.month === monthStr);
       return {
         month: monthStr,
-        count: existingData ? Number(existingData.count) : 0,
+        count: monthlyStats[monthStr] || 0,
       };
     });
 

@@ -555,6 +555,11 @@ model CampaignTemplate {
   usageStats  TemplateUsage[]
   basedOnSessions GameSession[] @relation("TemplateBasedSessions")
   
+  // Performance indexes for efficient querying
+  @@index([category, isActive], name: "idx_template_category_active")
+  @@index([isOfficial, createdAt], name: "idx_template_official_created")
+  @@index([isActive, createdAt], name: "idx_template_active_created")
+  @@index([createdBy], name: "idx_template_creator")
   @@map("campaign_templates")
 }
 
@@ -576,6 +581,12 @@ model TemplateUsage {
   sessionId  String?
   session    GameSession?     @relation(fields: [sessionId], references: [id])
   
+  // Performance indexes for statistics queries
+  @@index([templateId, createdAt], name: "idx_usage_template_date")
+  @@index([templateId, completionStatus], name: "idx_usage_template_status") 
+  @@index([templateId, wasCustomized], name: "idx_usage_template_customized")
+  @@index([templateId, playerRating], name: "idx_usage_template_rating")
+  @@index([userId, createdAt], name: "idx_usage_user_date")
   @@unique([templateId, userId, sessionId])
   @@map("template_usage")
 }
