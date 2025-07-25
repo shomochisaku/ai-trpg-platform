@@ -1,4 +1,4 @@
-import { PrismaClient, TemplateCategory, TemplateDifficulty } from '@prisma/client';
+import { PrismaClient, TemplateCategoryType, TemplateDifficulty } from '@prisma/client';
 import { CampaignTemplateSettings } from '@/services/campaignTemplateService';
 
 const prisma = new PrismaClient();
@@ -9,7 +9,7 @@ const defaultTemplates = [
     templateId: 'fantasy-adventure',
     name: 'ファンタジー冒険',
     description: '剣と魔法が息づく世界での英雄的な冒険',
-    category: TemplateCategory.FANTASY,
+    category: TemplateCategoryType.FANTASY,
     difficulty: TemplateDifficulty.BEGINNER,
     estimatedDuration: '2-4時間',
     playerCount: '1',
@@ -70,7 +70,7 @@ const defaultTemplates = [
     templateId: 'cyberpunk-detective',
     name: 'サイバーパンク探偵',
     description: '企業支配の近未来都市での反体制活動',
-    category: TemplateCategory.CYBERPUNK,
+    category: TemplateCategoryType.CYBERPUNK,
     difficulty: TemplateDifficulty.INTERMEDIATE,
     estimatedDuration: '3-5時間',
     playerCount: '1',
@@ -131,7 +131,7 @@ const defaultTemplates = [
     templateId: 'horror-survival',
     name: 'クトゥルフ神話の恐怖',
     description: '理解を超えた恐怖との遭遇',
-    category: TemplateCategory.HORROR,
+    category: TemplateCategoryType.HORROR,
     difficulty: TemplateDifficulty.ADVANCED,
     estimatedDuration: '4-6時間',
     playerCount: '1',
@@ -192,7 +192,7 @@ const defaultTemplates = [
     templateId: 'modern-mystery',
     name: '現代オカルト調査',
     description: '日常に潜む超常現象と謎を解き明かす',
-    category: TemplateCategory.MODERN,
+    category: TemplateCategoryType.MODERN,
     difficulty: TemplateDifficulty.BEGINNER,
     estimatedDuration: '2-3時間',
     playerCount: '1',
@@ -253,7 +253,7 @@ const defaultTemplates = [
     templateId: 'scifi-exploration',
     name: '宇宙探査ミッション',
     description: '未知の惑星での科学探査と発見',
-    category: TemplateCategory.SCIFI,
+    category: TemplateCategoryType.SCIFI,
     difficulty: TemplateDifficulty.INTERMEDIATE,
     estimatedDuration: '3-4時間',
     playerCount: '1',

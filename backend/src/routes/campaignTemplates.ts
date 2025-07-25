@@ -4,11 +4,20 @@ import {
   createTemplateSchema,
   updateTemplateSchema,
   recordUsageSchema,
+  templateFiltersSchema,
+  searchQuerySchema,
+  paginationSchema,
 } from '@/services/campaignTemplateService';
 import { logger } from '@/utils/logger';
 import { authenticate } from '@/middleware/auth';
-import { TemplateCategory, TemplateDifficulty } from '@prisma/client';
+import { TemplateCategoryType, TemplateDifficulty } from '@prisma/client';
 import { z } from 'zod';
+import {
+  templateReadRateLimit,
+  templateWriteRateLimit,
+  templateSearchRateLimit,
+  templateUsageRateLimit,
+} from '@/middleware/rateLimiter';
 
 const router = Router();
 
@@ -16,56 +25,32 @@ const router = Router();
  * @route GET /api/campaign-templates
  * @desc Get all campaign templates with filtering options
  */
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', templateReadRateLimit, async (req: Request, res: Response) => {
   try {
-    const {
-      category,
-      difficulty,
-      tags,
-      isOfficial,
-      limit,
-      offset,
-    } = req.query;
+    // Validate and sanitize query parameters
+    const validatedQuery = templateFiltersSchema.parse(req.query);
 
-    const options: any = {};
-
-    if (category && Object.values(TemplateCategory).includes(category as TemplateCategory)) {
-      options.category = category as TemplateCategory;
-    }
-
-    if (difficulty && Object.values(TemplateDifficulty).includes(difficulty as TemplateDifficulty)) {
-      options.difficulty = difficulty as TemplateDifficulty;
-    }
-
-    if (tags) {
-      options.tags = Array.isArray(tags) ? tags : [tags];
-    }
-
-    if (isOfficial !== undefined) {
-      options.isOfficial = isOfficial === 'true';
-    }
-
-    if (limit) {
-      options.limit = parseInt(limit as string);
-    }
-
-    if (offset) {
-      options.offset = parseInt(offset as string);
-    }
-
-    const result = await campaignTemplateService.getTemplates(options);
+    const result = await campaignTemplateService.getTemplates(validatedQuery);
 
     res.json({
       success: true,
       data: result.templates,
       total: result.total,
       pagination: {
-        limit: options.limit || 20,
-        offset: options.offset || 0,
-        hasMore: (options.offset || 0) + result.templates.length < result.total,
+        limit: validatedQuery.limit,
+        offset: validatedQuery.offset,
+        hasMore: validatedQuery.offset + result.templates.length < result.total,
       },
     });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid query parameters',
+        details: error.errors,
+      });
+    }
+
     logger.error('Failed to get campaign templates:', error);
     res.status(500).json({
       success: false,
@@ -78,18 +63,24 @@ router.get('/', async (req: Request, res: Response) => {
  * @route GET /api/campaign-templates/popular
  * @desc Get popular campaign templates
  */
-router.get('/popular', async (req: Request, res: Response) => {
+router.get('/popular', templateReadRateLimit, async (req: Request, res: Response) => {
   try {
-    const { limit } = req.query;
-    const popularLimit = limit ? parseInt(limit as string) : 10;
-
-    const popularTemplates = await campaignTemplateService.getPopularTemplates(popularLimit);
+    const validatedQuery = paginationSchema.pick({ limit: true }).parse(req.query);
+    const popularTemplates = await campaignTemplateService.getPopularTemplates(validatedQuery.limit);
 
     res.json({
       success: true,
       data: popularTemplates,
     });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid query parameters',
+        details: error.errors,
+      });
+    }
+
     logger.error('Failed to get popular templates:', error);
     res.status(500).json({
       success: false,
@@ -102,30 +93,10 @@ router.get('/popular', async (req: Request, res: Response) => {
  * @route GET /api/campaign-templates/search
  * @desc Search campaign templates
  */
-router.get('/search', async (req: Request, res: Response) => {
+router.get('/search', templateSearchRateLimit, async (req: Request, res: Response) => {
   try {
-    const { q, category, difficulty, limit } = req.query;
-
-    if (!q || typeof q !== 'string') {
-      return res.status(400).json({
-        success: false,
-        error: 'Search query is required',
-      });
-    }
-
-    const options: any = {};
-
-    if (category && Object.values(TemplateCategory).includes(category as TemplateCategory)) {
-      options.category = category as TemplateCategory;
-    }
-
-    if (difficulty && Object.values(TemplateDifficulty).includes(difficulty as TemplateDifficulty)) {
-      options.difficulty = difficulty as TemplateDifficulty;
-    }
-
-    if (limit) {
-      options.limit = parseInt(limit as string);
-    }
+    const validatedQuery = searchQuerySchema.parse(req.query);
+    const { q, ...options } = validatedQuery;
 
     const templates = await campaignTemplateService.searchTemplates(q, options);
 
@@ -134,6 +105,14 @@ router.get('/search', async (req: Request, res: Response) => {
       data: templates,
     });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid search parameters',
+        details: error.errors,
+      });
+    }
+
     logger.error('Failed to search templates:', error);
     res.status(500).json({
       success: false,
@@ -146,14 +125,14 @@ router.get('/search', async (req: Request, res: Response) => {
  * @route GET /api/campaign-templates/:id
  * @desc Get specific campaign template
  */
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', templateReadRateLimit, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    if (!id) {
+    if (!id || !/^[a-zA-Z0-9\-_]{1,100}$/.test(id)) {
       return res.status(400).json({
         success: false,
-        error: 'Template ID is required',
+        error: 'Invalid template ID format',
       });
     }
 
@@ -183,14 +162,14 @@ router.get('/:id', async (req: Request, res: Response) => {
  * @route GET /api/campaign-templates/:id/stats
  * @desc Get template usage statistics
  */
-router.get('/:id/stats', async (req: Request, res: Response) => {
+router.get('/:id/stats', templateReadRateLimit, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    if (!id) {
+    if (!id || !/^[a-zA-Z0-9\-_]{1,100}$/.test(id)) {
       return res.status(400).json({
         success: false,
-        error: 'Template ID is required',
+        error: 'Invalid template ID format',
       });
     }
 
@@ -213,7 +192,7 @@ router.get('/:id/stats', async (req: Request, res: Response) => {
  * @route POST /api/campaign-templates
  * @desc Create new campaign template (authenticated users only)
  */
-router.post('/', authenticate, async (req: Request, res: Response) => {
+router.post('/', templateWriteRateLimit, authenticate, async (req: Request, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({
@@ -257,7 +236,7 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
  * @route PUT /api/campaign-templates/:id
  * @desc Update campaign template (authenticated users only, must own template)
  */
-router.put('/:id', authenticate, async (req: Request, res: Response) => {
+router.put('/:id', templateWriteRateLimit, authenticate, async (req: Request, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({
@@ -268,10 +247,10 @@ router.put('/:id', authenticate, async (req: Request, res: Response) => {
 
     const { id } = req.params;
 
-    if (!id) {
+    if (!id || !/^[a-zA-Z0-9\-_]{1,100}$/.test(id)) {
       return res.status(400).json({
         success: false,
-        error: 'Template ID is required',
+        error: 'Invalid template ID format',
       });
     }
 
@@ -318,7 +297,7 @@ router.put('/:id', authenticate, async (req: Request, res: Response) => {
  * @route DELETE /api/campaign-templates/:id
  * @desc Delete campaign template (authenticated users only, must own template)
  */
-router.delete('/:id', authenticate, async (req: Request, res: Response) => {
+router.delete('/:id', templateWriteRateLimit, authenticate, async (req: Request, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({
@@ -329,10 +308,10 @@ router.delete('/:id', authenticate, async (req: Request, res: Response) => {
 
     const { id } = req.params;
 
-    if (!id) {
+    if (!id || !/^[a-zA-Z0-9\-_]{1,100}$/.test(id)) {
       return res.status(400).json({
         success: false,
-        error: 'Template ID is required',
+        error: 'Invalid template ID format',
       });
     }
 
@@ -370,7 +349,7 @@ router.delete('/:id', authenticate, async (req: Request, res: Response) => {
  * @route POST /api/campaign-templates/:id/usage
  * @desc Record template usage (authenticated users only)
  */
-router.post('/:id/usage', authenticate, async (req: Request, res: Response) => {
+router.post('/:id/usage', templateUsageRateLimit, authenticate, async (req: Request, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({
@@ -381,10 +360,10 @@ router.post('/:id/usage', authenticate, async (req: Request, res: Response) => {
 
     const { id } = req.params;
 
-    if (!id) {
+    if (!id || !/^[a-zA-Z0-9\-_]{1,100}$/.test(id)) {
       return res.status(400).json({
         success: false,
-        error: 'Template ID is required',
+        error: 'Invalid template ID format',
       });
     }
 

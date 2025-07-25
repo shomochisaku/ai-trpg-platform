@@ -177,6 +177,7 @@ export class CampaignService {
       try {
         await campaignTemplateService.recordUsage(validated.templateId, validated.userId, {
           wasCustomized: templateCustomized,
+          completionStatus: 'STARTED',
         });
       } catch (error) {
         logger.warn('Failed to record template usage:', error);

@@ -37,7 +37,8 @@ export interface CreateCampaignData {
   userId: string;
   title: string;
   description?: string;
-  settings: CampaignSettings;
+  settings?: CampaignSettings;
+  templateId?: string;
 }
 
 export interface PlayerActionResult {
@@ -199,6 +200,29 @@ export const api = {
   action: actionApi,
   gameState: gameStateApi,
   health: healthApi,
+  
+  // Generic HTTP methods for template API
+  get: <T>(endpoint: string): Promise<ApiResponse<T>> => {
+    return apiRequest<T>(endpoint, { method: 'GET' });
+  },
+  
+  post: <T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> => {
+    return apiRequest<T>(endpoint, {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  },
+  
+  put: <T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> => {
+    return apiRequest<T>(endpoint, {
+      method: 'PUT',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  },
+  
+  delete: <T>(endpoint: string): Promise<ApiResponse<T>> => {
+    return apiRequest<T>(endpoint, { method: 'DELETE' });
+  },
 };
 
 export default api;

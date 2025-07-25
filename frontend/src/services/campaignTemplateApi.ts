@@ -73,16 +73,16 @@ export const campaignTemplateApi = {
     if (filters.limit) params.append('limit', filters.limit.toString());
     if (filters.offset) params.append('offset', filters.offset.toString());
 
-    const response = await api.get(`/campaign-templates?${params.toString()}`);
-    return response.data;
+    const response = await api.get<TemplateListResponse>(`/campaign-templates?${params.toString()}`);
+    return response.data!;
   },
 
   /**
    * Get popular campaign templates
    */
   async getPopularTemplates(limit: number = 10): Promise<PopularTemplatesResponse> {
-    const response = await api.get(`/campaign-templates/popular?limit=${limit}`);
-    return response.data;
+    const response = await api.get<PopularTemplatesResponse>(`/campaign-templates/popular?limit=${limit}`);
+    return response.data!;
   },
 
   /**
@@ -102,56 +102,56 @@ export const campaignTemplateApi = {
     if (filters.difficulty) params.append('difficulty', filters.difficulty);
     if (filters.limit) params.append('limit', filters.limit.toString());
 
-    const response = await api.get(`/campaign-templates/search?${params.toString()}`);
-    return response.data;
+    const response = await api.get<{ success: boolean; data: CampaignTemplate[] }>(`/campaign-templates/search?${params.toString()}`);
+    return response.data!;
   },
 
   /**
    * Get specific campaign template
    */
   async getTemplate(id: string): Promise<TemplateResponse> {
-    const response = await api.get(`/campaign-templates/${id}`);
-    return response.data;
+    const response = await api.get<TemplateResponse>(`/campaign-templates/${id}`);
+    return response.data!;
   },
 
   /**
    * Get template usage statistics
    */
   async getTemplateStats(id: string): Promise<TemplateStatsResponse> {
-    const response = await api.get(`/campaign-templates/${id}/stats`);
-    return response.data;
+    const response = await api.get<TemplateStatsResponse>(`/campaign-templates/${id}/stats`);
+    return response.data!;
   },
 
   /**
    * Create new campaign template (authenticated)
    */
   async createTemplate(data: CreateTemplateRequest): Promise<TemplateResponse> {
-    const response = await api.post('/campaign-templates', data);
-    return response.data;
+    const response = await api.post<TemplateResponse>('/campaign-templates', data);
+    return response.data!;
   },
 
   /**
    * Update campaign template (authenticated, must own template)
    */
   async updateTemplate(id: string, data: Partial<CreateTemplateRequest>): Promise<TemplateResponse> {
-    const response = await api.put(`/campaign-templates/${id}`, data);
-    return response.data;
+    const response = await api.put<TemplateResponse>(`/campaign-templates/${id}`, data);
+    return response.data!;
   },
 
   /**
    * Delete campaign template (authenticated, must own template)
    */
   async deleteTemplate(id: string): Promise<{ success: boolean; message: string }> {
-    const response = await api.delete(`/campaign-templates/${id}`);
-    return response.data;
+    const response = await api.delete<{ success: boolean; message: string }>(`/campaign-templates/${id}`);
+    return response.data!;
   },
 
   /**
    * Record template usage (authenticated)
    */
   async recordUsage(id: string, data: RecordUsageRequest): Promise<{ success: boolean; message: string }> {
-    const response = await api.post(`/campaign-templates/${id}/usage`, data);
-    return response.data;
+    const response = await api.post<{ success: boolean; message: string }>(`/campaign-templates/${id}/usage`, data);
+    return response.data!;
   },
 
   /**

@@ -1,4 +1,4 @@
-import { PrismaClient, TemplateCategory, TemplateDifficulty, TemplateCompletionStatus } from '@prisma/client';
+import { PrismaClient, TemplateCategoryType, TemplateDifficulty, TemplateCompletionStatus } from '@prisma/client';
 import { logger } from '@/utils/logger';
 import { z } from 'zod';
 
@@ -34,7 +34,7 @@ export interface CampaignTemplate {
   name: string;
   description: string;
   templateId: string;
-  category: TemplateCategory;
+  category: TemplateCategoryType;
   isOfficial: boolean;
   isActive: boolean;
   scenarioSettings: CampaignTemplateSettings;
@@ -65,33 +65,65 @@ export interface PopularTemplate {
   averageRating?: number;
 }
 
-// Validation schemas
+// Enhanced security validation schemas
+const sanitizeString = (str: string): string => {
+  // Remove potential XSS characters and normalize whitespace
+  return str
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/[^\w\s\-.,!?()[\]{}:;"']/g, '')
+    .trim()
+    .substring(0, 10000); // Hard limit for safety
+};
+
+const sanitizedString = (min: number = 1, max: number = 1000) =>
+  z.string()
+    .min(min, `Minimum length is ${min} characters`)
+    .max(max, `Maximum length is ${max} characters`)
+    .transform(sanitizeString)
+    .refine(val => val.length >= min, `Content too short after sanitization`);
+
+const sanitizedArray = (maxItems: number = 10, maxItemLength: number = 100) =>
+  z.array(
+    z.string()
+      .max(maxItemLength, `Item too long (max ${maxItemLength} characters)`)
+      .transform(sanitizeString)
+      .refine(val => val.length > 0, 'Empty items not allowed')
+  )
+  .max(maxItems, `Maximum ${maxItems} items allowed`)
+  .refine(arr => new Set(arr).size === arr.length, 'Duplicate items not allowed');
+
 export const createTemplateSchema = z.object({
-  name: z.string().min(1).max(100),
-  description: z.string().min(1).max(500),
-  templateId: z.string().min(1).max(50).regex(/^[a-z0-9-]+$/),
-  category: z.nativeEnum(TemplateCategory),
+  name: sanitizedString(3, 100),
+  description: sanitizedString(10, 1000),
+  templateId: z.string()
+    .min(3, 'Template ID too short')
+    .max(50, 'Template ID too long')
+    .regex(/^[a-z0-9-]+$/, 'Template ID can only contain lowercase letters, numbers, and hyphens')
+    .transform(str => str.toLowerCase().trim()),
+  category: z.nativeEnum(TemplateCategoryType),
   difficulty: z.nativeEnum(TemplateDifficulty),
-  estimatedDuration: z.string().max(50).optional(),
-  playerCount: z.string().max(20).default('1'),
-  tags: z.array(z.string()).max(10),
+  estimatedDuration: sanitizedString(1, 50).optional(),
+  playerCount: sanitizedString(1, 20).default('1-4'),
+  tags: sanitizedArray(10, 30)
+    .refine(arr => arr.every(tag => /^[a-zA-Z0-9\s\-_.]+$/.test(tag)), 'Invalid characters in tags'),
   scenarioSettings: z.object({
     gmProfile: z.object({
-      personality: z.string().min(10),
-      speechStyle: z.string().min(5),
-      guidingPrinciples: z.array(z.string()).max(10),
+      personality: sanitizedString(20, 2000),
+      speechStyle: sanitizedString(10, 500),
+      guidingPrinciples: sanitizedArray(10, 200),
     }),
     worldSettings: z.object({
-      toneAndManner: z.string().min(10),
-      keyConcepts: z.array(z.string()).max(15),
-      setting: z.string().min(20),
+      toneAndManner: sanitizedString(10, 500),
+      keyConcepts: sanitizedArray(15, 100),
+      setting: sanitizedString(50, 3000),
     }),
     opening: z.object({
-      prologue: z.string().min(50),
-      initialStatusTags: z.array(z.string()).max(10),
-      initialInventory: z.array(z.string()).max(10),
+      prologue: sanitizedString(100, 3000),
+      initialStatusTags: sanitizedArray(10, 50),
+      initialInventory: sanitizedArray(10, 100),
     }),
-    gameStyle: z.string().min(1),
+    gameStyle: sanitizedString(3, 50),
     gmBehavior: z.object({
       narrativeStyle: z.enum(['descriptive', 'concise', 'theatrical']),
       playerAgency: z.enum(['high', 'medium', 'guided']),
@@ -106,10 +138,50 @@ export const updateTemplateSchema = createTemplateSchema.partial().extend({
 
 export const recordUsageSchema = z.object({
   wasCustomized: z.boolean().default(false),
-  sessionDuration: z.number().min(1).optional(),
-  playerRating: z.number().min(1).max(5).optional(),
+  sessionDuration: z.number()
+    .min(1, 'Session duration must be positive')
+    .max(86400, 'Session duration cannot exceed 24 hours')
+    .optional(),
+  playerRating: z.number()
+    .min(1, 'Rating must be between 1 and 5')
+    .max(5, 'Rating must be between 1 and 5')
+    .optional(),
   completionStatus: z.nativeEnum(TemplateCompletionStatus).default('STARTED'),
-  sessionId: z.string().optional(),
+  sessionId: sanitizedString(1, 100).optional(),
+});
+
+// Query parameter validation schemas
+export const paginationSchema = z.object({
+  limit: z.coerce.number()
+    .min(1, 'Limit must be at least 1')
+    .max(100, 'Limit cannot exceed 100')
+    .default(20),
+  offset: z.coerce.number()
+    .min(0, 'Offset must be non-negative')
+    .max(10000, 'Offset cannot exceed 10000')
+    .default(0),
+});
+
+export const templateFiltersSchema = z.object({
+  category: z.nativeEnum(TemplateCategoryType).optional(),
+  difficulty: z.nativeEnum(TemplateDifficulty).optional(),
+  tags: z.union([
+    z.string().transform(str => [str]),
+    z.array(z.string())
+  ]).optional().transform(tags => 
+    tags ? tags.slice(0, 10).map(tag => sanitizeString(tag).substring(0, 50)) : undefined
+  ),
+  isOfficial: z.coerce.boolean().optional(),
+}).merge(paginationSchema);
+
+export const searchQuerySchema = z.object({
+  q: sanitizedString(1, 200),
+  category: z.nativeEnum(TemplateCategoryType).optional(),
+  difficulty: z.nativeEnum(TemplateDifficulty).optional(),
+  limit: z.coerce.number()
+    .min(1, 'Limit must be at least 1')
+    .max(50, 'Search limit cannot exceed 50')
+    .default(20),
 });
 
 export class CampaignTemplateService {
@@ -117,7 +189,7 @@ export class CampaignTemplateService {
    * Get all active campaign templates
    */
   async getTemplates(options: {
-    category?: TemplateCategory;
+    category?: TemplateCategoryType;
     difficulty?: TemplateDifficulty;
     tags?: string[];
     isOfficial?: boolean;
@@ -146,6 +218,10 @@ export class CampaignTemplateService {
       };
     }
 
+    // Optimize pagination with efficient queries
+    const safeLimit = Math.min(options.limit || 20, 100); // Cap at 100 for performance
+    const safeOffset = Math.max(options.offset || 0, 0);
+
     const [templates, total] = await Promise.all([
       prisma.campaignTemplate.findMany({
         where,
@@ -153,8 +229,26 @@ export class CampaignTemplateService {
           { isOfficial: 'desc' },
           { createdAt: 'desc' },
         ],
-        take: options.limit || 20,
-        skip: options.offset || 0,
+        take: safeLimit,
+        skip: safeOffset,
+        // Only select fields needed for the list view to reduce data transfer
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          templateId: true,
+          category: true,
+          isOfficial: true,
+          isActive: true,
+          scenarioSettings: true,
+          difficulty: true,
+          estimatedDuration: true,
+          playerCount: true,
+          tags: true,
+          createdBy: true,
+          createdAt: true,
+          updatedAt: true,
+        },
       }),
       prisma.campaignTemplate.count({ where }),
     ]);
@@ -300,7 +394,7 @@ export class CampaignTemplateService {
   }
 
   /**
-   * Get template usage statistics
+   * Get template usage statistics (optimized for performance)
    */
   async getTemplateStats(templateId: string): Promise<TemplateUsageStats> {
     const template = await this.getTemplate(templateId);
@@ -308,60 +402,103 @@ export class CampaignTemplateService {
       throw new Error('Template not found');
     }
 
-    const usageData = await prisma.templateUsage.findMany({
-      where: { templateId: template.id },
-      select: {
-        wasCustomized: true,
-        sessionDuration: true,
-        playerRating: true,
-        completionStatus: true,
-        createdAt: true,
-      },
-    });
+    // Use efficient aggregation queries instead of loading all data into memory
+    const [
+      totalUsageResult,
+      aggregateStats,
+      monthlyUsageStats
+    ] = await Promise.all([
+      // Get total usage count
+      prisma.templateUsage.count({
+        where: { templateId: template.id },
+      }),
+      
+      // Get aggregate statistics in a single query
+      prisma.templateUsage.aggregate({
+        where: { templateId: template.id },
+        _count: {
+          id: true,
+          playerRating: true,
+          sessionDuration: true,
+        },
+        _avg: {
+          playerRating: true,
+          sessionDuration: true,
+        },
+      }),
+      
+      // Get monthly usage data with database aggregation
+      this.getMonthlyUsageStats(template.id)
+    ]);
 
-    const totalUsage = usageData.length;
-    const completedUsage = usageData.filter(u => u.completionStatus === 'COMPLETED').length;
-    const customizedUsage = usageData.filter(u => u.wasCustomized).length;
-    const ratingsData = usageData.filter(u => u.playerRating !== null);
-    const durationsData = usageData.filter(u => u.sessionDuration !== null);
-
-    // Calculate usage by month for the last 12 months
-    const now = new Date();
-    const monthsData = Array.from({ length: 12 }, (_, i) => {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthStr = date.toISOString().substring(0, 7); // YYYY-MM format
-      const count = usageData.filter(u => 
-        u.createdAt.toISOString().substring(0, 7) === monthStr
-      ).length;
-      return { month: monthStr, count };
-    }).reverse();
+    // Get completion and customization rates with efficient queries
+    const [completedCount, customizedCount] = await Promise.all([
+      prisma.templateUsage.count({
+        where: {
+          templateId: template.id,
+          completionStatus: 'COMPLETED',
+        },
+      }),
+      prisma.templateUsage.count({
+        where: {
+          templateId: template.id,
+          wasCustomized: true,
+        },
+      }),
+    ]);
 
     return {
-      totalUsage,
-      averageRating: ratingsData.length > 0 
-        ? ratingsData.reduce((sum, u) => sum + (u.playerRating || 0), 0) / ratingsData.length
-        : undefined,
-      completionRate: totalUsage > 0 ? completedUsage / totalUsage : 0,
-      customizationRate: totalUsage > 0 ? customizedUsage / totalUsage : 0,
-      averageDuration: durationsData.length > 0
-        ? durationsData.reduce((sum, u) => sum + (u.sessionDuration || 0), 0) / durationsData.length
-        : undefined,
-      usageByMonth: monthsData,
+      totalUsage: totalUsageResult,
+      averageRating: aggregateStats._avg.playerRating || undefined,
+      completionRate: totalUsageResult > 0 ? completedCount / totalUsageResult : 0,
+      customizationRate: totalUsageResult > 0 ? customizedCount / totalUsageResult : 0,
+      averageDuration: aggregateStats._avg.sessionDuration || undefined,
+      usageByMonth: monthlyUsageStats,
     };
   }
 
   /**
-   * Get popular templates
+   * Get monthly usage statistics with efficient database aggregation
+   */
+  private async getMonthlyUsageStats(templateId: string): Promise<Array<{ month: string; count: number }>> {
+    const now = new Date();
+    const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+
+    // Use database-agnostic approach for monthly aggregation
+    const monthlyStats = await prisma.$queryRaw<Array<{ month: string; count: bigint }>>`
+      SELECT 
+        strftime('%Y-%m', createdAt) as month,
+        COUNT(*) as count
+      FROM TemplateUsage 
+      WHERE templateId = ${templateId}
+        AND createdAt >= ${twelveMonthsAgo}
+        AND createdAt <= ${now}
+      GROUP BY strftime('%Y-%m', createdAt)
+      ORDER BY month ASC
+    `;
+
+    // Create a complete 12-month array with zero-filled missing months
+    const monthsData = Array.from({ length: 12 }, (_, i) => {
+      const date = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1);
+      const monthStr = date.toISOString().substring(0, 7);
+      const existingData = monthlyStats.find(stat => stat.month === monthStr);
+      return {
+        month: monthStr,
+        count: existingData ? Number(existingData.count) : 0,
+      };
+    });
+
+    return monthsData;
+  }
+
+  /**
+   * Get popular templates (optimized for performance)
    */
   async getPopularTemplates(limit: number = 10): Promise<PopularTemplate[]> {
-    const templates = await prisma.campaignTemplate.findMany({
+    // First, get templates with their usage counts efficiently
+    const templatesWithCounts = await prisma.campaignTemplate.findMany({
       where: { isActive: true },
       include: {
-        usageStats: {
-          select: {
-            playerRating: true,
-          },
-        },
         _count: {
           select: {
             usageStats: true,
@@ -376,19 +513,32 @@ export class CampaignTemplateService {
       take: limit,
     });
 
-    return templates.map(t => {
-      const ratings = t.usageStats
-        .map(u => u.playerRating)
-        .filter((r): r is number => r !== null);
-      
-      return {
-        template: this.formatTemplate(t),
-        usageCount: t._count.usageStats,
-        averageRating: ratings.length > 0 
-          ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length
-          : undefined,
-      };
-    });
+    // Get average ratings for these templates in parallel
+    const templateIds = templatesWithCounts.map(t => t.id);
+    
+    if (templateIds.length === 0) {
+      return [];
+    }
+
+    const ratingAggregates = await Promise.all(
+      templateIds.map(templateId =>
+        prisma.templateUsage.aggregate({
+          where: {
+            templateId,
+            playerRating: { not: null },
+          },
+          _avg: {
+            playerRating: true,
+          },
+        })
+      )
+    );
+
+    return templatesWithCounts.map((template, index) => ({
+      template: this.formatTemplate(template),
+      usageCount: template._count.usageStats,
+      averageRating: ratingAggregates[index]?._avg.playerRating || undefined,
+    }));
   }
 
   /**
@@ -397,7 +547,7 @@ export class CampaignTemplateService {
   async searchTemplates(
     query: string,
     options: {
-      category?: TemplateCategory;
+      category?: TemplateCategoryType;
       difficulty?: TemplateDifficulty;
       limit?: number;
     } = {}

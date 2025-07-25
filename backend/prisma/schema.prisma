@@ -534,7 +534,7 @@ model CampaignTemplate {
   
   // Template identification
   templateId  String   @unique // e.g., "fantasy-adventure"
-  category    TemplateCategory @default(FANTASY)
+  category    TemplateCategoryType @default(FANTASY)
   isOfficial  Boolean  @default(false) // Official vs user-created templates
   isActive    Boolean  @default(true)
   
@@ -592,7 +592,7 @@ model TemplateCategory {
 
 
 // Additional enums
-enum TemplateCategory {
+enum TemplateCategoryType {
   FANTASY
   CYBERPUNK
   HORROR

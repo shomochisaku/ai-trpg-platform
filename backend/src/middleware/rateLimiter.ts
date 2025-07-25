@@ -40,6 +40,34 @@ const SECURITY_CONFIG = {
     message:
       'Too many campaign creation requests, please wait before creating another.',
   },
+
+  // Template read operations rate limit
+  templateRead: {
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // limit each IP to 100 template read requests per windowMs
+    message: 'Too many template requests from this IP, please try again later.',
+  },
+
+  // Template write operations rate limit (more restrictive)
+  templateWrite: {
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10, // limit each IP to 10 template write operations per windowMs
+    message: 'Too many template write requests from this IP, please try again later.',
+  },
+
+  // Template search rate limit
+  templateSearch: {
+    windowMs: 5 * 60 * 1000, // 5 minutes
+    max: 30, // limit search requests to 30 per 5 minutes
+    message: 'Too many template search requests from this IP, please try again later.',
+  },
+
+  // Template usage recording rate limit
+  templateUsage: {
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 50, // limit usage recording to 50 per hour per IP
+    message: 'Too many usage reports from this IP, please try again later.',
+  },
 };
 
 // Rate limit handler with logging
@@ -120,6 +148,66 @@ export const campaignCreationRateLimit =
         },
       });
 
+// Template read operations rate limiter
+export const templateReadRateLimit =
+  process.env.NODE_ENV === 'test'
+    ? createNoOpMiddleware()
+    : rateLimit({
+        ...SECURITY_CONFIG.templateRead,
+        standardHeaders: true,
+        legacyHeaders: false,
+        handler: rateLimitHandler,
+        skip: req => {
+          // Skip rate limiting for health checks
+          return req.path === '/api/health';
+        },
+      });
+
+// Template write operations rate limiter
+export const templateWriteRateLimit =
+  process.env.NODE_ENV === 'test'
+    ? createNoOpMiddleware()
+    : rateLimit({
+        ...SECURITY_CONFIG.templateWrite,
+        standardHeaders: true,
+        legacyHeaders: false,
+        handler: rateLimitHandler,
+        keyGenerator: req => {
+          // Use user ID if authenticated, otherwise fall back to IP
+          return (
+            (req as AuthenticatedRequest).user?.id || req.ip || 'anonymous'
+          );
+        },
+      });
+
+// Template search rate limiter
+export const templateSearchRateLimit =
+  process.env.NODE_ENV === 'test'
+    ? createNoOpMiddleware()
+    : rateLimit({
+        ...SECURITY_CONFIG.templateSearch,
+        standardHeaders: true,
+        legacyHeaders: false,
+        handler: rateLimitHandler,
+      });
+
+// Template usage recording rate limiter
+export const templateUsageRateLimit =
+  process.env.NODE_ENV === 'test'
+    ? createNoOpMiddleware()
+    : rateLimit({
+        ...SECURITY_CONFIG.templateUsage,
+        standardHeaders: true,
+        legacyHeaders: false,
+        handler: rateLimitHandler,
+        keyGenerator: req => {
+          // Use user ID if authenticated, otherwise fall back to IP
+          return (
+            (req as AuthenticatedRequest).user?.id || req.ip || 'anonymous'
+          );
+        },
+      });
+
 // Slow down middleware for gradual response delay
 export const slowDownMiddleware: RequestHandler = slowDown({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -135,12 +223,20 @@ export const securityMiddleware: {
   aiProcessing: RequestHandler;
   auth: RequestHandler;
   campaignCreation: RequestHandler;
+  templateRead: RequestHandler;
+  templateWrite: RequestHandler;
+  templateSearch: RequestHandler;
+  templateUsage: RequestHandler;
   slowDown: RequestHandler;
 } = {
   general: generalRateLimit as RequestHandler,
   aiProcessing: aiProcessingRateLimit as RequestHandler,
   auth: authRateLimit as RequestHandler,
   campaignCreation: campaignCreationRateLimit as RequestHandler,
+  templateRead: templateReadRateLimit as RequestHandler,
+  templateWrite: templateWriteRateLimit as RequestHandler,
+  templateSearch: templateSearchRateLimit as RequestHandler,
+  templateUsage: templateUsageRateLimit as RequestHandler,
   slowDown: slowDownMiddleware,
 };
 
