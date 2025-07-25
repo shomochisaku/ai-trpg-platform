@@ -283,12 +283,12 @@ export class SecurityMonitoringService {
 
       // Step 2: Create new history with atomic operation (immutable)
       const beforeFilterLength = this.auditHistory.length;
-      
+
       // Perform all operations atomically on a new array
       const newHistory = [...this.auditHistory, audit]
         .filter(record => record.timestamp > cutoffDate)
         .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-      
+
       const afterFilterLength = newHistory.length;
 
       // Step 3: Verify integrity before applying changes
@@ -300,9 +300,7 @@ export class SecurityMonitoringService {
       }
 
       // Step 4: Verify the new audit is present
-      const newAuditExists = newHistory.some(
-        record => record.id === audit.id
-      );
+      const newAuditExists = newHistory.some(record => record.id === audit.id);
       if (!newAuditExists) {
         throw new Error(
           'Integrity check failed: New audit was lost during filtering'
