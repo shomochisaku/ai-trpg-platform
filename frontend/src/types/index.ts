@@ -137,6 +137,54 @@ export interface CampaignPreset {
   formData: CampaignFormData;
 }
 
+// Campaign Template Types (new system)
+export type TemplateCategory = 'FANTASY' | 'CYBERPUNK' | 'HORROR' | 'MODERN' | 'HISTORICAL' | 'SCIFI' | 'MYSTERY' | 'CUSTOM';
+export type TemplateDifficulty = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
+
+export interface CampaignTemplate {
+  id: string;
+  name: string;
+  description: string;
+  templateId: string;
+  category: TemplateCategory;
+  isOfficial: boolean;
+  isActive: boolean;
+  scenarioSettings: CampaignFormData['scenarioSettings'];
+  difficulty: TemplateDifficulty;
+  estimatedDuration?: string;
+  playerCount: string;
+  tags: string[];
+  createdBy?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface TemplateUsageStats {
+  totalUsage: number;
+  averageRating?: number;
+  completionRate: number;
+  customizationRate: number;
+  averageDuration?: number;
+  usageByMonth: Array<{
+    month: string;
+    count: number;
+  }>;
+}
+
+export interface PopularTemplate {
+  template: CampaignTemplate;
+  usageCount: number;
+  averageRating?: number;
+}
+
+export interface TemplateFilters {
+  category?: TemplateCategory;
+  difficulty?: TemplateDifficulty;
+  tags?: string[];
+  isOfficial?: boolean;
+  searchQuery?: string;
+}
+
 export interface FormValidationErrors {
   title?: string;
   gmPersonality?: string;

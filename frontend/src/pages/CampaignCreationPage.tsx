@@ -1,6 +1,8 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import CampaignCreationForm from '../components/CampaignCreationForm';
-import { CampaignFormData } from '../types';
+import { TemplateSelector } from '../components/TemplateSelector';
+import { TemplateCustomizer } from '../components/TemplateCustomizer';
+import { CampaignFormData, CampaignTemplate } from '../types';
 import { useCampaign } from '../hooks';
 import { CreateCampaignData, CampaignSettings } from '../services/api';
 
@@ -9,38 +11,58 @@ interface CampaignCreationPageProps {
   onSuccess?: (campaignId: string) => void;
 }
 
+type CreationStep = 'template-selection' | 'template-customization' | 'manual-creation';
+
 const CampaignCreationPage: React.FC<CampaignCreationPageProps> = ({
   onCancel,
   onSuccess
 }) => {
   const { createCampaign, isLoading } = useCampaign();
+  const [currentStep, setCurrentStep] = useState<CreationStep>('template-selection');
+  const [selectedTemplate, setSelectedTemplate] = useState<CampaignTemplate | null>(null);
 
   // Convert form data to API format
-  const convertFormDataToApiData = useCallback((formData: CampaignFormData): CreateCampaignData => {
-    const settings: CampaignSettings = {
-      gmProfile: {
-        personality: formData.scenarioSettings.gmPersonality,
-        speechStyle: getTextFromNarrativeStyle(formData.scenarioSettings.gmBehavior.narrativeStyle),
-        guidingPrinciples: getGuidingPrinciplesFromSettings(formData.scenarioSettings)
-      },
-      worldSettings: {
-        toneAndManner: formData.scenarioSettings.worldSetting,
-        keyConcepts: extractKeyConceptsFromWorldSetting(formData.scenarioSettings.worldSetting)
-      },
-      opening: {
-        prologue: formData.scenarioSettings.storyIntroduction,
-        initialStatusTags: getInitialStatusTagsFromGameStyle(formData.scenarioSettings.gameStyle),
-        initialInventory: getInitialInventoryFromGameStyle(formData.scenarioSettings.gameStyle)
-      }
-    };
-
-    return {
+  const convertFormDataToApiData = useCallback((formData: CampaignFormData, templateId?: string): CreateCampaignData => {
+    const apiData: CreateCampaignData = {
       userId: 'default-user', // TODO: Replace with actual user ID when auth is implemented
       title: formData.title,
       description: formData.description,
-      settings
     };
-  }, []);
+
+    // If using a template, include templateId and optionally settings for customization
+    if (templateId) {
+      apiData.templateId = templateId;
+      
+      // Include settings only if they differ from template (customization)
+      if (selectedTemplate && JSON.stringify(formData.scenarioSettings) !== JSON.stringify(selectedTemplate.scenarioSettings)) {
+        apiData.settings = convertScenarioSettingsToApiSettings(formData.scenarioSettings);
+      }
+    } else {
+      // Manual creation - include full settings
+      apiData.settings = convertScenarioSettingsToApiSettings(formData.scenarioSettings);
+    }
+
+    return apiData;
+  }, [selectedTemplate]);
+
+  const convertScenarioSettingsToApiSettings = (scenarioSettings: CampaignFormData['scenarioSettings']): CampaignSettings => {
+    return {
+      gmProfile: {
+        personality: scenarioSettings.gmPersonality,
+        speechStyle: getTextFromNarrativeStyle(scenarioSettings.gmBehavior.narrativeStyle),
+        guidingPrinciples: getGuidingPrinciplesFromSettings(scenarioSettings)
+      },
+      worldSettings: {
+        toneAndManner: scenarioSettings.worldSetting,
+        keyConcepts: extractKeyConceptsFromWorldSetting(scenarioSettings.worldSetting)
+      },
+      opening: {
+        prologue: scenarioSettings.storyIntroduction,
+        initialStatusTags: getInitialStatusTagsFromGameStyle(scenarioSettings.gameStyle),
+        initialInventory: getInitialInventoryFromGameStyle(scenarioSettings.gameStyle)
+      }
+    };
+  };
 
   // Helper functions
   const getTextFromNarrativeStyle = (style: string): string => {
@@ -141,7 +163,63 @@ const CampaignCreationPage: React.FC<CampaignCreationPageProps> = ({
     }
   };
 
-  // Handle form submission
+  // Workflow handlers
+  const handleTemplateSelect = useCallback((template: CampaignTemplate) => {
+    setSelectedTemplate(template);
+    setCurrentStep('template-customization');
+  }, []);
+
+  const handleCreateFromScratch = useCallback(() => {
+    setSelectedTemplate(null);
+    setCurrentStep('manual-creation');
+  }, []);
+
+  const handleTemplateUseAsIs = useCallback(async () => {
+    if (!selectedTemplate) return;
+    
+    try {
+      console.log('[CampaignCreationPage] Using template as-is:', selectedTemplate);
+      
+      const formData: CampaignFormData = {
+        title: selectedTemplate.name,
+        description: selectedTemplate.description,
+        scenarioSettings: selectedTemplate.scenarioSettings,
+      };
+      
+      const apiData = convertFormDataToApiData(formData, selectedTemplate.templateId);
+      console.log('[CampaignCreationPage] Converted to API data:', apiData);
+      
+      const campaign = await createCampaign(apiData, 'player-1', 'Player');
+      console.log('[CampaignCreationPage] Campaign created successfully:', campaign);
+      
+      if (onSuccess) {
+        onSuccess(campaign.id);
+      }
+    } catch (error) {
+      console.error('[CampaignCreationPage] Failed to create campaign from template:', error);
+    }
+  }, [selectedTemplate, convertFormDataToApiData, createCampaign, onSuccess]);
+
+  const handleTemplateCustomize = useCallback(async (customizedData: CampaignFormData) => {
+    if (!selectedTemplate) return;
+    
+    try {
+      console.log('[CampaignCreationPage] Using customized template:', customizedData);
+      
+      const apiData = convertFormDataToApiData(customizedData, selectedTemplate.templateId);
+      console.log('[CampaignCreationPage] Converted to API data:', apiData);
+      
+      const campaign = await createCampaign(apiData, 'player-1', 'Player');
+      console.log('[CampaignCreationPage] Campaign created successfully:', campaign);
+      
+      if (onSuccess) {
+        onSuccess(campaign.id);
+      }
+    } catch (error) {
+      console.error('[CampaignCreationPage] Failed to create campaign from customized template:', error);
+    }
+  }, [selectedTemplate, convertFormDataToApiData, createCampaign, onSuccess]);
+
   const handleFormSubmit = useCallback(async (formData: CampaignFormData) => {
     try {
       console.log('[CampaignCreationPage] Submitting form data:', formData);
@@ -161,13 +239,45 @@ const CampaignCreationPage: React.FC<CampaignCreationPageProps> = ({
     }
   }, [createCampaign, convertFormDataToApiData, onSuccess]);
 
-  return (
-    <CampaignCreationForm
-      onSubmit={handleFormSubmit}
-      onCancel={onCancel}
-      isLoading={isLoading}
-    />
-  );
+  const handleBackToTemplateSelection = useCallback(() => {
+    setCurrentStep('template-selection');
+    setSelectedTemplate(null);
+  }, []);
+
+  // Render based on current step
+  if (currentStep === 'template-selection') {
+    return (
+      <TemplateSelector
+        onSelectTemplate={handleTemplateSelect}
+        onCreateFromScratch={handleCreateFromScratch}
+        selectedTemplate={selectedTemplate}
+      />
+    );
+  }
+
+  if (currentStep === 'template-customization' && selectedTemplate) {
+    return (
+      <TemplateCustomizer
+        template={selectedTemplate}
+        onCustomize={handleTemplateCustomize}
+        onUseAsIs={handleTemplateUseAsIs}
+        onBack={handleBackToTemplateSelection}
+      />
+    );
+  }
+
+  if (currentStep === 'manual-creation') {
+    return (
+      <CampaignCreationForm
+        onSubmit={handleFormSubmit}
+        onCancel={onCancel}
+        isLoading={isLoading}
+      />
+    );
+  }
+
+  // Fallback
+  return null;
 };
 
 export default CampaignCreationPage;
