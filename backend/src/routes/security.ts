@@ -6,6 +6,7 @@ import { secretsService } from '@/services/secretsService';
 import { aiProxyService } from '@/services/aiProxyService';
 import { securityMonitoringService } from '@/services/securityMonitoringService';
 import { logger } from '@/utils/logger';
+import { securityConfig } from '@/config/securityMonitoringConfig';
 
 const router = Router();
 
@@ -13,6 +14,43 @@ const router = Router();
 const rotateKeySchema = z.object({
   rotationToken: z.string().min(1),
   newKey: z.string().min(32), // Minimum key length
+});
+
+const generateKeySchema = z.object({
+  keyName: z
+    .string()
+    .min(1, 'Key name is required')
+    .max(50, 'Key name must be 50 characters or less')
+    .regex(
+      /^[a-zA-Z0-9_-]+$/,
+      'Key name can only contain letters, numbers, hyphens, and underscores'
+    )
+    .optional(),
+});
+
+const alertResolutionSchema = z.object({
+  resolution: z
+    .string()
+    .min(1, 'Resolution description is required')
+    .max(500, 'Resolution description must be 500 characters or less')
+    .optional(),
+});
+
+const historyQuerySchema = z.object({
+  days: z
+    .string()
+    .regex(/^\d+$/, 'Days must be a positive integer')
+    .transform(val => parseInt(val, 10))
+    .refine(
+      val => val >= securityConfig.MIN_DAYS_PARAM,
+      `Days must be at least ${securityConfig.MIN_DAYS_PARAM}`
+    )
+    .refine(
+      val => val <= securityConfig.MAX_DAYS_PARAM,
+      `Days must be at most ${securityConfig.MAX_DAYS_PARAM}`
+    )
+    .optional()
+    .default(securityConfig.DEFAULT_DAYS_PARAM.toString()),
 });
 
 // Admin authentication middleware (placeholder - in production, use proper admin auth)
@@ -195,7 +233,8 @@ router.post(
   requireAdminAccess,
   (req: Request, res: Response) => {
     try {
-      const keyName = req.body.keyName || 'generated-key';
+      const validatedData = generateKeySchema.parse(req.body);
+      const keyName = validatedData.keyName || 'generated-key';
       const newKey = apiKeyManager.generateNewApiKey();
       const keyPreview = newKey.substring(0, 8) + '...';
 
@@ -208,35 +247,45 @@ router.post(
       });
 
       // Store the full key securely (in production, this would be encrypted)
-      // For now, log a warning about secure storage
+      // Log warning about secure storage without exposing sensitive data
       logger.warn(
-        'SECURITY: Full API key generated. Ensure secure transmission and storage.',
+        'SECURITY: API key generated. Secure transmission required.',
         {
           keyName,
-          keyPreview,
-          recommendation: 'Use secure channel for key transmission',
+          generated: new Date().toISOString(),
+          ip: req.ip,
         }
       );
 
+      // Minimized response to prevent information disclosure
       res.json({
         success: true,
         data: {
           keyName,
           keyPreview,
-          generated: new Date().toISOString(),
-          warning:
-            'Full API key has been generated. Contact administrator for secure retrieval.',
         },
         message:
-          'API key generated successfully. Only preview shown for security.',
+          'API key generated. Contact administrator for secure retrieval.',
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
       logger.error('API key generation error:', error);
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid request data',
+          details: error.errors,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
       res.status(500).json({
         success: false,
-        error: 'Key generation failed',
-        message: error instanceof Error ? error.message : 'Unknown error',
+        error: 'Internal server error',
+        message:
+          'Operation could not be completed. Please try again or contact support.',
+        timestamp: new Date().toISOString(),
       });
     }
   }
@@ -390,8 +439,19 @@ router.get(
   requireAdminAccess,
   (req: Request, res: Response) => {
     try {
-      const days = parseInt(req.query.days as string) || 30;
+      const validatedQuery = historyQuerySchema.parse(req.query);
+      const days =
+        typeof validatedQuery.days === 'string'
+          ? parseInt(validatedQuery.days, 10)
+          : validatedQuery.days;
       const history = securityMonitoringService.getAuditHistory(days);
+
+      logger.info('Security audit history requested', {
+        ip: req.ip,
+        requestedDays: req.query.days,
+        validatedDays: days,
+        auditCount: history.audits.length,
+      });
 
       res.json({
         success: true,
@@ -400,10 +460,22 @@ router.get(
       });
     } catch (error) {
       logger.error('Security monitoring history error:', error);
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid query parameters',
+          details: error.errors,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
       res.status(500).json({
         success: false,
-        error: 'Failed to get audit history',
-        message: error instanceof Error ? error.message : 'Unknown error',
+        error: 'Internal server error',
+        message:
+          'Operation could not be completed. Please try again or contact support.',
+        timestamp: new Date().toISOString(),
       });
     }
   }
@@ -451,7 +523,6 @@ router.post(
   (req: Request, res: Response) => {
     try {
       const { alertId } = req.params;
-      const { resolution } = req.body;
 
       // Validate required parameters
       if (!alertId || typeof alertId !== 'string') {
@@ -463,17 +534,20 @@ router.post(
         return;
       }
 
-      // Validate resolution parameter
-      const resolutionText =
-        resolution && typeof resolution === 'string' ? resolution : undefined;
-      const success = resolutionText
-        ? securityMonitoringService.resolveAlert(alertId, resolutionText)
+      // Validate resolution body using zod schema
+      const validatedData = alertResolutionSchema.parse(req.body);
+
+      const success = validatedData.resolution
+        ? securityMonitoringService.resolveAlert(
+            alertId,
+            validatedData.resolution
+          )
         : securityMonitoringService.resolveAlert(alertId);
 
       if (success) {
         logger.info('Security alert resolved via admin endpoint', {
           alertId,
-          resolution,
+          resolution: validatedData.resolution,
           ip: req.ip,
           timestamp: new Date().toISOString(),
         });
@@ -492,10 +566,22 @@ router.post(
       }
     } catch (error) {
       logger.error('Alert resolution error:', error);
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid request data',
+          details: error.errors,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
       res.status(500).json({
         success: false,
-        error: 'Failed to resolve alert',
-        message: error instanceof Error ? error.message : 'Unknown error',
+        error: 'Internal server error',
+        message:
+          'Operation could not be completed. Please try again or contact support.',
+        timestamp: new Date().toISOString(),
       });
     }
   }

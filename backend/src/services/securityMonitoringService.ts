@@ -1,6 +1,7 @@
 import { logger } from '@/utils/logger';
 import { secretsService } from './secretsService';
 import { getApiKeyManager } from '@/middleware/apiKeyManager';
+import { securityConfig } from '@/config/securityMonitoringConfig';
 
 // Interfaces for security monitoring data structures
 export interface SecurityAuditRecord {
@@ -70,10 +71,16 @@ export class SecurityMonitoringService {
   private isRunning = false;
   private dailyAuditInterval?: NodeJS.Timeout;
   private hourlyCleanupInterval?: NodeJS.Timeout;
-  private auditMutex: boolean = false; // Simple mutex for audit operations
+  private auditMutex: boolean = false; // Enhanced mutex for audit operations
   private alertCleanupInterval?: NodeJS.Timeout; // Cleanup resolved alerts
+  private config = securityConfig; // Configuration instance
 
   constructor() {
+    // Log configuration summary on initialization
+    logger.info(
+      'Security Monitoring Service initialized with configuration:',
+      this.config.getConfigSummary()
+    );
     this.initializeMonitoring();
   }
 
@@ -101,34 +108,25 @@ export class SecurityMonitoringService {
 
     this.isRunning = true;
 
-    // Setup daily security audit (every 24 hours)
-    this.dailyAuditInterval = setInterval(
-      async () => {
-        await this.performDailySecurityAudit();
-      },
-      24 * 60 * 60 * 1000
-    ); // 24 hours
+    // Setup daily security audit
+    this.dailyAuditInterval = setInterval(async () => {
+      await this.performDailySecurityAudit();
+    }, this.config.DAILY_AUDIT_INTERVAL);
 
-    // Setup hourly API key cleanup (every hour)
-    this.hourlyCleanupInterval = setInterval(
-      async () => {
-        await this.performApiKeyCleanup();
-      },
-      60 * 60 * 1000
-    ); // 1 hour
+    // Setup API key cleanup
+    this.hourlyCleanupInterval = setInterval(async () => {
+      await this.performApiKeyCleanup();
+    }, this.config.HOURLY_CLEANUP_INTERVAL);
 
-    // Setup resolved alert cleanup (every 6 hours)
-    this.alertCleanupInterval = setInterval(
-      () => {
-        this.cleanupResolvedAlerts();
-      },
-      6 * 60 * 60 * 1000
-    ); // 6 hours
+    // Setup resolved alert cleanup
+    this.alertCleanupInterval = setInterval(() => {
+      this.cleanupResolvedAlerts();
+    }, this.config.ALERT_CLEANUP_INTERVAL);
 
     logger.info('Security monitoring service started', {
-      dailyAuditInterval: '24 hours',
-      hourlyCleanupInterval: '1 hour',
-      alertCleanupInterval: '6 hours',
+      dailyAuditInterval: `${this.config.DAILY_AUDIT_INTERVAL / (60 * 60 * 1000)} hours`,
+      hourlyCleanupInterval: `${this.config.HOURLY_CLEANUP_INTERVAL / (60 * 60 * 1000)} hours`,
+      alertCleanupInterval: `${this.config.ALERT_CLEANUP_INTERVAL / (60 * 60 * 1000)} hours`,
     });
   }
 
@@ -195,44 +193,39 @@ export class SecurityMonitoringService {
   }
 
   /**
-   * Perform daily security audit and score calculation
+   * Perform daily security audit and score calculation with enhanced atomicity
    */
   public async performDailySecurityAudit(): Promise<SecurityAuditRecord> {
-    // Prevent concurrent audit execution with mutex
-    if (this.auditMutex) {
-      logger.warn(
-        'Security audit already in progress, skipping concurrent execution'
-      );
-      // Return the most recent audit if available
-      const lastAudit = this.auditHistory[this.auditHistory.length - 1];
-      if (lastAudit) {
-        return lastAudit;
-      }
-      // If no history, wait a bit and retry once
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      if (this.auditMutex) {
-        throw new Error(
-          'Unable to perform audit: concurrent execution in progress'
+    // Enhanced mutex with timeout for better reliability
+    const timeoutMs = 30000; // 30 seconds timeout
+    const startTime = Date.now();
+
+    while (this.auditMutex) {
+      if (Date.now() - startTime > timeoutMs) {
+        logger.error(
+          'Audit timeout: Another audit has been running for too long, forcing execution'
         );
+        this.auditMutex = false;
+        break;
       }
+
+      logger.info('Waiting for concurrent audit to complete...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
     this.auditMutex = true;
 
     try {
-      logger.info('Starting daily security audit');
+      logger.info('Starting enhanced atomic daily security audit');
 
       const audit = await this.calculateSecurityScore();
 
-      // Atomic operation: add audit and cleanup in one step
-      this.auditHistory.push(audit);
+      // Enhanced atomic operation with rollback capability
+      const operationResult = await this.performAtomicHistoryUpdate(audit);
 
-      // Keep only last 90 days of audit history
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - 90);
-      this.auditHistory = this.auditHistory.filter(
-        record => record.timestamp > cutoffDate
-      );
+      if (!operationResult.success) {
+        throw new Error(`Atomic operation failed: ${operationResult.error}`);
+      }
 
       // Check for score deterioration
       await this.checkScoreDeterioration(audit);
@@ -240,20 +233,140 @@ export class SecurityMonitoringService {
       // Generate alerts for critical issues
       await this.processAuditAlerts(audit);
 
-      logger.info('Daily security audit completed', {
+      logger.info('Enhanced atomic daily security audit completed', {
         auditId: audit.id,
         score: audit.overallScore,
         scoreChange: audit.scoreChange,
         criticalIssues: audit.criticalIssues,
+        operationId: operationResult.operationId,
       });
 
       return audit;
     } catch (error) {
-      logger.error('Failed to perform daily security audit', error);
+      logger.error(
+        'Failed to perform enhanced atomic daily security audit',
+        error
+      );
       throw error;
     } finally {
       // Always release the mutex
       this.auditMutex = false;
+    }
+  }
+
+  /**
+   * Perform atomic history update with rollback capability
+   */
+  private async performAtomicHistoryUpdate(
+    audit: SecurityAuditRecord
+  ): Promise<{
+    success: boolean;
+    error?: string;
+    operationId: string;
+  }> {
+    const operationId = `atomic_op_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Create comprehensive snapshot for rollback
+    const historySnapshot = [...this.auditHistory];
+    const previousLength = this.auditHistory.length;
+
+    try {
+      logger.info(`Starting atomic history update [${operationId}]`, {
+        currentHistoryLength: previousLength,
+        newAuditId: audit.id,
+        retentionDays: this.config.AUDIT_HISTORY_DAYS,
+      });
+
+      // Step 1: Add new audit (reversible)
+      this.auditHistory.push(audit);
+
+      // Step 2: Calculate cutoff date
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - this.config.AUDIT_HISTORY_DAYS);
+
+      // Step 3: Filter history (with integrity check)
+      const beforeFilterLength = this.auditHistory.length;
+      this.auditHistory = this.auditHistory.filter(
+        record => record.timestamp > cutoffDate
+      );
+      const afterFilterLength = this.auditHistory.length;
+
+      // Step 4: Verify integrity
+      const expectedMinLength = Math.min(1, previousLength + 1); // At least the new audit should remain
+      if (this.auditHistory.length < expectedMinLength) {
+        throw new Error(
+          `Integrity check failed: Expected at least ${expectedMinLength} records, got ${this.auditHistory.length}`
+        );
+      }
+
+      // Step 5: Verify the new audit is present
+      const newAuditExists = this.auditHistory.some(
+        record => record.id === audit.id
+      );
+      if (!newAuditExists) {
+        throw new Error(
+          'Integrity check failed: New audit was lost during filtering'
+        );
+      }
+
+      // Step 6: Verify chronological order
+      for (let i = 1; i < this.auditHistory.length; i++) {
+        const currentAudit = this.auditHistory[i];
+        const previousAudit = this.auditHistory[i - 1];
+
+        if (!currentAudit || !previousAudit) {
+          throw new Error(
+            'Integrity check failed: Audit history contains undefined entries'
+          );
+        }
+
+        if (currentAudit.timestamp < previousAudit.timestamp) {
+          throw new Error(
+            'Integrity check failed: Audit history chronological order is corrupted'
+          );
+        }
+      }
+
+      logger.info(
+        `Atomic history update completed successfully [${operationId}]`,
+        {
+          previousLength,
+          beforeFilterLength,
+          afterFilterLength,
+          finalLength: this.auditHistory.length,
+          removedCount: beforeFilterLength - afterFilterLength,
+          newAuditPresent: newAuditExists,
+        }
+      );
+
+      return { success: true, operationId };
+    } catch (error) {
+      // Rollback on any failure
+      logger.error(
+        `Atomic operation failed, performing rollback [${operationId}]`,
+        error
+      );
+
+      this.auditHistory = historySnapshot;
+
+      // Verify rollback
+      if (this.auditHistory.length !== previousLength) {
+        logger.error(
+          `CRITICAL: Rollback verification failed [${operationId}]`,
+          {
+            expectedLength: previousLength,
+            actualLength: this.auditHistory.length,
+          }
+        );
+      } else {
+        logger.info(`Rollback completed successfully [${operationId}]`);
+      }
+
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        operationId,
+      };
     }
   }
 
@@ -316,10 +429,13 @@ export class SecurityMonitoringService {
       }
     });
 
-    // Calculate overall score (0-100)
+    // Calculate overall score (0-100) using configured weights
     const totalIssues =
-      criticalIssues * 4 + highIssues * 2 + mediumIssues * 1 + lowIssues * 0.5;
-    const maxPossibleIssues = 20; // Estimate based on checks
+      criticalIssues * this.config.CRITICAL_WEIGHT +
+      highIssues * this.config.HIGH_WEIGHT +
+      mediumIssues * this.config.MEDIUM_WEIGHT +
+      lowIssues * this.config.LOW_WEIGHT;
+    const maxPossibleIssues = this.config.MAX_POSSIBLE_ISSUES;
     const overallScore = Math.max(
       0,
       Math.round(100 - (totalIssues / maxPossibleIssues) * 100)
@@ -443,8 +559,8 @@ export class SecurityMonitoringService {
     if (audit.scoreChange === undefined || audit.previousScore === undefined)
       return;
 
-    const scoreDropThreshold = 10; // Alert if score drops by 10+ points
-    const significantDropThreshold = 20; // Critical alert if score drops by 20+ points
+    const scoreDropThreshold = this.config.SCORE_DROP_THRESHOLD;
+    const significantDropThreshold = this.config.SIGNIFICANT_DROP_THRESHOLD;
 
     if (audit.scoreChange <= -scoreDropThreshold) {
       const severity =
@@ -814,11 +930,13 @@ export class SecurityMonitoringService {
   }
 
   /**
-   * Clean up resolved alerts that are older than 24 hours
+   * Clean up resolved alerts that are older than configured retention period
    */
   private cleanupResolvedAlerts(): void {
     const cutoffTime = new Date();
-    cutoffTime.setHours(cutoffTime.getHours() - 24); // 24 hours ago
+    cutoffTime.setHours(
+      cutoffTime.getHours() - this.config.RESOLVED_ALERT_RETENTION_HOURS
+    );
 
     let cleanedCount = 0;
 
@@ -854,8 +972,8 @@ export class SecurityMonitoringService {
       isRunning: this.isRunning,
       lastAuditDate: lastAudit?.timestamp,
       activeAlertsCount: this.getActiveAlerts().length,
-      auditInterval: '24 hours',
-      cleanupInterval: '1 hour',
+      auditInterval: `${this.config.DAILY_AUDIT_INTERVAL / (60 * 60 * 1000)} hours`,
+      cleanupInterval: `${this.config.HOURLY_CLEANUP_INTERVAL / (60 * 60 * 1000)} hours`,
     };
   }
 }

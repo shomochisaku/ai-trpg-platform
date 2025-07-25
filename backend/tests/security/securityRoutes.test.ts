@@ -385,10 +385,8 @@ describe('Security Routes Integration Tests', () => {
         data: expect.objectContaining({
           keyName: 'test-key',
           keyPreview: expect.any(String),
-          generated: expect.any(String),
-          warning: expect.any(String),
         }),
-        message: 'API key generated successfully. Only preview shown for security.',
+        message: 'API key generated. Contact administrator for secure retrieval.',
         timestamp: expect.any(String),
       });
       
