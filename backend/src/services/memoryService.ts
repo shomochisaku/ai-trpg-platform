@@ -129,7 +129,9 @@ export class MemoryService {
       return memory;
     } catch (error) {
       logger.error('Failed to create memory entry', error);
-      throw new Error('Failed to create memory entry');
+      throw new Error(
+        `Failed to create memory entry: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 

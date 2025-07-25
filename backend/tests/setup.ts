@@ -45,6 +45,9 @@ jest.mock('@prisma/client', () => {
       findMany: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
+      deleteMany: jest.fn(),
+      count: jest.fn(),
+      upsert: jest.fn(),
     },
     
     memoryEntry: {
@@ -120,6 +123,17 @@ jest.mock('@mastra/core', () => ({
       create: jest.fn().mockReturnValue({
         generate: jest.fn().mockResolvedValue({
           text: '{"narrative": "Test GM response", "gameState": {"statusTags": [], "inventory": []}}',
+        }),
+      }),
+    },
+    workflows: {
+      create: jest.fn().mockReturnValue({
+        execute: jest.fn().mockResolvedValue({
+          result: {
+            narrative: 'Test workflow response',
+            gameState: { statusTags: [], inventory: [] },
+            success: true,
+          },
         }),
       }),
     },
@@ -251,11 +265,63 @@ jest.mock('../src/services/memoryService', () => ({
 
 // Mock AI configuration
 jest.mock('../src/ai/config', () => ({
+  env: {
+    OPENAI_API_KEY: 'test-openai-key',
+    OPENAI_MODEL: 'gpt-4o-mini',
+    ANTHROPIC_API_KEY: 'test-anthropic-key',
+    PINECONE_API_KEY: 'test-pinecone-key',
+    PINECONE_ENVIRONMENT: 'test-environment',
+  },
+  mastraConfig: {
+    openai: {
+      apiKey: 'test-openai-key',
+      model: 'gpt-4o-mini',
+    },
+    anthropic: {
+      apiKey: 'test-anthropic-key',
+      model: 'claude-3-5-sonnet-20241022',
+    },
+    pinecone: {
+      apiKey: 'test-pinecone-key',
+      environment: 'test-environment',
+    },
+  },
+  createMastraInstance: jest.fn().mockReturnValue({
+    agents: {
+      create: jest.fn().mockReturnValue({
+        generate: jest.fn().mockResolvedValue({
+          text: '{"narrative": "Test GM response", "gameState": {"statusTags": [], "inventory": []}}',
+        }),
+      }),
+    },
+    workflows: {
+      create: jest.fn().mockReturnValue({
+        execute: jest.fn().mockResolvedValue({
+          result: {
+            narrative: 'Test workflow response',
+            gameState: { statusTags: [], inventory: [] },
+            success: true,
+          },
+        }),
+      }),
+    },
+  }),
   mastraInstance: {
     agents: {
       create: jest.fn().mockReturnValue({
         generate: jest.fn().mockResolvedValue({
           text: '{"narrative": "Test GM response", "gameState": {"statusTags": [], "inventory": []}}',
+        }),
+      }),
+    },
+    workflows: {
+      create: jest.fn().mockReturnValue({
+        execute: jest.fn().mockResolvedValue({
+          result: {
+            narrative: 'Test workflow response',
+            gameState: { statusTags: [], inventory: [] },
+            success: true,
+          },
         }),
       }),
     },
@@ -334,6 +400,37 @@ jest.mock('opossum', () => jest.fn());
 
 // Mock p-retry directly  
 jest.mock('p-retry', () => jest.fn().mockImplementation(async (fn) => fn()));
+
+// Mock monitoring service to prevent interval handles
+jest.mock('../src/services/monitoringService', () => ({
+  monitoringService: {
+    getHealthStatus: jest.fn().mockResolvedValue({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      services: {
+        database: { status: 'connected' },
+        ai: { status: 'operational' }
+      },
+      metrics: {
+        uptime: 100,
+        memory: { used: 50, total: 100 },
+        responseTime: 120
+      }
+    }),
+    logRequest: jest.fn(),
+    logResponse: jest.fn(),
+    startPeriodicHealthChecks: jest.fn(),
+  },
+  MonitoringService: jest.fn().mockImplementation(() => ({
+    getHealthStatus: jest.fn().mockResolvedValue({
+      status: 'healthy',
+      timestamp: new Date().toISOString()
+    }),
+    logRequest: jest.fn(),
+    logResponse: jest.fn(),
+    startPeriodicHealthChecks: jest.fn(),
+  })),
+}));
 
 // Set test environment variables
 process.env.NODE_ENV = 'test';
