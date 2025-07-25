@@ -77,22 +77,24 @@ export const createCampaignSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().max(1000).optional(),
   templateId: z.string().optional(), // Template-based creation
-  settings: z.object({
-    gmProfile: z.object({
-      personality: z.string(),
-      speechStyle: z.string(),
-      guidingPrinciples: z.array(z.string()),
-    }),
-    worldSettings: z.object({
-      toneAndManner: z.string(),
-      keyConcepts: z.array(z.string()),
-    }),
-    opening: z.object({
-      prologue: z.string(),
-      initialStatusTags: z.array(z.string()),
-      initialInventory: z.array(z.string()),
-    }),
-  }).optional(), // Optional when using template
+  settings: z
+    .object({
+      gmProfile: z.object({
+        personality: z.string(),
+        speechStyle: z.string(),
+        guidingPrinciples: z.array(z.string()),
+      }),
+      worldSettings: z.object({
+        toneAndManner: z.string(),
+        keyConcepts: z.array(z.string()),
+      }),
+      opening: z.object({
+        prologue: z.string(),
+        initialStatusTags: z.array(z.string()),
+        initialInventory: z.array(z.string()),
+      }),
+    })
+    .optional(), // Optional when using template
 });
 
 export const updateCampaignSchema = z.object({
@@ -141,16 +143,18 @@ export class CampaignService {
 
     // Handle template-based creation
     if (validated.templateId) {
-      const template = await campaignTemplateService.getTemplate(validated.templateId);
+      const template = await campaignTemplateService.getTemplate(
+        validated.templateId
+      );
       if (!template) {
         throw new Error(`Template with ID '${validated.templateId}' not found`);
       }
 
       baseTemplateId = template.id;
-      
+
       // Use template settings as base
       campaignSettings = template.scenarioSettings;
-      
+
       // Check if user provided custom settings (customization)
       if (validated.settings) {
         templateCustomized = true;
@@ -175,10 +179,14 @@ export class CampaignService {
 
       // Record template usage
       try {
-        await campaignTemplateService.recordUsage(validated.templateId, validated.userId, {
-          wasCustomized: templateCustomized,
-          completionStatus: 'STARTED',
-        });
+        await campaignTemplateService.recordUsage(
+          validated.templateId,
+          validated.userId,
+          {
+            wasCustomized: templateCustomized,
+            completionStatus: 'STARTED',
+          }
+        );
       } catch (error) {
         logger.warn('Failed to record template usage:', error);
         // Continue with campaign creation even if usage recording fails
@@ -186,7 +194,9 @@ export class CampaignService {
     }
 
     if (!campaignSettings) {
-      throw new Error('Campaign settings are required when not using a template');
+      throw new Error(
+        'Campaign settings are required when not using a template'
+      );
     }
 
     // Create campaign in database
@@ -211,7 +221,9 @@ export class CampaignService {
     // Initialize campaign knowledge base
     await this.initializeCampaignKnowledge(campaign.id, campaignSettings);
 
-    logger.info(`Campaign created successfully: ${campaign.id}${baseTemplateId ? ` (from template: ${validated.templateId})` : ''}`);
+    logger.info(
+      `Campaign created successfully: ${campaign.id}${baseTemplateId ? ` (from template: ${validated.templateId})` : ''}`
+    );
 
     return this.formatCampaign(campaign);
   }

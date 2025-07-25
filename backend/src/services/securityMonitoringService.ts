@@ -123,10 +123,14 @@ export class SecurityMonitoringService {
       this.cleanupResolvedAlerts();
     }, this.config.ALERT_CLEANUP_INTERVAL);
 
+    const dailyHours = this.config.DAILY_AUDIT_INTERVAL / (60 * 60 * 1000);
+    const cleanupHours = this.config.HOURLY_CLEANUP_INTERVAL / (60 * 60 * 1000);
+    const alertHours = this.config.ALERT_CLEANUP_INTERVAL / (60 * 60 * 1000);
+
     logger.info('Security monitoring service started', {
-      dailyAuditInterval: `${this.config.DAILY_AUDIT_INTERVAL / (60 * 60 * 1000)} hours`,
-      hourlyCleanupInterval: `${this.config.HOURLY_CLEANUP_INTERVAL / (60 * 60 * 1000)} hours`,
-      alertCleanupInterval: `${this.config.ALERT_CLEANUP_INTERVAL / (60 * 60 * 1000)} hours`,
+      dailyAuditInterval: `${dailyHours} ${dailyHours === 1 ? 'hour' : 'hours'}`,
+      hourlyCleanupInterval: `${cleanupHours} ${cleanupHours === 1 ? 'hour' : 'hours'}`,
+      alertCleanupInterval: `${alertHours} ${alertHours === 1 ? 'hour' : 'hours'}`,
     });
   }
 
@@ -969,12 +973,15 @@ export class SecurityMonitoringService {
   } {
     const lastAudit = this.auditHistory[this.auditHistory.length - 1];
 
+    const auditHours = this.config.DAILY_AUDIT_INTERVAL / (60 * 60 * 1000);
+    const cleanupHours = this.config.HOURLY_CLEANUP_INTERVAL / (60 * 60 * 1000);
+
     return {
       isRunning: this.isRunning,
       lastAuditDate: lastAudit?.timestamp,
       activeAlertsCount: this.getActiveAlerts().length,
-      auditInterval: `${this.config.DAILY_AUDIT_INTERVAL / (60 * 60 * 1000)} hours`,
-      cleanupInterval: `${this.config.HOURLY_CLEANUP_INTERVAL / (60 * 60 * 1000)} hours`,
+      auditInterval: `${auditHours} ${auditHours === 1 ? 'hour' : 'hours'}`,
+      cleanupInterval: `${cleanupHours} ${cleanupHours === 1 ? 'hour' : 'hours'}`,
     };
   }
 }

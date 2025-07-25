@@ -1,4 +1,8 @@
-import { PrismaClient, TemplateCategoryType, TemplateDifficulty } from '@prisma/client';
+import {
+  PrismaClient,
+  TemplateCategoryType,
+  TemplateDifficulty,
+} from '@prisma/client';
 import { CampaignTemplateSettings } from '@/services/campaignTemplateService';
 
 const prisma = new PrismaClient();
@@ -17,13 +21,14 @@ const defaultTemplates = [
     isOfficial: true,
     scenarioSettings: {
       gmProfile: {
-        personality: '私は古き良きファンタジー世界の語り部です。プレイヤーの勇敢な行動を称賛し、魔法と剣技が織りなす壮大な物語を紡ぎます。困難な状況でも希望を失わず、仲間との絆を大切にする物語を描きます。',
+        personality:
+          '私は古き良きファンタジー世界の語り部です。プレイヤーの勇敢な行動を称賛し、魔法と剣技が織りなす壮大な物語を紡ぎます。困難な状況でも希望を失わず、仲間との絆を大切にする物語を描きます。',
         speechStyle: '丁寧で叙述的な語り口調',
         guidingPrinciples: [
           'プレイヤーの選択を尊重し、創造性を促進する',
           '困難な状況でも希望の光を残す',
           '仲間との絆と協力を重視する',
-          '古典的なファンタジーの魅力を伝える'
+          '古典的なファンタジーの魅力を伝える',
         ],
       },
       worldSettings: {
@@ -33,7 +38,7 @@ const defaultTemplates = [
           '冒険者ギルドシステム',
           '多種族社会',
           '古代遺跡の謎',
-          '光と闇の永続的な戦い'
+          '光と闇の永続的な戦い',
         ],
         setting: `中世ファンタジーの世界「アルテミア大陸」を舞台とします。
 
@@ -78,13 +83,14 @@ const defaultTemplates = [
     isOfficial: true,
     scenarioSettings: {
       gmProfile: {
-        personality: '私はネオ東京の闇を知るガイドです。企業の陰謀、サイバネティック技術の光と影、そして人間性を問う物語を提供します。クールで現実的な語り口で、プレイヤーの選択が世界に与える影響を重視します。',
+        personality:
+          '私はネオ東京の闇を知るガイドです。企業の陰謀、サイバネティック技術の光と影、そして人間性を問う物語を提供します。クールで現実的な語り口で、プレイヤーの選択が世界に与える影響を重視します。',
         speechStyle: 'クールで簡潔な現代的語り口調',
         guidingPrinciples: [
           '企業の陰謀と社会問題を織り込む',
           'テクノロジーと人間性の関係を探求する',
           'プレイヤーの選択に重大な結果をもたらす',
-          'リアリスティックな現代感覚を維持する'
+          'リアリスティックな現代感覚を維持する',
         ],
       },
       worldSettings: {
@@ -94,7 +100,7 @@ const defaultTemplates = [
           'サイバネティック技術',
           'バーチャルリアリティ',
           '地下反体制組織',
-          'AI共存問題'
+          'AI共存問題',
         ],
         setting: `2080年のネオ東京。巨大企業が政府を凌駕する力を持つディストピア世界。
 
@@ -139,13 +145,14 @@ const defaultTemplates = [
     isOfficial: true,
     scenarioSettings: {
       gmProfile: {
-        personality: '私は宇宙的恐怖の案内人です。人間の理解を超えた存在の前で、キャラクターたちの正気と生命を脅かす物語を紡ぎます。絶望的な状況でも、かすかな希望の光を残すことで、プレイヤーの挑戦する意欲を保ちます。',
+        personality:
+          '私は宇宙的恐怖の案内人です。人間の理解を超えた存在の前で、キャラクターたちの正気と生命を脅かす物語を紡ぎます。絶望的な状況でも、かすかな希望の光を残すことで、プレイヤーの挑戦する意欲を保ちます。',
         speechStyle: 'theatrical',
         guidingPrinciples: [
           '人間の無力さと宇宙の恐怖を描く',
           '知識が正気を奪う危険性を表現する',
           '絶望的でもかすかな希望を残す',
-          '古典的恐怖小説の雰囲気を再現する'
+          '古典的恐怖小説の雰囲気を再現する',
         ],
       },
       worldSettings: {
@@ -155,7 +162,7 @@ const defaultTemplates = [
           '禁断の知識',
           '秘密結社の暗躍',
           '正気度の喪失',
-          '科学と神秘の衝突'
+          '科学と神秘の衝突',
         ],
         setting: `1920年代のニューイングランド地方。クトゥルフ神話の宇宙的恐怖が潜む世界。
 
@@ -200,13 +207,14 @@ const defaultTemplates = [
     isOfficial: true,
     scenarioSettings: {
       gmProfile: {
-        personality: '私は現代日本の日常と非日常の境界を案内します。リアリティのある設定の中に、ほんの少しの超常現象を織り交ぜ、プレイヤーの推理力と直感を試す物語を提供します。心理的な恐怖よりも謎解きを重視します。',
+        personality:
+          '私は現代日本の日常と非日常の境界を案内します。リアリティのある設定の中に、ほんの少しの超常現象を織り交ぜ、プレイヤーの推理力と直感を試す物語を提供します。心理的な恐怖よりも謎解きを重視します。',
         speechStyle: '親しみやすい現代的語り口調',
         guidingPrinciples: [
           '日常の中の非日常を描く',
           '推理と謎解きを中心とする',
           'リアリティを重視した設定',
-          'プレイヤーの直感を活かす展開'
+          'プレイヤーの直感を活かす展開',
         ],
       },
       worldSettings: {
@@ -216,7 +224,7 @@ const defaultTemplates = [
           '政府機関の隠蔽',
           'インターネット情報',
           '古い神社仏閣',
-          '科学と超常の共存'
+          '科学と超常の共存',
         ],
         setting: `現代日本（2024年）。表面上は平穏な日常ですが、超常現象や都市伝説が実在する世界。
 
@@ -261,13 +269,14 @@ const defaultTemplates = [
     isOfficial: true,
     scenarioSettings: {
       gmProfile: {
-        personality: '私は銀河系の科学探査を案内する船長です。未知の惑星での発見、エイリアン文明との接触、そして宇宙の謎を解き明かす冒険を提供します。科学的リアリズムを保ちながら、想像力をかき立てる展開を心がけます。',
+        personality:
+          '私は銀河系の科学探査を案内する船長です。未知の惑星での発見、エイリアン文明との接触、そして宇宙の謎を解き明かす冒険を提供します。科学的リアリズムを保ちながら、想像力をかき立てる展開を心がけます。',
         speechStyle: '科学的で論理的な語り口調',
         guidingPrinciples: [
           '科学的リアリズムを重視する',
           '発見と探査の興奮を伝える',
           '異文化との接触を丁寧に描く',
-          '技術と倫理の問題を扱う'
+          '技術と倫理の問題を扱う',
         ],
       },
       worldSettings: {
@@ -277,7 +286,7 @@ const defaultTemplates = [
           '異星生命体',
           '科学的発見',
           '文明接触プロトコル',
-          '宇宙的視点'
+          '宇宙的視点',
         ],
         setting: `西暦2387年。人類が複数の恒星系に進出した時代の宇宙探査船「ディスカバリー」での任務。
 
@@ -326,7 +335,9 @@ async function seedTemplates() {
       });
 
       if (existing) {
-        console.log(`Template ${templateData.templateId} already exists, skipping...`);
+        console.log(
+          `Template ${templateData.templateId} already exists, skipping...`
+        );
         continue;
       }
 
@@ -338,7 +349,9 @@ async function seedTemplates() {
         },
       });
 
-      console.log(`Created template: ${template.name} (${template.templateId})`);
+      console.log(
+        `Created template: ${template.name} (${template.templateId})`
+      );
     }
 
     console.log('Template seeding completed successfully!');
@@ -352,7 +365,7 @@ async function seedTemplates() {
 
 // Run if called directly
 if (require.main === module) {
-  seedTemplates().catch((error) => {
+  seedTemplates().catch(error => {
     console.error('Seeding failed:', error);
     process.exit(1);
   });

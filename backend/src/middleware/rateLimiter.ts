@@ -52,14 +52,16 @@ const SECURITY_CONFIG = {
   templateWrite: {
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 10, // limit each IP to 10 template write operations per windowMs
-    message: 'Too many template write requests from this IP, please try again later.',
+    message:
+      'Too many template write requests from this IP, please try again later.',
   },
 
   // Template search rate limit
   templateSearch: {
     windowMs: 5 * 60 * 1000, // 5 minutes
     max: 30, // limit search requests to 30 per 5 minutes
-    message: 'Too many template search requests from this IP, please try again later.',
+    message:
+      'Too many template search requests from this IP, please try again later.',
   },
 
   // Template usage recording rate limit
