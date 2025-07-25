@@ -123,16 +123,16 @@ export const slowDownMiddleware: RequestHandler = slowDown({
 
 // Combined security middleware
 export const securityMiddleware: {
-  general: RateLimitRequestHandler;
-  aiProcessing: RateLimitRequestHandler;
-  auth: RateLimitRequestHandler;
-  campaignCreation: RateLimitRequestHandler;
+  general: RequestHandler;
+  aiProcessing: RequestHandler;
+  auth: RequestHandler;
+  campaignCreation: RequestHandler;
   slowDown: RequestHandler;
 } = {
-  general: generalRateLimit,
-  aiProcessing: aiProcessingRateLimit,
-  auth: authRateLimit,
-  campaignCreation: campaignCreationRateLimit,
+  general: generalRateLimit as RequestHandler,
+  aiProcessing: aiProcessingRateLimit as RequestHandler,
+  auth: authRateLimit as RequestHandler,
+  campaignCreation: campaignCreationRateLimit as RequestHandler,
   slowDown: slowDownMiddleware,
 };
 

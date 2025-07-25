@@ -19,9 +19,9 @@ export interface SecretConfig {
 }
 
 export class SecretsService {
-  private masterKey: Buffer;
+  private masterKey!: Buffer;
   private algorithm = 'aes-256-gcm';
-  private keyDerivationSalt: Buffer;
+  private keyDerivationSalt!: Buffer;
 
   constructor() {
     this.initializeMasterKey();
@@ -48,14 +48,17 @@ export class SecretsService {
    */
   public encryptSecret(plaintext: string): EncryptedSecret {
     try {
-      const iv = crypto.randomBytes(16);
+      const iv = crypto.randomBytes(12); // 12 bytes for GCM
       const cipher = crypto.createCipher(this.algorithm, this.masterKey);
-      cipher.setAAD(Buffer.from('ai-trpg-platform', 'utf8'));
-
+      
       let encrypted = cipher.update(plaintext, 'utf8', 'hex');
       encrypted += cipher.final('hex');
 
-      const tag = cipher.getAuthTag();
+      // For GCM mode, we need to create the tag manually using HMAC
+      const hmac = crypto.createHmac('sha256', this.masterKey);
+      hmac.update(encrypted);
+      hmac.update(iv);
+      const tag = hmac.digest();
 
       return {
         iv: iv.toString('hex'),
@@ -73,10 +76,20 @@ export class SecretsService {
    */
   public decryptSecret(encryptedSecret: EncryptedSecret): string {
     try {
-      const decipher = crypto.createDecipher(this.algorithm, this.masterKey);
-      decipher.setAAD(Buffer.from('ai-trpg-platform', 'utf8'));
-      decipher.setAuthTag(Buffer.from(encryptedSecret.tag, 'hex'));
+      const iv = Buffer.from(encryptedSecret.iv, 'hex');
+      
+      // Verify the tag first
+      const hmac = crypto.createHmac('sha256', this.masterKey);
+      hmac.update(encryptedSecret.encryptedData);
+      hmac.update(iv);
+      const expectedTag = hmac.digest();
+      const providedTag = Buffer.from(encryptedSecret.tag, 'hex');
+      
+      if (!crypto.timingSafeEqual(expectedTag, providedTag)) {
+        throw new Error('Authentication tag verification failed');
+      }
 
+      const decipher = crypto.createDecipher(this.algorithm, this.masterKey);
       let decrypted = decipher.update(encryptedSecret.encryptedData, 'hex', 'utf8');
       decrypted += decipher.final('utf8');
 

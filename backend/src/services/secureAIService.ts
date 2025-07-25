@@ -28,7 +28,7 @@ export class SecureAIService {
         body: JSON.stringify(request),
       });
 
-      const result = await response.json();
+      const result = await response.json() as AIResponse;
       
       // Log the API call for monitoring
       logger.info('Secure OpenAI API call completed', {
@@ -71,7 +71,7 @@ export class SecureAIService {
         body: JSON.stringify(request),
       });
 
-      const result = await response.json();
+      const result = await response.json() as AIResponse;
       
       // Log the API call for monitoring
       logger.info('Secure Anthropic API call completed', {
@@ -156,7 +156,7 @@ export class SecureAIService {
         },
       });
 
-      const proxyHealth = await response.json();
+      const proxyHealth = await response.json() as { status?: 'healthy' | 'degraded' | 'unhealthy' };
       
       return {
         status: proxyHealth.status || 'unhealthy',
