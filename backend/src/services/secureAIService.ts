@@ -28,21 +28,21 @@ export class SecureAIService {
         body: JSON.stringify(request),
       });
 
-      const result = await response.json() as AIResponse;
-      
+      const result = (await response.json()) as AIResponse;
+
       // Log the API call for monitoring
       logger.info('Secure OpenAI API call completed', {
         success: result.success,
         model: request.model,
         requestId: result.metadata?.requestId,
         duration: result.metadata?.duration,
-        tokensUsed: result.usage?.totalTokens
+        tokensUsed: result.usage?.totalTokens,
       });
 
       return result;
     } catch (error) {
       logger.error('Secure OpenAI API call failed:', error);
-      
+
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Network error',
@@ -51,8 +51,8 @@ export class SecureAIService {
           requestId: `error_${Date.now()}`,
           timestamp: new Date().toISOString(),
           duration: 0,
-          model: request.model
-        }
+          model: request.model,
+        },
       };
     }
   }
@@ -71,21 +71,21 @@ export class SecureAIService {
         body: JSON.stringify(request),
       });
 
-      const result = await response.json() as AIResponse;
-      
+      const result = (await response.json()) as AIResponse;
+
       // Log the API call for monitoring
       logger.info('Secure Anthropic API call completed', {
         success: result.success,
         model: request.model,
         requestId: result.metadata?.requestId,
         duration: result.metadata?.duration,
-        tokensUsed: result.usage?.totalTokens
+        tokensUsed: result.usage?.totalTokens,
       });
 
       return result;
     } catch (error) {
       logger.error('Secure Anthropic API call failed:', error);
-      
+
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Network error',
@@ -94,8 +94,8 @@ export class SecureAIService {
           requestId: `error_${Date.now()}`,
           timestamp: new Date().toISOString(),
           duration: 0,
-          model: request.model
-        }
+          model: request.model,
+        },
       };
     }
   }
@@ -116,7 +116,7 @@ export class SecureAIService {
       messages,
       temperature: options.temperature ?? 0.7,
       max_tokens: options.max_tokens ?? 2000,
-      stream: false
+      stream: false,
     };
   }
 
@@ -137,7 +137,7 @@ export class SecureAIService {
       messages,
       max_tokens: options.max_tokens || 2000,
       temperature: options.temperature ?? 0.7,
-      system: options.system
+      system: options.system,
     };
   }
 
@@ -156,20 +156,22 @@ export class SecureAIService {
         },
       });
 
-      const proxyHealth = await response.json() as { status?: 'healthy' | 'degraded' | 'unhealthy' };
-      
+      const proxyHealth = (await response.json()) as {
+        status?: 'healthy' | 'degraded' | 'unhealthy';
+      };
+
       return {
         status: proxyHealth.status || 'unhealthy',
         proxy: response.ok,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
     } catch (error) {
       logger.error('Secure AI service health check failed:', error);
-      
+
       return {
         status: 'unhealthy',
         proxy: false,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
     }
   }
@@ -188,7 +190,7 @@ export class SecureAIService {
       if (response.ok) {
         return await response.json();
       }
-      
+
       return null;
     } catch (error) {
       logger.error('Failed to get proxy stats:', error);

@@ -1,4 +1,4 @@
-import rateLimit, { RateLimitRequestHandler, Options } from 'express-rate-limit';
+import rateLimit from 'express-rate-limit';
 import slowDown from 'express-slow-down';
 import { Request, RequestHandler } from 'express';
 import { logger } from '@/utils/logger';
@@ -60,57 +60,65 @@ const createNoOpMiddleware = (): RequestHandler => {
 };
 
 // General API rate limiter
-export const generalRateLimit = process.env.NODE_ENV === 'test' 
-  ? createNoOpMiddleware()
-  : rateLimit({
-    ...SECURITY_CONFIG.general,
-    standardHeaders: true, // Return rate limit info in headers
-    legacyHeaders: false, // Disable X-RateLimit-* headers
-    handler: rateLimitHandler,
-    skip: req => {
-      // Skip rate limiting for health checks
-      return req.path === '/api/health';
-    },
-  });
+export const generalRateLimit =
+  process.env.NODE_ENV === 'test'
+    ? createNoOpMiddleware()
+    : rateLimit({
+        ...SECURITY_CONFIG.general,
+        standardHeaders: true, // Return rate limit info in headers
+        legacyHeaders: false, // Disable X-RateLimit-* headers
+        handler: rateLimitHandler,
+        skip: req => {
+          // Skip rate limiting for health checks
+          return req.path === '/api/health';
+        },
+      });
 
 // AI processing rate limiter
-export const aiProcessingRateLimit = process.env.NODE_ENV === 'test'
-  ? createNoOpMiddleware()
-  : rateLimit({
-    ...SECURITY_CONFIG.aiProcessing,
-    standardHeaders: true,
-    legacyHeaders: false,
-    handler: rateLimitHandler,
-    keyGenerator: req => {
-      // Use user ID if authenticated, otherwise fall back to IP
-      return (req as AuthenticatedRequest).user?.id || req.ip || 'anonymous';
-    },
-  });
+export const aiProcessingRateLimit =
+  process.env.NODE_ENV === 'test'
+    ? createNoOpMiddleware()
+    : rateLimit({
+        ...SECURITY_CONFIG.aiProcessing,
+        standardHeaders: true,
+        legacyHeaders: false,
+        handler: rateLimitHandler,
+        keyGenerator: req => {
+          // Use user ID if authenticated, otherwise fall back to IP
+          return (
+            (req as AuthenticatedRequest).user?.id || req.ip || 'anonymous'
+          );
+        },
+      });
 
 // Authentication rate limiter
-export const authRateLimit = process.env.NODE_ENV === 'test'
-  ? createNoOpMiddleware()
-  : rateLimit({
-      ...SECURITY_CONFIG.auth,
-      standardHeaders: true,
-      legacyHeaders: false,
-      handler: rateLimitHandler,
-      skipSuccessfulRequests: true, // Don't count successful auth requests
-    });
+export const authRateLimit =
+  process.env.NODE_ENV === 'test'
+    ? createNoOpMiddleware()
+    : rateLimit({
+        ...SECURITY_CONFIG.auth,
+        standardHeaders: true,
+        legacyHeaders: false,
+        handler: rateLimitHandler,
+        skipSuccessfulRequests: true, // Don't count successful auth requests
+      });
 
 // Campaign creation rate limiter
-export const campaignCreationRateLimit = process.env.NODE_ENV === 'test'
-  ? createNoOpMiddleware()
-  : rateLimit({
-      ...SECURITY_CONFIG.campaignCreation,
-      standardHeaders: true,
-      legacyHeaders: false,
-      handler: rateLimitHandler,
-      keyGenerator: req => {
-        // Use user ID if authenticated, otherwise fall back to IP
-        return (req as AuthenticatedRequest).user?.id || req.ip || 'anonymous';
-      },
-    });
+export const campaignCreationRateLimit =
+  process.env.NODE_ENV === 'test'
+    ? createNoOpMiddleware()
+    : rateLimit({
+        ...SECURITY_CONFIG.campaignCreation,
+        standardHeaders: true,
+        legacyHeaders: false,
+        handler: rateLimitHandler,
+        keyGenerator: req => {
+          // Use user ID if authenticated, otherwise fall back to IP
+          return (
+            (req as AuthenticatedRequest).user?.id || req.ip || 'anonymous'
+          );
+        },
+      });
 
 // Slow down middleware for gradual response delay
 export const slowDownMiddleware: RequestHandler = slowDown({

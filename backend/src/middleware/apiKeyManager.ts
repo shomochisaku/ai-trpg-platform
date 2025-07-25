@@ -133,7 +133,7 @@ export class ApiKeyManager {
     logger.info('API Key rotation token generated', {
       keyName,
       rotationTokenId: rotationToken.substring(0, 8) + '...',
-      expiresIn: '24 hours'
+      expiresIn: '24 hours',
     });
 
     // TODO: Integrate with external alerting system
@@ -179,7 +179,7 @@ export class ApiKeyManager {
     if (!validation.isValid) {
       logger.error(`API key rotation failed - weak key: ${keyName}`, {
         issues: validation.issues,
-        strength: validation.strength
+        strength: validation.strength,
       });
       return false;
     }
@@ -193,18 +193,21 @@ export class ApiKeyManager {
       previousKeyPreview: oldKey.substring(0, 8) + '...',
       newKeyPreview: newKey.substring(0, 8) + '...',
       rotatedAt: keyInfo.lastRotated,
-      strength: validation.strength
+      strength: validation.strength,
     });
 
     return true;
   }
 
-  public rotateKeyWithToken(rotationToken: string, newKey: string): { success: boolean; error?: string } {
+  public rotateKeyWithToken(
+    rotationToken: string,
+    newKey: string
+  ): { success: boolean; error?: string } {
     // Verify rotation token
     const tokenVerification = secretsService.verifyRotationToken(rotationToken);
     if (!tokenVerification.valid || !tokenVerification.apiKeyName) {
       logger.error('Invalid rotation token used', {
-        tokenPreview: rotationToken.substring(0, 8) + '...'
+        tokenPreview: rotationToken.substring(0, 8) + '...',
       });
       return { success: false, error: 'Invalid or expired rotation token' };
     }
@@ -214,7 +217,7 @@ export class ApiKeyManager {
     if (success) {
       logger.info('API key rotated via secure token', {
         keyName: tokenVerification.apiKeyName,
-        rotatedAt: new Date().toISOString()
+        rotatedAt: new Date().toISOString(),
       });
       return { success: true };
     } else {
@@ -222,7 +225,7 @@ export class ApiKeyManager {
     }
   }
 
-  public generateNewApiKey(keyName: string): string {
+  public generateNewApiKey(): string {
     // Generate a secure API key using secrets service
     return secretsService.generateSecureApiKey(64);
   }
@@ -273,9 +276,13 @@ export class ApiKeyManager {
     });
 
     // Calculate overall security score (0-100)
-    const totalIssues = weakKeys.length + expiredKeys.length + keysNeedingRotation;
+    const totalIssues =
+      weakKeys.length + expiredKeys.length + keysNeedingRotation;
     const maxIssues = this.apiKeys.size * 3; // Max 3 issues per key
-    const securityScore = Math.max(0, Math.round(100 - (totalIssues / maxIssues) * 100));
+    const securityScore = Math.max(
+      0,
+      Math.round(100 - (totalIssues / maxIssues) * 100)
+    );
 
     return {
       totalKeys: this.apiKeys.size,
@@ -286,8 +293,8 @@ export class ApiKeyManager {
         weakKeys,
         expiredKeys,
         highUsageKeys,
-        overallSecurityScore: securityScore
-      }
+        overallSecurityScore: securityScore,
+      },
     };
   }
 
@@ -318,7 +325,7 @@ export class ApiKeyManager {
         category: 'Key Strength',
         description: 'Weak API keys detected',
         affected: healthStatus.securityAudit.weakKeys,
-        recommendation: 'Replace weak keys with cryptographically strong keys'
+        recommendation: 'Replace weak keys with cryptographically strong keys',
       });
     }
 
@@ -329,7 +336,7 @@ export class ApiKeyManager {
         category: 'Key Expiration',
         description: 'Expired API keys detected',
         affected: healthStatus.securityAudit.expiredKeys,
-        recommendation: 'Rotate expired keys immediately'
+        recommendation: 'Rotate expired keys immediately',
       });
     }
 
@@ -340,7 +347,7 @@ export class ApiKeyManager {
         category: 'Key Rotation',
         description: 'API keys need rotation (older than 30 days)',
         affected: [], // Would need to track which specific keys
-        recommendation: 'Implement regular key rotation schedule'
+        recommendation: 'Implement regular key rotation schedule',
       });
     }
 
@@ -351,7 +358,7 @@ export class ApiKeyManager {
         category: 'Usage Monitoring',
         description: 'High usage API keys detected',
         affected: healthStatus.securityAudit.highUsageKeys,
-        recommendation: 'Monitor for potential abuse or consider rate limiting'
+        recommendation: 'Monitor for potential abuse or consider rate limiting',
       });
     }
 
@@ -361,19 +368,20 @@ export class ApiKeyManager {
       issues.push(...productionIssues);
     }
 
-    const passed = issues.filter(issue => issue.severity === 'critical').length === 0;
-    
+    const passed =
+      issues.filter(issue => issue.severity === 'critical').length === 0;
+
     logger.info('Security audit completed', {
       passed,
       score: healthStatus.securityAudit.overallSecurityScore,
       issueCount: issues.length,
-      criticalIssues: issues.filter(i => i.severity === 'critical').length
+      criticalIssues: issues.filter(i => i.severity === 'critical').length,
     });
 
     return {
       passed,
       score: healthStatus.securityAudit.overallSecurityScore,
-      issues
+      issues,
     };
   }
 
@@ -399,7 +407,7 @@ export class ApiKeyManager {
         category: 'Production Security',
         description: 'Default JWT secret in production',
         affected: ['JWT_SECRET'],
-        recommendation: 'Set a strong, unique JWT secret for production'
+        recommendation: 'Set a strong, unique JWT secret for production',
       });
     }
 
@@ -410,7 +418,7 @@ export class ApiKeyManager {
         category: 'Production Security',
         description: 'Missing master encryption key in production',
         affected: ['MASTER_ENCRYPTION_KEY'],
-        recommendation: 'Set MASTER_ENCRYPTION_KEY for production encryption'
+        recommendation: 'Set MASTER_ENCRYPTION_KEY for production encryption',
       });
     }
 
@@ -443,10 +451,12 @@ export const apiKeyManager = {
     getApiKeyManager().getSecuredKey(keyName),
   rotateKey: (keyName: string, newKey: string): boolean =>
     getApiKeyManager().rotateKey(keyName, newKey),
-  rotateKeyWithToken: (rotationToken: string, newKey: string): { success: boolean; error?: string } =>
+  rotateKeyWithToken: (
+    rotationToken: string,
+    newKey: string
+  ): { success: boolean; error?: string } =>
     getApiKeyManager().rotateKeyWithToken(rotationToken, newKey),
-  generateNewApiKey: (keyName: string): string =>
-    getApiKeyManager().generateNewApiKey(keyName),
+  generateNewApiKey: (): string => getApiKeyManager().generateNewApiKey(),
   performSecurityAudit: (): ReturnType<ApiKeyManager['performSecurityAudit']> =>
     getApiKeyManager().performSecurityAudit(),
 };
@@ -561,7 +571,10 @@ export const apiKeyMiddleware = {
   validateEnvironment: validateEnvironmentSecurity,
   performSecurityAudit: (): ReturnType<ApiKeyManager['performSecurityAudit']> =>
     getApiKeyManager().performSecurityAudit(),
-  rotateKeyWithToken: (rotationToken: string, newKey: string): { success: boolean; error?: string } =>
+  rotateKeyWithToken: (
+    rotationToken: string,
+    newKey: string
+  ): { success: boolean; error?: string } =>
     getApiKeyManager().rotateKeyWithToken(rotationToken, newKey),
 };
 

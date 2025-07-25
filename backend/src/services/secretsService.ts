@@ -29,15 +29,25 @@ export class SecretsService {
 
   private initializeMasterKey(): void {
     // In production, this should come from a secure key management service
-    const masterKeySource = process.env.MASTER_ENCRYPTION_KEY || 
-                           process.env.JWT_SECRET ||
-                           'fallback-development-key-change-in-production';
-    
+    const masterKeySource =
+      process.env.MASTER_ENCRYPTION_KEY ||
+      process.env.JWT_SECRET ||
+      'fallback-development-key-change-in-production';
+
     // Derive a consistent key from the source
     this.keyDerivationSalt = Buffer.from('ai-trpg-salt', 'utf8');
-    this.masterKey = crypto.pbkdf2Sync(masterKeySource, this.keyDerivationSalt, 100000, 32, 'sha256');
+    this.masterKey = crypto.pbkdf2Sync(
+      masterKeySource,
+      this.keyDerivationSalt,
+      100000,
+      32,
+      'sha256'
+    );
 
-    if (process.env.NODE_ENV === 'production' && !process.env.MASTER_ENCRYPTION_KEY) {
+    if (
+      process.env.NODE_ENV === 'production' &&
+      !process.env.MASTER_ENCRYPTION_KEY
+    ) {
       logger.error('Production environment missing MASTER_ENCRYPTION_KEY');
       throw new Error('MASTER_ENCRYPTION_KEY is required in production');
     }
@@ -50,7 +60,7 @@ export class SecretsService {
     try {
       const iv = crypto.randomBytes(12); // 12 bytes for GCM
       const cipher = crypto.createCipher(this.algorithm, this.masterKey);
-      
+
       let encrypted = cipher.update(plaintext, 'utf8', 'hex');
       encrypted += cipher.final('hex');
 
@@ -63,7 +73,7 @@ export class SecretsService {
       return {
         iv: iv.toString('hex'),
         encryptedData: encrypted,
-        tag: tag.toString('hex')
+        tag: tag.toString('hex'),
       };
     } catch (error) {
       logger.error('Failed to encrypt secret:', error);
@@ -77,20 +87,24 @@ export class SecretsService {
   public decryptSecret(encryptedSecret: EncryptedSecret): string {
     try {
       const iv = Buffer.from(encryptedSecret.iv, 'hex');
-      
+
       // Verify the tag first
       const hmac = crypto.createHmac('sha256', this.masterKey);
       hmac.update(encryptedSecret.encryptedData);
       hmac.update(iv);
       const expectedTag = hmac.digest();
       const providedTag = Buffer.from(encryptedSecret.tag, 'hex');
-      
+
       if (!crypto.timingSafeEqual(expectedTag, providedTag)) {
         throw new Error('Authentication tag verification failed');
       }
 
       const decipher = crypto.createDecipher(this.algorithm, this.masterKey);
-      let decrypted = decipher.update(encryptedSecret.encryptedData, 'hex', 'utf8');
+      let decrypted = decipher.update(
+        encryptedSecret.encryptedData,
+        'hex',
+        'utf8'
+      );
       decrypted += decipher.final('utf8');
 
       return decrypted;
@@ -103,14 +117,19 @@ export class SecretsService {
   /**
    * Securely store environment variables
    */
-  public secureEnvironmentVariable(name: string, value: string): EncryptedSecret {
+  public secureEnvironmentVariable(
+    name: string,
+    value: string
+  ): EncryptedSecret {
     if (process.env.NODE_ENV === 'development') {
       // In development, log a warning but don't encrypt (for easier debugging)
-      logger.warn(`Environment variable ${name} is not encrypted in development mode`);
+      logger.warn(
+        `Environment variable ${name} is not encrypted in development mode`
+      );
       return {
         iv: '',
         encryptedData: value,
-        tag: ''
+        tag: '',
       };
     }
 
@@ -120,8 +139,15 @@ export class SecretsService {
   /**
    * Retrieve and decrypt environment variables
    */
-  public getSecureEnvironmentVariable(name: string, encryptedSecret: EncryptedSecret): string {
-    if (process.env.NODE_ENV === 'development' && !encryptedSecret.iv && !encryptedSecret.tag) {
+  public getSecureEnvironmentVariable(
+    name: string,
+    encryptedSecret: EncryptedSecret
+  ): string {
+    if (
+      process.env.NODE_ENV === 'development' &&
+      !encryptedSecret.iv &&
+      !encryptedSecret.tag
+    ) {
       // Development mode - return as-is
       return encryptedSecret.encryptedData;
     }
@@ -171,7 +197,7 @@ export class SecretsService {
     return {
       isValid: issues.length === 0,
       strength,
-      issues
+      issues,
     };
   }
 
@@ -193,22 +219,28 @@ export class SecretsService {
     const timestamp = Date.now();
     const randomBytes = crypto.randomBytes(16);
     const payload = JSON.stringify({ apiKeyName, timestamp });
-    
+
     const hmac = crypto.createHmac('sha256', this.masterKey);
     hmac.update(payload);
     const signature = hmac.digest('hex');
 
-    return Buffer.from(JSON.stringify({
-      payload,
-      signature,
-      randomBytes: randomBytes.toString('hex')
-    })).toString('base64');
+    return Buffer.from(
+      JSON.stringify({
+        payload,
+        signature,
+        randomBytes: randomBytes.toString('hex'),
+      })
+    ).toString('base64');
   }
 
   /**
    * Verify a rotation token
    */
-  public verifyRotationToken(token: string): { valid: boolean; apiKeyName?: string; timestamp?: number } {
+  public verifyRotationToken(token: string): {
+    valid: boolean;
+    apiKeyName?: string;
+    timestamp?: number;
+  } {
     try {
       const decoded = JSON.parse(Buffer.from(token, 'base64').toString());
       const { payload, signature } = decoded;
@@ -222,7 +254,7 @@ export class SecretsService {
       }
 
       const parsedPayload = JSON.parse(payload);
-      
+
       // Check if token is not expired (24 hours)
       const maxAge = 24 * 60 * 60 * 1000;
       if (Date.now() - parsedPayload.timestamp > maxAge) {
@@ -232,7 +264,7 @@ export class SecretsService {
       return {
         valid: true,
         apiKeyName: parsedPayload.apiKeyName,
-        timestamp: parsedPayload.timestamp
+        timestamp: parsedPayload.timestamp,
       };
     } catch (error) {
       logger.error('Failed to verify rotation token:', error);
@@ -250,7 +282,7 @@ export class SecretsService {
     const details: Record<string, unknown> = {
       masterKeyInitialized: !!this.masterKey,
       algorithm: this.algorithm,
-      environment: process.env.NODE_ENV || 'unknown'
+      environment: process.env.NODE_ENV || 'unknown',
     };
 
     // Test encryption/decryption
@@ -258,11 +290,11 @@ export class SecretsService {
       const testValue = 'test-secret-value';
       const encrypted = this.encryptSecret(testValue);
       const decrypted = this.decryptSecret(encrypted);
-      
+
       if (decrypted !== testValue) {
         return {
           status: 'unhealthy',
-          details: { ...details, error: 'Encryption/decryption test failed' }
+          details: { ...details, error: 'Encryption/decryption test failed' },
         };
       }
 
@@ -270,7 +302,11 @@ export class SecretsService {
     } catch (error) {
       return {
         status: 'unhealthy',
-        details: { ...details, error: 'Encryption test error', message: error instanceof Error ? error.message : 'Unknown error' }
+        details: {
+          ...details,
+          error: 'Encryption test error',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
       };
     }
 
@@ -279,14 +315,17 @@ export class SecretsService {
       if (!process.env.MASTER_ENCRYPTION_KEY) {
         return {
           status: 'degraded',
-          details: { ...details, warning: 'Missing MASTER_ENCRYPTION_KEY in production' }
+          details: {
+            ...details,
+            warning: 'Missing MASTER_ENCRYPTION_KEY in production',
+          },
         };
       }
     }
 
     return {
       status: 'healthy',
-      details
+      details,
     };
   }
 }

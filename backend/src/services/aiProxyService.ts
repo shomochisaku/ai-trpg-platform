@@ -2,7 +2,6 @@ import { OpenAI } from 'openai';
 import { Anthropic } from '@anthropic-ai/sdk';
 import { logger } from '@/utils/logger';
 import { getApiKeyManager } from '@/middleware/apiKeyManager';
-import { secretsService } from './secretsService';
 
 // Interfaces for AI requests and responses
 export interface OpenAIRequest {
@@ -78,7 +77,8 @@ export class AIProxyService {
       }
 
       // Initialize Anthropic client
-      const anthropicKey = this.apiKeyManager.getSecuredKey('ANTHROPIC_API_KEY');
+      const anthropicKey =
+        this.apiKeyManager.getSecuredKey('ANTHROPIC_API_KEY');
       if (anthropicKey) {
         this.anthropicClient = new Anthropic({
           apiKey: anthropicKey,
@@ -88,7 +88,6 @@ export class AIProxyService {
 
       // Initialize stats
       this.initializeStats();
-
     } catch (error) {
       logger.error('Failed to initialize AI clients:', error);
     }
@@ -104,12 +103,17 @@ export class AIProxyService {
         totalTokensUsed: 0,
         averageResponseTime: 0,
         lastRequestTime: new Date(),
-        errorRate: 0
+        errorRate: 0,
       });
     });
   }
 
-  private updateStats(provider: string, success: boolean, duration: number, tokensUsed: number = 0): void {
+  private updateStats(
+    provider: string,
+    success: boolean,
+    duration: number,
+    tokensUsed: number = 0
+  ): void {
     const stats = this.stats.get(provider);
     if (!stats) return;
 
@@ -124,8 +128,10 @@ export class AIProxyService {
     }
 
     // Update average response time
-    stats.averageResponseTime = (stats.averageResponseTime * (stats.totalRequests - 1) + duration) / stats.totalRequests;
-    
+    stats.averageResponseTime =
+      (stats.averageResponseTime * (stats.totalRequests - 1) + duration) /
+      stats.totalRequests;
+
     // Update error rate
     stats.errorRate = stats.failedRequests / stats.totalRequests;
   }
@@ -134,26 +140,47 @@ export class AIProxyService {
     return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  private validateRequest(request: OpenAIRequest | AnthropicRequest): { valid: boolean; error?: string } {
+  private validateRequest(request: OpenAIRequest | AnthropicRequest): {
+    valid: boolean;
+    error?: string;
+  } {
     // Basic validation
     if (!request.model) {
       return { valid: false, error: 'Model is required' };
     }
 
-    if (!request.messages || !Array.isArray(request.messages) || request.messages.length === 0) {
-      return { valid: false, error: 'Messages array is required and cannot be empty' };
+    if (
+      !request.messages ||
+      !Array.isArray(request.messages) ||
+      request.messages.length === 0
+    ) {
+      return {
+        valid: false,
+        error: 'Messages array is required and cannot be empty',
+      };
     }
 
     // Validate message content length
-    const totalContentLength = request.messages.reduce((total, msg) => total + msg.content.length, 0);
-    if (totalContentLength > 100000) { // 100KB limit
-      return { valid: false, error: 'Total message content exceeds maximum length' };
+    const totalContentLength = request.messages.reduce(
+      (total, msg) => total + msg.content.length,
+      0
+    );
+    if (totalContentLength > 100000) {
+      // 100KB limit
+      return {
+        valid: false,
+        error: 'Total message content exceeds maximum length',
+      };
     }
 
     // Validate individual message length
     for (const message of request.messages) {
-      if (message.content.length > 50000) { // 50KB per message
-        return { valid: false, error: 'Individual message content exceeds maximum length' };
+      if (message.content.length > 50000) {
+        // 50KB per message
+        return {
+          valid: false,
+          error: 'Individual message content exceeds maximum length',
+        };
       }
     }
 
@@ -179,8 +206,8 @@ export class AIProxyService {
           requestId,
           timestamp: new Date().toISOString(),
           duration: Date.now() - startTime,
-          model: request.model
-        }
+          model: request.model,
+        },
       };
     }
 
@@ -194,8 +221,8 @@ export class AIProxyService {
           requestId,
           timestamp: new Date().toISOString(),
           duration: Date.now() - startTime,
-          model: request.model
-        }
+          model: request.model,
+        },
       };
     }
 
@@ -205,7 +232,7 @@ export class AIProxyService {
 
       logger.info(`Processing OpenAI request ${requestId}`, {
         model: request.model,
-        messageCount: request.messages.length
+        messageCount: request.messages.length,
       });
 
       const response = await this.openaiClient.chat.completions.create({
@@ -213,7 +240,7 @@ export class AIProxyService {
         messages: request.messages,
         temperature: request.temperature ?? 0.7,
         max_tokens: request.max_tokens ?? 2000,
-        stream: false // For security, disable streaming in proxy
+        stream: false, // For security, disable streaming in proxy
       });
 
       const duration = Date.now() - startTime;
@@ -224,26 +251,27 @@ export class AIProxyService {
       logger.info(`OpenAI request ${requestId} completed`, {
         duration,
         tokensUsed,
-        model: request.model
+        model: request.model,
       });
 
       return {
         success: true,
         data: response,
         provider: 'openai',
-        usage: response.usage ? {
-          promptTokens: response.usage.prompt_tokens,
-          completionTokens: response.usage.completion_tokens,
-          totalTokens: response.usage.total_tokens
-        } : undefined,
+        usage: response.usage
+          ? {
+              promptTokens: response.usage.prompt_tokens,
+              completionTokens: response.usage.completion_tokens,
+              totalTokens: response.usage.total_tokens,
+            }
+          : undefined,
         metadata: {
           requestId,
           timestamp: new Date().toISOString(),
           duration,
-          model: request.model
-        }
+          model: request.model,
+        },
       };
-
     } catch (error) {
       const duration = Date.now() - startTime;
       this.updateStats('openai', false, duration);
@@ -252,14 +280,15 @@ export class AIProxyService {
 
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        error:
+          error instanceof Error ? error.message : 'Unknown error occurred',
         provider: 'openai',
         metadata: {
           requestId,
           timestamp: new Date().toISOString(),
           duration,
-          model: request.model
-        }
+          model: request.model,
+        },
       };
     }
   }
@@ -283,8 +312,8 @@ export class AIProxyService {
           requestId,
           timestamp: new Date().toISOString(),
           duration: Date.now() - startTime,
-          model: request.model
-        }
+          model: request.model,
+        },
       };
     }
 
@@ -298,8 +327,8 @@ export class AIProxyService {
           requestId,
           timestamp: new Date().toISOString(),
           duration: Date.now() - startTime,
-          model: request.model
-        }
+          model: request.model,
+        },
       };
     }
 
@@ -309,7 +338,7 @@ export class AIProxyService {
 
       logger.info(`Processing Anthropic request ${requestId}`, {
         model: request.model,
-        messageCount: request.messages.length
+        messageCount: request.messages.length,
       });
 
       const response = await this.anthropicClient.messages.create({
@@ -317,37 +346,40 @@ export class AIProxyService {
         messages: request.messages,
         max_tokens: request.max_tokens,
         temperature: request.temperature ?? 0.7,
-        system: request.system
+        system: request.system,
       });
 
       const duration = Date.now() - startTime;
-      const tokensUsed = response.usage?.input_tokens + response.usage?.output_tokens || 0;
+      const tokensUsed =
+        response.usage?.input_tokens + response.usage?.output_tokens || 0;
 
       this.updateStats('anthropic', true, duration, tokensUsed);
 
       logger.info(`Anthropic request ${requestId} completed`, {
         duration,
         tokensUsed,
-        model: request.model
+        model: request.model,
       });
 
       return {
         success: true,
         data: response,
         provider: 'anthropic',
-        usage: response.usage ? {
-          promptTokens: response.usage.input_tokens,
-          completionTokens: response.usage.output_tokens,
-          totalTokens: response.usage.input_tokens + response.usage.output_tokens
-        } : undefined,
+        usage: response.usage
+          ? {
+              promptTokens: response.usage.input_tokens,
+              completionTokens: response.usage.output_tokens,
+              totalTokens:
+                response.usage.input_tokens + response.usage.output_tokens,
+            }
+          : undefined,
         metadata: {
           requestId,
           timestamp: new Date().toISOString(),
           duration,
-          model: request.model
-        }
+          model: request.model,
+        },
       };
-
     } catch (error) {
       const duration = Date.now() - startTime;
       this.updateStats('anthropic', false, duration);
@@ -356,14 +388,15 @@ export class AIProxyService {
 
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        error:
+          error instanceof Error ? error.message : 'Unknown error occurred',
         provider: 'anthropic',
         metadata: {
           requestId,
           timestamp: new Date().toISOString(),
           duration,
-          model: request.model
-        }
+          model: request.model,
+        },
       };
     }
   }
@@ -389,7 +422,7 @@ export class AIProxyService {
   } {
     const providers = {
       openai: !!this.openaiClient,
-      anthropic: !!this.anthropicClient
+      anthropic: !!this.anthropicClient,
     };
 
     const hasActiveProvider = Object.values(providers).some(active => active);
@@ -398,7 +431,7 @@ export class AIProxyService {
     return {
       status,
       providers,
-      stats: this.getStats()
+      stats: this.getStats(),
     };
   }
 
