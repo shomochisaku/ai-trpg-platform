@@ -174,7 +174,7 @@ router.post(
   (req: Request, res: Response) => {
     try {
       const keyName = req.body.keyName || 'generated-key';
-      const newKey = apiKeyManager.generateNewApiKey(keyName);
+      const newKey = apiKeyManager.generateNewApiKey();
 
       logger.info('New API key generated via admin endpoint', {
         keyName,
