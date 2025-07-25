@@ -277,30 +277,30 @@ export class SecurityMonitoringService {
         retentionDays: this.config.AUDIT_HISTORY_DAYS,
       });
 
-      // Step 1: Add new audit (reversible)
-      this.auditHistory.push(audit);
-
-      // Step 2: Calculate cutoff date
+      // Step 1: Calculate cutoff date
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - this.config.AUDIT_HISTORY_DAYS);
 
-      // Step 3: Filter history (with integrity check)
+      // Step 2: Create new history with atomic operation (immutable)
       const beforeFilterLength = this.auditHistory.length;
-      this.auditHistory = this.auditHistory.filter(
-        record => record.timestamp > cutoffDate
-      );
-      const afterFilterLength = this.auditHistory.length;
+      
+      // Perform all operations atomically on a new array
+      const newHistory = [...this.auditHistory, audit]
+        .filter(record => record.timestamp > cutoffDate)
+        .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+      
+      const afterFilterLength = newHistory.length;
 
-      // Step 4: Verify integrity
+      // Step 3: Verify integrity before applying changes
       const expectedMinLength = Math.min(1, previousLength + 1); // At least the new audit should remain
-      if (this.auditHistory.length < expectedMinLength) {
+      if (newHistory.length < expectedMinLength) {
         throw new Error(
-          `Integrity check failed: Expected at least ${expectedMinLength} records, got ${this.auditHistory.length}`
+          `Integrity check failed: Expected at least ${expectedMinLength} records, got ${newHistory.length}`
         );
       }
 
-      // Step 5: Verify the new audit is present
-      const newAuditExists = this.auditHistory.some(
+      // Step 4: Verify the new audit is present
+      const newAuditExists = newHistory.some(
         record => record.id === audit.id
       );
       if (!newAuditExists) {
@@ -309,10 +309,10 @@ export class SecurityMonitoringService {
         );
       }
 
-      // Step 6: Verify chronological order
-      for (let i = 1; i < this.auditHistory.length; i++) {
-        const currentAudit = this.auditHistory[i];
-        const previousAudit = this.auditHistory[i - 1];
+      // Step 5: Verify chronological order (already sorted, but double-check)
+      for (let i = 1; i < newHistory.length; i++) {
+        const currentAudit = newHistory[i];
+        const previousAudit = newHistory[i - 1];
 
         if (!currentAudit || !previousAudit) {
           throw new Error(
@@ -326,6 +326,9 @@ export class SecurityMonitoringService {
           );
         }
       }
+
+      // Step 6: Apply changes atomically after all checks pass
+      this.auditHistory = newHistory;
 
       logger.info(
         `Atomic history update completed successfully [${operationId}]`,
