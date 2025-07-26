@@ -31,7 +31,6 @@ class MockIntersectionObserver {
   thresholds = [];
 }
 
-// @ts-expect-error - MockIntersectionObserver is a mock for testing
 global.IntersectionObserver = MockIntersectionObserver;
 
 // matchMedia のモック
