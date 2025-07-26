@@ -92,7 +92,7 @@ export const TemplateCustomizer: React.FC<TemplateCustomizerProps> = ({
         scenarioSettings: {
           ...prev.scenarioSettings,
           [section]: {
-            ...sectionData,
+            ...(sectionData as object),
             [field]: newArray,
           },
         },
@@ -111,7 +111,7 @@ export const TemplateCustomizer: React.FC<TemplateCustomizerProps> = ({
         scenarioSettings: {
           ...prev.scenarioSettings,
           [section]: {
-            ...sectionData,
+            ...(sectionData as object),
             [field]: newArray,
           },
         },
@@ -133,7 +133,7 @@ export const TemplateCustomizer: React.FC<TemplateCustomizerProps> = ({
         scenarioSettings: {
           ...prev.scenarioSettings,
           [section]: {
-            ...sectionData,
+            ...(sectionData as object),
             [field]: newArray,
           },
         },
