@@ -110,6 +110,25 @@ describe('TemplateSelector Security Tests', () => {
       success: true,
       data: [],
     });
+    
+    // getCategories と getDifficulties のモック戻り値を設定
+    mockCampaignTemplateApi.getCategories.mockReturnValue([
+      { value: 'FANTASY', label: 'ファンタジー' },
+      { value: 'CYBERPUNK', label: 'サイバーパンク' },
+      { value: 'HORROR', label: 'ホラー' },
+      { value: 'MODERN', label: '現代' },
+      { value: 'SCIFI', label: 'SF' },
+      { value: 'MYSTERY', label: 'ミステリー' },
+      { value: 'HISTORICAL', label: '歴史' },
+      { value: 'CUSTOM', label: 'カスタム' },
+    ]);
+
+    mockCampaignTemplateApi.getDifficulties.mockReturnValue([
+      { value: 'BEGINNER', label: '初心者向け' },
+      { value: 'INTERMEDIATE', label: '中級者向け' },
+      { value: 'ADVANCED', label: '上級者向け' },
+      { value: 'EXPERT', label: 'エキスパート向け' },
+    ]);
   });
 
   describe('XSS Prevention', () => {
