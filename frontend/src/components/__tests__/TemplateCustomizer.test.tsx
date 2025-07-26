@@ -156,7 +156,7 @@ describe('TemplateCustomizer Security Tests', () => {
       fireEvent.change(titleInput, { target: { value: '' } });
 
       // Try to submit with empty title
-      const submitButton = screen.getByRole('button', { name: /キャンペーンを作成|カスタマイズして作成/ });
+      const submitButton = screen.getByTestId('create-campaign-button');
       expect(submitButton).toBeDisabled();
 
       // Verify onCustomize is not called
@@ -187,7 +187,7 @@ describe('TemplateCustomizer Security Tests', () => {
       render(<TemplateCustomizer {...mockProps} />);
 
       // Submit valid form
-      const submitButton = screen.getByRole('button', { name: /キャンペーンを作成|カスタマイズして作成/ });
+      const submitButton = screen.getByTestId('create-campaign-button');
       fireEvent.click(submitButton);
 
       // Verify onCustomize is called with valid data structure
@@ -218,7 +218,7 @@ describe('TemplateCustomizer Security Tests', () => {
       const user = userEvent.setup();
       render(<TemplateCustomizer {...mockProps} />);
 
-      const submitButton = screen.getByRole('button', { name: /キャンペーンを作成|カスタマイズして作成/ });
+      const submitButton = screen.getByTestId('create-campaign-button');
       
       // Rapid clicks
       await user.click(submitButton);

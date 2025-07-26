@@ -82,9 +82,7 @@ export const TemplateCustomizer: React.FC<TemplateCustomizerProps> = ({
 
   const handleArrayInputChange = (field: string, index: number, value: string, section: string) => {
     setFormData(prev => {
-      const sectionData = prev.scenarioSettings[section as keyof typeof prev.scenarioSettings];
-      if (!sectionData || typeof sectionData !== 'object') return prev;
-      
+      const sectionData = prev.scenarioSettings[section as keyof typeof prev.scenarioSettings] || {};
       const currentArray = (sectionData as Record<string, unknown>)[field];
       const newArray = Array.isArray(currentArray) ? [...currentArray] : [];
       newArray[index] = value;
@@ -104,9 +102,7 @@ export const TemplateCustomizer: React.FC<TemplateCustomizerProps> = ({
 
   const addArrayItem = (field: string, section: string) => {
     setFormData(prev => {
-      const sectionData = prev.scenarioSettings[section as keyof typeof prev.scenarioSettings];
-      if (!sectionData || typeof sectionData !== 'object') return prev;
-      
+      const sectionData = prev.scenarioSettings[section as keyof typeof prev.scenarioSettings] || {};
       const currentArray = (sectionData as Record<string, unknown>)[field];
       const newArray = Array.isArray(currentArray) ? [...currentArray, ''] : [''];
       
@@ -125,9 +121,7 @@ export const TemplateCustomizer: React.FC<TemplateCustomizerProps> = ({
 
   const removeArrayItem = (field: string, index: number, section: string) => {
     setFormData(prev => {
-      const sectionData = prev.scenarioSettings[section as keyof typeof prev.scenarioSettings];
-      if (!sectionData || typeof sectionData !== 'object') return prev;
-      
+      const sectionData = prev.scenarioSettings[section as keyof typeof prev.scenarioSettings] || {};
       const currentArray = (sectionData as Record<string, unknown>)[field];
       if (!Array.isArray(currentArray)) return prev;
       
@@ -464,6 +458,7 @@ export const TemplateCustomizer: React.FC<TemplateCustomizerProps> = ({
           <button 
             onClick={handleSubmit} 
             className="create-campaign-button"
+            data-testid="create-campaign-button"
             disabled={!formData.title.trim()}
           >
             {isModified ? 'カスタマイズして作成' : 'キャンペーンを作成'}
