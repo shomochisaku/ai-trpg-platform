@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TemplateSelector } from '../TemplateSelector';
 import { campaignTemplateApi } from '../../services/campaignTemplateApi';
-import { CampaignTemplate } from '../../types';
+import { CampaignTemplate, TemplateCategory } from '../../types';
 
 // Mock the API
 jest.mock('../../services/campaignTemplateApi');
@@ -240,9 +240,9 @@ describe('TemplateSelector Security Tests', () => {
       // Mock malformed response
       mockCampaignTemplateApi.getTemplates.mockResolvedValueOnce({
         success: true,
-        data: null as any, // Malformed data
-        total: 'invalid' as any, // Wrong type
-        pagination: undefined as any, // Missing required field
+        data: null, // Malformed data
+        total: 'invalid' as unknown as number, // Wrong type
+        pagination: undefined // Missing required field
       });
 
       render(<TemplateSelector {...mockProps} />);
@@ -261,9 +261,9 @@ describe('TemplateSelector Security Tests', () => {
         name: undefined, // Missing name
         description: '<script>evil()</script>',
         templateId: '',
-        category: 'INVALID_CATEGORY', // Invalid category
+        category: 'INVALID_CATEGORY' as unknown as TemplateCategory, // Invalid category
         // Missing required fields
-      } as any;
+      } as CampaignTemplate;
 
       mockCampaignTemplateApi.getTemplates.mockResolvedValueOnce({
         success: true,
@@ -289,9 +289,9 @@ describe('TemplateSelector Security Tests', () => {
     it('should prevent template selection with invalid data', async () => {
       const invalidTemplate = {
         ...mockTemplates[0],
-        id: null,
+        id: null as unknown as string,
         templateId: '',
-      } as any;
+      } as CampaignTemplate;
 
       mockCampaignTemplateApi.getTemplates.mockResolvedValueOnce({
         success: true,

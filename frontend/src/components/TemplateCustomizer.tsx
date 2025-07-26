@@ -2,6 +2,29 @@ import React, { useState, useEffect } from 'react';
 import { CampaignTemplate, CampaignFormData } from '../types';
 import './TemplateCustomizer.css';
 
+// Extended type for scenario settings with optional sections
+interface ExtendedScenarioSettings extends Omit<CampaignFormData['scenarioSettings'], 'gmProfile' | 'worldSettings' | 'opening'> {
+  gmProfile?: {
+    personality?: string;
+    speechStyle?: string;
+    guidingPrinciples?: string[];
+  };
+  worldSettings?: {
+    setting?: string;
+    toneAndManner?: string;
+    keyConcepts?: string[];
+  };
+  opening?: {
+    prologue?: string;
+    initialStatusTags?: string[];
+    initialInventory?: string[];
+  };
+}
+
+interface ExtendedCampaignFormData extends Omit<CampaignFormData, 'scenarioSettings'> {
+  scenarioSettings: ExtendedScenarioSettings;
+}
+
 interface TemplateCustomizerProps {
   template: CampaignTemplate;
   onCustomize: (customizedData: CampaignFormData) => void;
@@ -15,10 +38,10 @@ export const TemplateCustomizer: React.FC<TemplateCustomizerProps> = ({
   onUseAsIs,
   onBack,
 }) => {
-  const [formData, setFormData] = useState<CampaignFormData>({
+  const [formData, setFormData] = useState<ExtendedCampaignFormData>({
     title: template.name,
     description: template.description,
-    scenarioSettings: { ...template.scenarioSettings },
+    scenarioSettings: { ...template.scenarioSettings } as ExtendedScenarioSettings,
   });
   const [isModified, setIsModified] = useState(false);
   const [activeSection, setActiveSection] = useState<'overview' | 'gm' | 'world' | 'opening'>('overview');
@@ -32,14 +55,14 @@ export const TemplateCustomizer: React.FC<TemplateCustomizerProps> = ({
     setIsModified(hasChanges);
   }, [formData, template]);
 
-  const handleInputChange = (field: string, value: any, section?: string) => {
+  const handleInputChange = (field: string, value: string | number | boolean, section?: string) => {
     if (section) {
       setFormData(prev => ({
         ...prev,
         scenarioSettings: {
           ...prev.scenarioSettings,
           [section]: {
-            ...((prev.scenarioSettings[section as keyof typeof prev.scenarioSettings] as any) || {}),
+            ...(prev.scenarioSettings[section as keyof typeof prev.scenarioSettings] || {}),
             [field]: value,
           },
         },
@@ -54,8 +77,11 @@ export const TemplateCustomizer: React.FC<TemplateCustomizerProps> = ({
 
   const handleArrayInputChange = (field: string, index: number, value: string, section: string) => {
     setFormData(prev => {
-      const sectionData = prev.scenarioSettings[section as keyof typeof prev.scenarioSettings] as any;
-      const newArray = [...(sectionData[field] || [])];
+      const sectionData = prev.scenarioSettings[section as keyof typeof prev.scenarioSettings];
+      if (!sectionData || typeof sectionData !== 'object') return prev;
+      
+      const currentArray = (sectionData as Record<string, unknown>)[field];
+      const newArray = Array.isArray(currentArray) ? [...currentArray] : [];
       newArray[index] = value;
       
       return {
@@ -73,7 +99,11 @@ export const TemplateCustomizer: React.FC<TemplateCustomizerProps> = ({
 
   const addArrayItem = (field: string, section: string) => {
     setFormData(prev => {
-      const sectionData = prev.scenarioSettings[section as keyof typeof prev.scenarioSettings] as any;
+      const sectionData = prev.scenarioSettings[section as keyof typeof prev.scenarioSettings];
+      if (!sectionData || typeof sectionData !== 'object') return prev;
+      
+      const currentArray = (sectionData as Record<string, unknown>)[field];
+      const newArray = Array.isArray(currentArray) ? [...currentArray, ''] : [''];
       
       return {
         ...prev,
@@ -81,7 +111,7 @@ export const TemplateCustomizer: React.FC<TemplateCustomizerProps> = ({
           ...prev.scenarioSettings,
           [section]: {
             ...sectionData,
-            [field]: [...(sectionData[field] || []), ''],
+            [field]: newArray,
           },
         },
       };
@@ -90,8 +120,13 @@ export const TemplateCustomizer: React.FC<TemplateCustomizerProps> = ({
 
   const removeArrayItem = (field: string, index: number, section: string) => {
     setFormData(prev => {
-      const sectionData = prev.scenarioSettings[section as keyof typeof prev.scenarioSettings] as any;
-      const newArray = [...(sectionData[field] || [])];
+      const sectionData = prev.scenarioSettings[section as keyof typeof prev.scenarioSettings];
+      if (!sectionData || typeof sectionData !== 'object') return prev;
+      
+      const currentArray = (sectionData as Record<string, unknown>)[field];
+      if (!Array.isArray(currentArray)) return prev;
+      
+      const newArray = [...currentArray];
       newArray.splice(index, 1);
       
       return {
@@ -220,7 +255,7 @@ export const TemplateCustomizer: React.FC<TemplateCustomizerProps> = ({
                 <label htmlFor="gmPersonality">GM性格設定</label>
                 <textarea
                   id="gmPersonality"
-                  value={(formData.scenarioSettings as any).gmProfile?.personality || ''}
+                  value={formData.scenarioSettings.gmProfile?.personality || ''}
                   onChange={(e) => handleInputChange('personality', e.target.value, 'gmProfile')}
                   placeholder="GMの性格や語り方について説明"
                   rows={6}
@@ -232,7 +267,7 @@ export const TemplateCustomizer: React.FC<TemplateCustomizerProps> = ({
                 <input
                   id="speechStyle"
                   type="text"
-                  value={(formData.scenarioSettings as any).gmProfile?.speechStyle || ''}
+                  value={formData.scenarioSettings.gmProfile?.speechStyle || ''}
                   onChange={(e) => handleInputChange('speechStyle', e.target.value, 'gmProfile')}
                   placeholder="例: 丁寧で叙述的、カジュアル、演劇的"
                 />
@@ -241,7 +276,7 @@ export const TemplateCustomizer: React.FC<TemplateCustomizerProps> = ({
               <div className="form-group">
                 <label>指導原則</label>
                 <div className="array-input">
-                  {(Array.isArray((formData.scenarioSettings as any).gmProfile?.guidingPrinciples) ? (formData.scenarioSettings as any).gmProfile.guidingPrinciples : []).map((principle: string, index: number) => (
+                  {(formData.scenarioSettings.gmProfile?.guidingPrinciples || []).map((principle: string, index: number) => (
                     <div key={index} className="array-item">
                       <input
                         type="text"
@@ -278,7 +313,7 @@ export const TemplateCustomizer: React.FC<TemplateCustomizerProps> = ({
                 <label htmlFor="worldSetting">世界観</label>
                 <textarea
                   id="worldSetting"
-                  value={(formData.scenarioSettings as any).worldSettings?.setting || ''}
+                  value={formData.scenarioSettings.worldSettings?.setting || ''}
                   onChange={(e) => handleInputChange('setting', e.target.value, 'worldSettings')}
                   placeholder="世界の背景、歴史、特徴について詳しく説明"
                   rows={8}
@@ -290,7 +325,7 @@ export const TemplateCustomizer: React.FC<TemplateCustomizerProps> = ({
                 <input
                   id="toneAndManner"
                   type="text"
-                  value={(formData.scenarioSettings as any).worldSettings?.toneAndManner || ''}
+                  value={formData.scenarioSettings.worldSettings?.toneAndManner || ''}
                   onChange={(e) => handleInputChange('toneAndManner', e.target.value, 'worldSettings')}
                   placeholder="例: ダーク、コミカル、シリアス、冒険的"
                 />
@@ -299,7 +334,7 @@ export const TemplateCustomizer: React.FC<TemplateCustomizerProps> = ({
               <div className="form-group">
                 <label>主要コンセプト</label>
                 <div className="array-input">
-                  {(Array.isArray((formData.scenarioSettings as any).worldSettings?.keyConcepts) ? (formData.scenarioSettings as any).worldSettings.keyConcepts : []).map((concept: string, index: number) => (
+                  {(formData.scenarioSettings.worldSettings?.keyConcepts || []).map((concept: string, index: number) => (
                     <div key={index} className="array-item">
                       <input
                         type="text"
@@ -336,7 +371,7 @@ export const TemplateCustomizer: React.FC<TemplateCustomizerProps> = ({
                 <label htmlFor="prologue">プロローグ</label>
                 <textarea
                   id="prologue"
-                  value={(formData.scenarioSettings as any).opening?.prologue || ''}
+                  value={formData.scenarioSettings.opening?.prologue || ''}
                   onChange={(e) => handleInputChange('prologue', e.target.value, 'opening')}
                   placeholder="物語の始まりとなるシーンを描写"
                   rows={8}
@@ -346,7 +381,7 @@ export const TemplateCustomizer: React.FC<TemplateCustomizerProps> = ({
               <div className="form-group">
                 <label>初期ステータスタグ</label>
                 <div className="array-input">
-                  {(Array.isArray((formData.scenarioSettings as any).opening?.initialStatusTags) ? (formData.scenarioSettings as any).opening.initialStatusTags : []).map((tag: string, index: number) => (
+                  {(formData.scenarioSettings.opening?.initialStatusTags || []).map((tag: string, index: number) => (
                     <div key={index} className="array-item">
                       <input
                         type="text"
@@ -376,7 +411,7 @@ export const TemplateCustomizer: React.FC<TemplateCustomizerProps> = ({
               <div className="form-group">
                 <label>初期アイテム</label>
                 <div className="array-input">
-                  {(Array.isArray((formData.scenarioSettings as any).opening?.initialInventory) ? (formData.scenarioSettings as any).opening.initialInventory : []).map((item: string, index: number) => (
+                  {(formData.scenarioSettings.opening?.initialInventory || []).map((item: string, index: number) => (
                     <div key={index} className="array-item">
                       <input
                         type="text"

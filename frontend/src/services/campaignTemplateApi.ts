@@ -43,7 +43,7 @@ export interface CreateTemplateRequest {
   estimatedDuration?: string;
   playerCount?: string;
   tags: string[];
-  scenarioSettings: any;
+  scenarioSettings: Record<string, unknown>;
 }
 
 export interface RecordUsageRequest {

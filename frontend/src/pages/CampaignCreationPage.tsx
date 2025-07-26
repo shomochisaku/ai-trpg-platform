@@ -43,6 +43,7 @@ const CampaignCreationPage: React.FC<CampaignCreationPageProps> = ({
     }
 
     return apiData;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTemplate]);
 
   const convertScenarioSettingsToApiSettings = (scenarioSettings: CampaignFormData['scenarioSettings']): CampaignSettings => {

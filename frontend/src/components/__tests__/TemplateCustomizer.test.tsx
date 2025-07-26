@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TemplateCustomizer } from '../TemplateCustomizer';
-import { CampaignTemplate, CampaignFormData } from '../../types';
+import { CampaignTemplate } from '../../types';
 
 // Mock CSS imports
 jest.mock('../TemplateCustomizer.css', () => ({}));
@@ -203,7 +203,7 @@ describe('TemplateCustomizer Security Tests', () => {
       const malformedTemplate = {
         ...mockTemplate,
         scenarioSettings: null, // Invalid scenario settings
-      } as any;
+      } as CampaignTemplate;
 
       // Should not crash when rendering with malformed data
       expect(() => {
@@ -260,7 +260,6 @@ describe('TemplateCustomizer Security Tests', () => {
 
   describe('Array Manipulation Security', () => {
     it('should safely handle dynamic array operations', async () => {
-      const user = userEvent.setup();
       render(<TemplateCustomizer {...mockProps} />);
 
       // Navigate to GM profile section  
@@ -328,7 +327,7 @@ describe('TemplateCustomizer Security Tests', () => {
           secretApiKey: 'sk-1234567890abcdef', // Should not be exposed
           internalConfig: { debug: true, adminMode: true },
         },
-      } as any;
+      } as CampaignTemplate;
 
       render(<TemplateCustomizer {...mockProps} template={sensitiveTemplate} />);
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { CampaignTemplate, TemplateFilters, TemplateCategory, TemplateDifficulty } from '../types';
 import { campaignTemplateApi } from '../services/campaignTemplateApi';
 import './TemplateSelector.css';
@@ -26,9 +26,10 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({
   useEffect(() => {
     loadTemplates();
     loadPopularTemplates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
-  const loadTemplates = async () => {
+  const loadTemplates = useCallback(async () => {
     try {
       setLoading(true);
       const response = await campaignTemplateApi.getTemplates(filters);
@@ -40,16 +41,16 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
 
-  const loadPopularTemplates = async () => {
+  const loadPopularTemplates = useCallback(async () => {
     try {
       const response = await campaignTemplateApi.getPopularTemplates(6);
       setPopularTemplates(response.data.map(p => p.template));
     } catch (err) {
       console.error('Failed to load popular templates:', err);
     }
-  };
+  }, []);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
