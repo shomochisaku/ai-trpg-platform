@@ -15,11 +15,23 @@ global.ResizeObserver = vi.fn(() => ({
 }));
 
 // IntersectionObserver のモック
-global.IntersectionObserver = vi.fn(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}));
+class MockIntersectionObserver {
+  constructor(
+    public callback: IntersectionObserverCallback,
+    public options?: IntersectionObserverInit
+  ) {}
+  
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+  takeRecords = vi.fn(() => []);
+  
+  root = null;
+  rootMargin = '';
+  thresholds = [];
+}
+
+global.IntersectionObserver = MockIntersectionObserver as any;
 
 // matchMedia のモック
 Object.defineProperty(window, 'matchMedia', {
