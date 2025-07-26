@@ -1,4 +1,5 @@
 import React from 'react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TemplateSelector } from '../TemplateSelector';
@@ -6,11 +7,30 @@ import { campaignTemplateApi } from '../../services/campaignTemplateApi';
 import { CampaignTemplate, TemplateCategory } from '../../types';
 
 // Mock the API
-jest.mock('../../services/campaignTemplateApi');
-const mockCampaignTemplateApi = campaignTemplateApi as jest.Mocked<typeof campaignTemplateApi>;
+vi.mock('../../services/campaignTemplateApi', () => ({
+  campaignTemplateApi: {
+    getTemplates: vi.fn(),
+    getPopularTemplates: vi.fn(),
+    searchTemplates: vi.fn(),
+    getTemplate: vi.fn(),
+    getTemplateStats: vi.fn(),
+    createTemplate: vi.fn(),
+    updateTemplate: vi.fn(),
+    deleteTemplate: vi.fn(),
+    recordUsage: vi.fn(),
+    getCategories: vi.fn(),
+    getDifficulties: vi.fn(),
+    getCategoryLabel: vi.fn(),
+    getDifficultyLabel: vi.fn(),
+  },
+}));
+
+const mockCampaignTemplateApi = campaignTemplateApi as {
+  [K in keyof typeof campaignTemplateApi]: ReturnType<typeof vi.fn>;
+};
 
 // Mock CSS imports
-jest.mock('../TemplateSelector.css', () => ({}));
+vi.mock('../TemplateSelector.css', () => ({}));
 
 const mockTemplates: CampaignTemplate[] = [
   {
@@ -68,14 +88,14 @@ const mockTemplates: CampaignTemplate[] = [
 ];
 
 const mockProps = {
-  onSelectTemplate: jest.fn(),
-  onCreateFromScratch: jest.fn(),
+  onSelectTemplate: vi.fn(),
+  onCreateFromScratch: vi.fn(),
   selectedTemplate: null,
 };
 
 describe('TemplateSelector Security Tests', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockCampaignTemplateApi.getTemplates.mockResolvedValue({
       success: true,
       data: mockTemplates,

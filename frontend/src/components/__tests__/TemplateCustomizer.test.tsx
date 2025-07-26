@@ -1,11 +1,12 @@
 import React from 'react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TemplateCustomizer } from '../TemplateCustomizer';
 import { CampaignTemplate } from '../../types';
 
 // Mock CSS imports
-jest.mock('../TemplateCustomizer.css', () => ({}));
+vi.mock('../TemplateCustomizer.css', () => ({}));
 
 const mockTemplate: CampaignTemplate = {
   id: '1',
@@ -36,14 +37,14 @@ const mockTemplate: CampaignTemplate = {
 
 const mockProps = {
   template: mockTemplate,
-  onCustomize: jest.fn(),
-  onUseAsIs: jest.fn(),
-  onBack: jest.fn(),
+  onCustomize: vi.fn(),
+  onUseAsIs: vi.fn(),
+  onBack: vi.fn(),
 };
 
 describe('TemplateCustomizer Security Tests', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('XSS Prevention', () => {
@@ -361,7 +362,7 @@ describe('TemplateCustomizer Security Tests', () => {
 
       // Mock console.error to prevent test output pollution
       const originalError = console.error;
-      console.error = jest.fn();
+      console.error = vi.fn();
 
       try {
         // This would need an error boundary wrapper in real implementation
