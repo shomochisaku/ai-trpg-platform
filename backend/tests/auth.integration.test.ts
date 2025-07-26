@@ -6,6 +6,43 @@ import { authRoutes } from '@/routes/auth';
 import { campaignRoutes } from '@/routes/campaigns';
 import { logger } from '@/utils/logger';
 
+// Mock Prisma specifically for auth tests
+jest.mock('@prisma/client', () => {
+  const mockUser = {
+    id: 'test-user-id-123',
+    email: 'test-auth-register@example.com',
+    username: 'testuser123',
+    displayName: 'Test User',
+    createdAt: new Date(),
+    password: 'hashed-password',
+    refreshToken: null,
+  };
+
+  const mockPrisma = {
+    $disconnect: jest.fn().mockResolvedValue(undefined),
+    user: {
+      findFirst: jest.fn().mockResolvedValue(null), // No existing user found
+      create: jest.fn().mockResolvedValue(mockUser),
+      update: jest.fn().mockResolvedValue({ ...mockUser, refreshToken: 'mock-refresh-token' }),
+      findUnique: jest.fn(),
+      delete: jest.fn().mockResolvedValue(mockUser),
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
+    gameSession: {
+      create: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+  };
+
+  return {
+    PrismaClient: jest.fn().mockImplementation(() => mockPrisma),
+  };
+});
+
+// Set required environment variables for auth
+process.env.JWT_SECRET = 'test-jwt-secret-key-for-auth-integration-tests';
+process.env.BCRYPT_ROUNDS = '10';
+
 const app = express();
 app.use(cors());
 app.use(express.json());

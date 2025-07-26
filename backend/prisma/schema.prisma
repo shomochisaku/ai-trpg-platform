@@ -40,6 +40,10 @@ model User {
   sessionPlayers   SessionPlayer[]
   aiConversations  AIConversation[]
   memoryEntries    MemoryEntry[]
+  
+  // Template relations
+  createdTemplates CampaignTemplate[]
+  templateUsage    TemplateUsage[]
 
   @@map("users")
 }
@@ -93,6 +97,10 @@ model GameSession {
   aiGMEnabled   Boolean @default(true)
   aiModel       String  @default("gpt-4")
   aiPersonality String  @default("balanced")
+  
+  // Template tracking
+  baseTemplateId   String?
+  templateCustomized Boolean @default(false)
 
   // Relations
   createdBy        String
@@ -104,6 +112,10 @@ model GameSession {
   aiConversations  AIConversation[]
   diceRolls        DiceRoll[]
   gameEvents       GameEvent[]
+  
+  // Template relations
+  template         CampaignTemplate? @relation("TemplateBasedSessions", fields: [baseTemplateId], references: [id])
+  templateUsage    TemplateUsage[]
 
   @@map("game_sessions")
 }
@@ -507,4 +519,111 @@ enum MemoryType {
   RULE
   PREFERENCE
   STORY_BEAT
+}
+
+// ============================================================================
+// CAMPAIGN TEMPLATES
+// ============================================================================
+
+model CampaignTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Template identification
+  templateId  String   @unique // e.g., "fantasy-adventure"
+  category    TemplateCategoryType @default(FANTASY)
+  isOfficial  Boolean  @default(false) // Official vs user-created templates
+  isActive    Boolean  @default(true)
+  
+  // Template content
+  scenarioSettings Json  // Stored as JSON for flexibility
+  
+  // Template metadata
+  difficulty  TemplateDifficulty @default(BEGINNER)
+  estimatedDuration String? // e.g., "2-4 hours"
+  playerCount String @default("1") // e.g., "1-4"
+  tags        String[] // Array of tags for categorization
+  
+  // Authorship
+  createdBy   String?
+  creator     User?    @relation(fields: [createdBy], references: [id])
+  
+  // Relations
+  usageStats  TemplateUsage[]
+  basedOnSessions GameSession[] @relation("TemplateBasedSessions")
+  
+  // Performance indexes for efficient querying
+  @@index([category, isActive], name: "idx_template_category_active")
+  @@index([isOfficial, createdAt], name: "idx_template_official_created")
+  @@index([isActive, createdAt], name: "idx_template_active_created")
+  @@index([createdBy], name: "idx_template_creator")
+  @@map("campaign_templates")
+}
+
+model TemplateUsage {
+  id         String   @id @default(cuid())
+  templateId String
+  userId     String
+  createdAt  DateTime @default(now())
+  
+  // Usage metadata
+  wasCustomized Boolean @default(false)
+  sessionDuration Int? // in minutes
+  playerRating    Int? // 1-5 rating
+  completionStatus TemplateCompletionStatus @default(STARTED)
+  
+  // Relations
+  template   CampaignTemplate @relation(fields: [templateId], references: [id])
+  user       User             @relation(fields: [userId], references: [id])
+  sessionId  String?
+  session    GameSession?     @relation(fields: [sessionId], references: [id])
+  
+  // Performance indexes for statistics queries
+  @@index([templateId, createdAt], name: "idx_usage_template_date")
+  @@index([templateId, completionStatus], name: "idx_usage_template_status") 
+  @@index([templateId, wasCustomized], name: "idx_usage_template_customized")
+  @@index([templateId, playerRating], name: "idx_usage_template_rating")
+  @@index([userId, createdAt], name: "idx_usage_user_date")
+  @@unique([templateId, userId, sessionId])
+  @@map("template_usage")
+}
+
+model TemplateCategory {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  displayOrder Int     @default(0)
+  isActive    Boolean  @default(true)
+  
+  @@map("template_categories")
+}
+
+
+// Additional enums
+enum TemplateCategoryType {
+  FANTASY
+  CYBERPUNK
+  HORROR
+  MODERN
+  HISTORICAL
+  SCIFI
+  MYSTERY
+  CUSTOM
+}
+
+enum TemplateDifficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+enum TemplateCompletionStatus {
+  STARTED
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
 }

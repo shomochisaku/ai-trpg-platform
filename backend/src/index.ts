@@ -15,6 +15,7 @@ import { securityRoutes } from '@/routes/security';
 import memoryRoutes from '@/routes/memory'; // MVP: Re-enabled for vector search
 // import { ragRoutes } from '@/routes/rag'; // MVP: Disabled for minimal schema
 import { campaignRoutes } from '@/routes/campaigns';
+import { campaignTemplateRoutes } from '@/routes/campaignTemplates';
 import { aiService } from '@/ai/aiService';
 // import { memoryService } from '@/services/memory'; // MVP: Disabled for minimal schema
 // import { ragService } from '@/services/ragService'; // MVP: Disabled for minimal schema
@@ -82,6 +83,7 @@ app.use('/api/security', authRateLimit, securityRoutes); // Security admin endpo
 app.use('/api/memory', memoryRoutes); // MVP: Re-enabled for vector search
 // app.use('/api/rag', ragRoutes); // MVP: Disabled for minimal schema
 app.use('/api/campaigns', campaignCreationRateLimit, campaignRoutes);
+app.use('/api/campaign-templates', generalRateLimit, campaignTemplateRoutes);
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {

@@ -9,6 +9,7 @@ interface SearchResult {
   metadata?: Record<string, unknown>;
 }
 import { aiService } from '../ai/aiService';
+import { campaignTemplateService } from './campaignTemplateService';
 import {
   GameActionContext,
   ProcessGameActionResult,
@@ -75,22 +76,25 @@ export const createCampaignSchema = z.object({
   userId: z.string(),
   title: z.string().min(1).max(200),
   description: z.string().max(1000).optional(),
-  settings: z.object({
-    gmProfile: z.object({
-      personality: z.string(),
-      speechStyle: z.string(),
-      guidingPrinciples: z.array(z.string()),
-    }),
-    worldSettings: z.object({
-      toneAndManner: z.string(),
-      keyConcepts: z.array(z.string()),
-    }),
-    opening: z.object({
-      prologue: z.string(),
-      initialStatusTags: z.array(z.string()),
-      initialInventory: z.array(z.string()),
-    }),
-  }),
+  templateId: z.string().optional(), // Template-based creation
+  settings: z
+    .object({
+      gmProfile: z.object({
+        personality: z.string(),
+        speechStyle: z.string(),
+        guidingPrinciples: z.array(z.string()),
+      }),
+      worldSettings: z.object({
+        toneAndManner: z.string(),
+        keyConcepts: z.array(z.string()),
+      }),
+      opening: z.object({
+        prologue: z.string(),
+        initialStatusTags: z.array(z.string()),
+        initialInventory: z.array(z.string()),
+      }),
+    })
+    .optional(), // Optional when using template
 });
 
 export const updateCampaignSchema = z.object({
@@ -133,6 +137,68 @@ export class CampaignService {
   ): Promise<Campaign> {
     const validated = createCampaignSchema.parse(data);
 
+    let campaignSettings = validated.settings;
+    let baseTemplateId: string | undefined;
+    let templateCustomized = false;
+
+    // Handle template-based creation
+    if (validated.templateId) {
+      const template = await campaignTemplateService.getTemplate(
+        validated.templateId
+      );
+      if (!template) {
+        throw new Error(`Template with ID '${validated.templateId}' not found`);
+      }
+
+      baseTemplateId = template.id;
+
+      // Use template settings as base
+      campaignSettings = template.scenarioSettings;
+
+      // Check if user provided custom settings (customization)
+      if (validated.settings) {
+        templateCustomized = true;
+        // Merge user settings with template settings
+        campaignSettings = {
+          ...template.scenarioSettings,
+          ...validated.settings,
+          gmProfile: {
+            ...template.scenarioSettings.gmProfile,
+            ...validated.settings.gmProfile,
+          },
+          worldSettings: {
+            ...template.scenarioSettings.worldSettings,
+            ...validated.settings.worldSettings,
+          },
+          opening: {
+            ...template.scenarioSettings.opening,
+            ...validated.settings.opening,
+          },
+        };
+      }
+
+      // Record template usage
+      try {
+        await campaignTemplateService.recordUsage(
+          validated.templateId,
+          validated.userId,
+          {
+            wasCustomized: templateCustomized,
+            completionStatus: 'STARTED',
+          }
+        );
+      } catch (error) {
+        logger.warn('Failed to record template usage:', error);
+        // Continue with campaign creation even if usage recording fails
+      }
+    }
+
+    if (!campaignSettings) {
+      throw new Error(
+        'Campaign settings are required when not using a template'
+      );
+    }
+
     // Create campaign in database
     const campaign = await prisma.gameSession.create({
       data: {
@@ -143,16 +209,21 @@ export class CampaignService {
         // Map aiSettings to new schema fields
         aiGMEnabled: true,
         aiModel: 'gpt-4',
-        aiPersonality: validated.settings?.gmProfile?.personality || 'balanced',
+        aiPersonality: campaignSettings.gmProfile?.personality || 'balanced',
         systemType: 'AI_TRPG',
         maxPlayers: 1,
+        // Template tracking
+        baseTemplateId,
+        templateCustomized,
       },
     });
 
     // Initialize campaign knowledge base
-    await this.initializeCampaignKnowledge(campaign.id, validated.settings);
+    await this.initializeCampaignKnowledge(campaign.id, campaignSettings);
 
-    // Knowledge initialization completed
+    logger.info(
+      `Campaign created successfully: ${campaign.id}${baseTemplateId ? ` (from template: ${validated.templateId})` : ''}`
+    );
 
     return this.formatCampaign(campaign);
   }
