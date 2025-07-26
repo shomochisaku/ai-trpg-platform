@@ -57,16 +57,21 @@ export const TemplateCustomizer: React.FC<TemplateCustomizerProps> = ({
 
   const handleInputChange = (field: string, value: string | number | boolean, section?: string) => {
     if (section) {
-      setFormData(prev => ({
-        ...prev,
-        scenarioSettings: {
-          ...prev.scenarioSettings,
-          [section]: {
-            ...(prev.scenarioSettings[section as keyof typeof prev.scenarioSettings] || {}),
-            [field]: value,
+      setFormData(prev => {
+        const sectionData = prev.scenarioSettings[section as keyof typeof prev.scenarioSettings];
+        const validSectionData = (sectionData && typeof sectionData === 'object') ? sectionData : {};
+        
+        return {
+          ...prev,
+          scenarioSettings: {
+            ...prev.scenarioSettings,
+            [section]: {
+              ...validSectionData,
+              [field]: value,
+            },
           },
-        },
-      }));
+        };
+      });
     } else {
       setFormData(prev => ({
         ...prev,
