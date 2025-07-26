@@ -68,7 +68,7 @@ describe('TemplateCustomizer Security Tests', () => {
       expect(window.alert).not.toHaveBeenCalled();
       
       // Check that form inputs contain the text but don't execute scripts
-      const titleInput = screen.getByDisplayValue(/Malicious Template/);
+      const titleInput = screen.getByLabelText('キャンペーンタイトル');
       expect(titleInput).toBeInTheDocument();
       expect(titleInput.getAttribute('value')).toContain('<script>');
     });
@@ -78,7 +78,7 @@ describe('TemplateCustomizer Security Tests', () => {
       render(<TemplateCustomizer {...mockProps} />);
 
       // Find title input and try to inject script
-      const titleInput = screen.getByDisplayValue(mockTemplate.name);
+      const titleInput = screen.getByLabelText('キャンペーンタイトル');
       
       await user.clear(titleInput);
       await user.type(titleInput, '<script>alert("input-xss")</script>Hacked Title');
@@ -95,14 +95,14 @@ describe('TemplateCustomizer Security Tests', () => {
       render(<TemplateCustomizer {...mockProps} />);
 
       // Navigate to GM profile section
-      const gmProfileTab = screen.getByText('GMプロフィール');
+      const gmProfileTab = screen.getByRole('button', { name: 'GMプロフィール' });
       fireEvent.click(gmProfileTab);
 
       await waitFor(() => {
-        expect(screen.getByDisplayValue(mockTemplate.scenarioSettings.gmPersonality)).toBeInTheDocument();
+        expect(screen.getByLabelText('GM性格設定')).toBeInTheDocument();
       });
 
-      const personalityTextarea = screen.getByDisplayValue(mockTemplate.scenarioSettings.gmPersonality);
+      const personalityTextarea = screen.getByLabelText('GM性格設定');
       
       await user.clear(personalityTextarea);
       await user.type(personalityTextarea, '<script>alert("textarea-xss")</script>Evil GM personality');
@@ -138,10 +138,10 @@ describe('TemplateCustomizer Security Tests', () => {
       const unicodeText = '🎮🐉⚔️🏰✨ファンタジー冒険';
       const mixedText = `${specialChars}${unicodeText}`;
 
-      const titleInput = screen.getByDisplayValue(mockTemplate.name);
+      const titleInput = screen.getByLabelText('キャンペーンタイトル');
       
       await user.clear(titleInput);
-      await user.type(titleInput, mixedText);
+      await user.paste(mixedText);
 
       // Should handle all characters without crashing
       expect(titleInput).toBeInTheDocument();
@@ -152,11 +152,11 @@ describe('TemplateCustomizer Security Tests', () => {
       render(<TemplateCustomizer {...mockProps} />);
 
       // Clear required title field
-      const titleInput = screen.getByDisplayValue(mockTemplate.name);
+      const titleInput = screen.getByLabelText('キャンペーンタイトル');
       fireEvent.change(titleInput, { target: { value: '' } });
 
       // Try to submit with empty title
-      const submitButton = screen.getByText(/キャンペーンを作成/);
+      const submitButton = screen.getByRole('button', { name: /キャンペーンを作成/ });
       expect(submitButton).toBeDisabled();
 
       // Verify onCustomize is not called
@@ -171,23 +171,23 @@ describe('TemplateCustomizer Security Tests', () => {
       render(<TemplateCustomizer {...mockProps} />);
 
       // Modify title
-      const titleInput = screen.getByDisplayValue(mockTemplate.name);
+      const titleInput = screen.getByLabelText('キャンペーンタイトル');
       await user.clear(titleInput);
       await user.type(titleInput, 'Modified Title');
 
       // Reset to template
-      const resetButton = screen.getByText(/テンプレートに戻す/);
+      const resetButton = screen.getByRole('button', { name: /テンプレートに戻す/ });
       fireEvent.click(resetButton);
 
       // Verify original data is restored
-      expect(screen.getByDisplayValue(mockTemplate.name)).toBeInTheDocument();
+      expect(screen.getByLabelText('キャンペーンタイトル')).toHaveValue(mockTemplate.name);
     });
 
     it('should validate form data before submission', async () => {
       render(<TemplateCustomizer {...mockProps} />);
 
       // Submit valid form
-      const submitButton = screen.getByText(/キャンペーンを作成/);
+      const submitButton = screen.getByRole('button', { name: /キャンペーンを作成/ });
       fireEvent.click(submitButton);
 
       // Verify onCustomize is called with valid data structure
@@ -217,7 +217,7 @@ describe('TemplateCustomizer Security Tests', () => {
     it('should prevent double-submission of forms', async () => {
       render(<TemplateCustomizer {...mockProps} />);
 
-      const submitButton = screen.getByText(/キャンペーンを作成/);
+      const submitButton = screen.getByRole('button', { name: /キャンペーンを作成/ });
       
       // Rapid clicks
       fireEvent.click(submitButton);
@@ -237,7 +237,7 @@ describe('TemplateCustomizer Security Tests', () => {
       const tabs = ['基本情報', 'GMプロフィール', '世界設定', 'オープニング'];
       
       for (const tabName of tabs) {
-        const tab = screen.getByText(tabName);
+        const tab = screen.getByRole('button', { name: tabName });
         fireEvent.click(tab);
         
         // Verify tab is active and content is displayed
@@ -252,7 +252,7 @@ describe('TemplateCustomizer Security Tests', () => {
     it('should securely handle back navigation', async () => {
       render(<TemplateCustomizer {...mockProps} />);
 
-      const backButton = screen.getByText('← 戻る');
+      const backButton = screen.getByRole('button', { name: /← 戻る/ });
       fireEvent.click(backButton);
 
       expect(mockProps.onBack).toHaveBeenCalledTimes(1);
@@ -264,22 +264,22 @@ describe('TemplateCustomizer Security Tests', () => {
       render(<TemplateCustomizer {...mockProps} />);
 
       // Navigate to GM profile section  
-      const gmProfileTab = screen.getByText('GMプロフィール');
+      const gmProfileTab = screen.getByRole('button', { name: 'GMプロフィール' });
       fireEvent.click(gmProfileTab);
 
       await waitFor(() => {
-        expect(screen.getByText('+ 原則を追加')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: '+ 原則を追加' })).toBeInTheDocument();
       });
 
       // Add multiple items rapidly
-      const addButton = screen.getByText('+ 原則を追加');
+      const addButton = screen.getByRole('button', { name: '+ 原則を追加' });
       
       for (let i = 0; i < 10; i++) {
         fireEvent.click(addButton);
       }
 
       // Should handle rapid additions without crashing
-      const removeButtons = screen.getAllByText('削除');
+      const removeButtons = screen.getAllByRole('button', { name: '削除' });
       expect(removeButtons.length).toBeGreaterThan(0);
 
       // Remove items rapidly
@@ -296,15 +296,15 @@ describe('TemplateCustomizer Security Tests', () => {
       render(<TemplateCustomizer {...mockProps} />);
 
       // Navigate to GM profile section
-      const gmProfileTab = screen.getByText('GMプロフィール');
+      const gmProfileTab = screen.getByRole('button', { name: 'GMプロフィール' });
       fireEvent.click(gmProfileTab);
 
       await waitFor(() => {
-        expect(screen.getByText('+ 原則を追加')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: '+ 原則を追加' })).toBeInTheDocument();
       });
 
       // Add new principle
-      const addButton = screen.getByText('+ 原則を追加');
+      const addButton = screen.getByRole('button', { name: '+ 原則を追加' });
       fireEvent.click(addButton);
 
       // Find new input field and add malicious content
