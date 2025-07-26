@@ -31,7 +31,8 @@ class MockIntersectionObserver {
   thresholds = [];
 }
 
-global.IntersectionObserver = MockIntersectionObserver as any;
+// @ts-expect-error - MockIntersectionObserver is a mock for testing
+global.IntersectionObserver = MockIntersectionObserver;
 
 // matchMedia のモック
 Object.defineProperty(window, 'matchMedia', {
