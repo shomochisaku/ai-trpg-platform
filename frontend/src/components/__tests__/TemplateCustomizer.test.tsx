@@ -81,13 +81,15 @@ describe('TemplateCustomizer Security Tests', () => {
       const titleInput = screen.getByLabelText('キャンペーンタイトル');
       
       await user.clear(titleInput);
-      await user.type(titleInput, '<script>alert("input-xss")</script>Hacked Title');
+      await user.paste('<script>alert("input-xss")</script>Hacked Title');
+
+      // Wait for state update
+      await waitFor(() => {
+        expect(titleInput).toHaveValue('<script>alert("input-xss")</script>Hacked Title');
+      });
 
       // Verify script is not executed
       expect(window.alert).not.toHaveBeenCalled();
-      
-      // Verify input value contains the text
-      expect(titleInput).toHaveValue('<script>alert("input-xss")</script>Hacked Title');
     });
 
     it('should handle malicious content in textarea fields', async () => {
@@ -96,20 +98,20 @@ describe('TemplateCustomizer Security Tests', () => {
 
       // Navigate to GM profile section
       const gmProfileTab = screen.getByRole('button', { name: 'GMプロフィール' });
-      fireEvent.click(gmProfileTab);
+      await user.click(gmProfileTab);
 
-      await waitFor(() => {
-        expect(screen.getByLabelText('GM性格設定')).toBeInTheDocument();
-      });
-
-      const personalityTextarea = screen.getByLabelText('GM性格設定');
+      const personalityTextarea = await screen.findByLabelText('GM性格設定');
       
       await user.clear(personalityTextarea);
-      await user.type(personalityTextarea, '<script>alert("textarea-xss")</script>Evil GM personality');
+      await user.paste('<script>alert("textarea-xss")</script>Evil GM personality');
+
+      // Wait for state update and verify
+      await waitFor(() => {
+        expect(personalityTextarea).toHaveValue('<script>alert("textarea-xss")</script>Evil GM personality');
+      });
 
       // Verify script is not executed
       expect(window.alert).not.toHaveBeenCalled();
-      expect(personalityTextarea).toHaveValue('<script>alert("textarea-xss")</script>Evil GM personality');
     });
   });
 
@@ -118,16 +120,17 @@ describe('TemplateCustomizer Security Tests', () => {
       const user = userEvent.setup();
       render(<TemplateCustomizer {...mockProps} />);
 
-      const titleInput = screen.getByDisplayValue(mockTemplate.name);
+      const titleInput = screen.getByLabelText('キャンペーンタイトル');
       const longTitle = 'a'.repeat(10000); // Very long title
 
       await user.clear(titleInput);
-      await user.type(titleInput, longTitle);
+      await user.paste(longTitle);
 
-      // Component should not crash
-      expect(titleInput).toBeInTheDocument();
-      // Input should be truncated or handled appropriately
-      expect(titleInput.value.length).toBeLessThanOrEqual(longTitle.length);
+      // Wait for update and verify component doesn't crash
+      await waitFor(() => {
+        expect(titleInput).toBeInTheDocument();
+        expect(titleInput.value.length).toBeLessThanOrEqual(longTitle.length);
+      });
     });
 
     it('should handle special characters and unicode in inputs', async () => {
@@ -143,24 +146,33 @@ describe('TemplateCustomizer Security Tests', () => {
       await user.clear(titleInput);
       await user.paste(mixedText);
 
+      // Wait for input value to be updated
+      await waitFor(() => {
+        expect(titleInput).toHaveValue(mixedText);
+        expect(titleInput.value).toContain(unicodeText);
+      });
+      
       // Should handle all characters without crashing
       expect(titleInput).toBeInTheDocument();
-      expect(titleInput.value).toContain(unicodeText);
     });
 
     it('should prevent form submission with invalid data', async () => {
+      const user = userEvent.setup();
       render(<TemplateCustomizer {...mockProps} />);
 
       // Clear required title field
       const titleInput = screen.getByLabelText('キャンペーンタイトル');
-      fireEvent.change(titleInput, { target: { value: '' } });
+      await user.clear(titleInput);
+
+      // Wait for state update and verify button is disabled
+      await waitFor(() => {
+        const submitButton = screen.getByTestId('create-campaign-button');
+        expect(submitButton).toBeDisabled();
+      });
 
       // Try to submit with empty title
       const submitButton = screen.getByTestId('create-campaign-button');
-      expect(submitButton).toBeDisabled();
-
-      // Verify onCustomize is not called
-      fireEvent.click(submitButton);
+      await user.click(submitButton);
       expect(mockProps.onCustomize).not.toHaveBeenCalled();
     });
   });
@@ -173,22 +185,25 @@ describe('TemplateCustomizer Security Tests', () => {
       // Modify title
       const titleInput = screen.getByLabelText('キャンペーンタイトル');
       await user.clear(titleInput);
-      await user.type(titleInput, 'Modified Title');
+      await user.paste('Modified Title');
 
-      // Reset to template
-      const resetButton = screen.getByRole('button', { name: /テンプレートに戻す/ });
-      fireEvent.click(resetButton);
+      // Wait for modification to be detected
+      const resetButton = await screen.findByRole('button', { name: /テンプレートに戻す/ });
+      await user.click(resetButton);
 
       // Verify original data is restored
-      expect(screen.getByLabelText('キャンペーンタイトル')).toHaveValue(mockTemplate.name);
+      await waitFor(() => {
+        expect(screen.getByLabelText('キャンペーンタイトル')).toHaveValue(mockTemplate.name);
+      });
     });
 
     it('should validate form data before submission', async () => {
+      const user = userEvent.setup();
       render(<TemplateCustomizer {...mockProps} />);
 
       // Submit valid form
       const submitButton = screen.getByTestId('create-campaign-button');
-      fireEvent.click(submitButton);
+      await user.click(submitButton);
 
       // Verify onCustomize is called with valid data structure
       expect(mockProps.onCustomize).toHaveBeenCalledWith(
@@ -225,8 +240,10 @@ describe('TemplateCustomizer Security Tests', () => {
       await user.click(submitButton);
       await user.click(submitButton);
 
-      // Should only be called once
-      expect(mockProps.onCustomize).toHaveBeenCalledTimes(1);
+      // Wait for any state updates to complete
+      await waitFor(() => {
+        expect(mockProps.onCustomize).toHaveBeenCalledTimes(1);
+      });
     });
 
     it('should handle navigation events securely', async () => {
@@ -240,8 +257,10 @@ describe('TemplateCustomizer Security Tests', () => {
         const tab = screen.getByRole('button', { name: tabName });
         await user.click(tab);
         
-        // Verify tab is active and content is displayed
-        expect(tab).toHaveClass('active');
+        // Wait for tab activation and verify
+        await waitFor(() => {
+          expect(tab).toHaveClass('active');
+        });
       }
 
       // Verify no unexpected side effects
@@ -250,10 +269,11 @@ describe('TemplateCustomizer Security Tests', () => {
     });
 
     it('should securely handle back navigation', async () => {
+      const user = userEvent.setup();
       render(<TemplateCustomizer {...mockProps} />);
 
       const backButton = screen.getByRole('button', { name: /← 戻る/ });
-      fireEvent.click(backButton);
+      await user.click(backButton);
 
       expect(mockProps.onBack).toHaveBeenCalledTimes(1);
     });
@@ -271,22 +291,33 @@ describe('TemplateCustomizer Security Tests', () => {
       const addButton = await screen.findByRole('button', { name: '+ 原則を追加' });
       expect(addButton).toBeInTheDocument();
 
-      // Add multiple items rapidly
+      // Add multiple items with proper waiting
       for (let i = 0; i < 10; i++) {
         await user.click(addButton);
+        await waitFor(() => {
+          const removeButtons = screen.getAllByRole('button', { name: '削除' });
+          expect(removeButtons.length).toBe(i + 1);
+        });
       }
 
       // Should handle rapid additions without crashing
-      const removeButtons = await screen.findAllByRole('button', { name: '削除' });
+      let removeButtons = await screen.findAllByRole('button', { name: '削除' });
       expect(removeButtons.length).toBe(10);
 
-      // Remove items rapidly
-      for (const removeButton of removeButtons.slice(0, 5)) {
-        await user.click(removeButton);
+      // Remove items with proper waiting
+      for (let i = 0; i < 5; i++) {
+        const currentRemoveButtons = screen.getAllByRole('button', { name: '削除' });
+        await user.click(currentRemoveButtons[0]);
+        await waitFor(() => {
+          const updatedRemoveButtons = screen.getAllByRole('button', { name: '削除' });
+          expect(updatedRemoveButtons.length).toBe(10 - i - 1);
+        });
       }
 
       // Component should remain stable
-      expect(await screen.findAllByRole('button', { name: '削除' })).toHaveLength(5);
+      await waitFor(() => {
+        expect(screen.getAllByRole('button', { name: '削除' })).toHaveLength(5);
+      });
       expect(addButton).toBeInTheDocument();
     });
 
@@ -305,16 +336,21 @@ describe('TemplateCustomizer Security Tests', () => {
       const newInput = await screen.findByPlaceholderText('指導原則を入力');
       expect(newInput).toBeInTheDocument();
       
-      await user.type(newInput, '<script>alert("array-xss")</script>Evil Principle');
+      await user.paste('<script>alert("array-xss")</script>Evil Principle');
+
+      // Wait for state update
+      await waitFor(() => {
+        expect(newInput).toHaveValue('<script>alert("array-xss")</script>Evil Principle');
+      });
 
       // Verify script is not executed
       expect(window.alert).not.toHaveBeenCalled();
-      expect(newInput).toHaveValue('<script>alert("array-xss")</script>Evil Principle');
     });
   });
 
   describe('Memory Management Security', () => {
     it('should not leak sensitive data in form state', async () => {
+      const user = userEvent.setup();
       const sensitiveTemplate = {
         ...mockTemplate,
         scenarioSettings: {
@@ -327,8 +363,8 @@ describe('TemplateCustomizer Security Tests', () => {
       render(<TemplateCustomizer {...mockProps} template={sensitiveTemplate} />);
 
       // Submit form and check what data is passed
-      const submitButton = screen.getByText(/キャンペーンを作成/);
-      fireEvent.click(submitButton);
+      const submitButton = screen.getByTestId('create-campaign-button');
+      await user.click(submitButton);
 
       expect(mockProps.onCustomize).toHaveBeenCalled();
       const submittedData = mockProps.onCustomize.mock.calls[0][0];
