@@ -33,12 +33,12 @@ export const provideTestApiKeys = (): void => {
     return;
   }
 
-  // Set test API keys if not already set
+  // Set test API keys if not already set (read from .env.test if available)
   const testKeys = {
-    OPENAI_API_KEY: 'sk-test-openai-key-for-development-only',
-    ANTHROPIC_API_KEY: 'sk-ant-api03-test-anthropic-key-for-development',
-    JWT_SECRET: 'development-jwt-secret-key-minimum-32-characters-required',
-    PINECONE_API_KEY: 'test-pinecone-key-for-development',
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY || 'sk-test-openai-key-for-development-only',
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || 'sk-ant-api03-test-anthropic-key-for-development',
+    JWT_SECRET: process.env.JWT_SECRET || 'development-jwt-secret-key-minimum-32-characters-required',
+    PINECONE_API_KEY: process.env.PINECONE_API_KEY || 'test-pinecone-key-for-development',
   };
 
   Object.entries(testKeys).forEach(([key, value]) => {

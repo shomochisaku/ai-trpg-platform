@@ -62,11 +62,11 @@ jobs:
       run: npm test
       env:
         DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
-        OPENAI_API_KEY: test-key
-        ANTHROPIC_API_KEY: test-key
-        PINECONE_API_KEY: test-key
-        PINECONE_ENVIRONMENT: test-env
-        JWT_SECRET: test-secret
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'test-key' }}
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY || 'test-key' }}
+        PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY || 'test-key' }}
+        PINECONE_ENVIRONMENT: ${{ secrets.PINECONE_ENVIRONMENT || 'test-env' }}
+        JWT_SECRET: ${{ secrets.JWT_SECRET || 'test-secret' }}
         NODE_ENV: test
 
     - name: Build project
