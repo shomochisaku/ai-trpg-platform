@@ -59,15 +59,21 @@ jobs:
 
     - name: Run tests
       working-directory: backend
-      run: npm test
       env:
         DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
-        OPENAI_API_KEY: test-key
-        ANTHROPIC_API_KEY: test-key
-        PINECONE_API_KEY: test-key
-        PINECONE_ENVIRONMENT: test-env
-        JWT_SECRET: test-secret
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+        PINECONE_ENVIRONMENT: ${{ secrets.PINECONE_ENVIRONMENT }}
+        JWT_SECRET: ${{ secrets.JWT_SECRET }}
         NODE_ENV: test
+      run: |
+        export OPENAI_API_KEY=${OPENAI_API_KEY:-test-key}
+        export ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-test-key}
+        export PINECONE_API_KEY=${PINECONE_API_KEY:-test-key}
+        export PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT:-test-env}
+        export JWT_SECRET=${JWT_SECRET:-test-secret}
+        npm test
 
     - name: Build project
       working-directory: backend
