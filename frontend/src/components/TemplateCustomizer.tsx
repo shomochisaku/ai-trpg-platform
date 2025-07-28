@@ -27,7 +27,7 @@ interface ExtendedCampaignFormData extends Omit<CampaignFormData, 'scenarioSetti
 
 interface TemplateCustomizerProps {
   template: CampaignTemplate;
-  onCustomize: (customizedData: CampaignFormData) => void;
+  onCustomize: (customizedData: CampaignFormData) => void | Promise<void>;
   onUseAsIs: () => void;
   onBack: () => void;
 }
