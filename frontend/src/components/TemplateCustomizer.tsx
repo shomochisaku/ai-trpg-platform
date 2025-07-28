@@ -27,7 +27,7 @@ interface ExtendedCampaignFormData extends Omit<CampaignFormData, 'scenarioSetti
 
 interface TemplateCustomizerProps {
   template: CampaignTemplate;
-  onCustomize: (customizedData: CampaignFormData) => void;
+  onCustomize: (customizedData: CampaignFormData) => void | Promise<void>;
   onUseAsIs: () => void;
   onBack: () => void;
 }
@@ -44,6 +44,7 @@ export const TemplateCustomizer: React.FC<TemplateCustomizerProps> = ({
     scenarioSettings: { ...template.scenarioSettings } as ExtendedScenarioSettings,
   });
   const [isModified, setIsModified] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeSection, setActiveSection] = useState<'overview' | 'gm' | 'world' | 'opening'>('overview');
 
   // Track if form has been modified
@@ -149,8 +150,46 @@ export const TemplateCustomizer: React.FC<TemplateCustomizerProps> = ({
     });
   };
 
-  const handleSubmit = () => {
-    onCustomize(formData);
+  // Sanitize form data by removing sensitive fields and ensuring type safety
+  const sanitizeFormData = (data: ExtendedCampaignFormData): CampaignFormData => {
+    const { scenarioSettings, ...rest } = data;
+    
+    // Create a clean scenario settings object with only allowed fields
+    const cleanScenarioSettings: CampaignFormData['scenarioSettings'] = {
+      gmPersonality: scenarioSettings.gmProfile?.personality || '',
+      worldSetting: scenarioSettings.worldSettings?.setting || '',
+      storyIntroduction: scenarioSettings.opening?.prologue || '',
+      gameStyle: scenarioSettings.gameStyle || 'classic_fantasy',
+      gmBehavior: scenarioSettings.gmBehavior || {
+        narrativeStyle: 'descriptive',
+        playerAgency: 'high',
+        difficultyAdjustment: 'adaptive',
+      },
+    };
+    
+    // Filter out any potentially sensitive fields that might be added in the future
+    const sensitiveFields = ['secretApiKey', 'adminMode', 'internalConfig', 'apiToken', 'masterKey'];
+    const cleanSettings = Object.fromEntries(
+      Object.entries(cleanScenarioSettings).filter(([key]) => !sensitiveFields.includes(key))
+    ) as CampaignFormData['scenarioSettings'];
+    
+    return {
+      ...rest,
+      scenarioSettings: cleanSettings,
+    };
+  };
+  
+  const handleSubmit = async () => {
+    // Prevent double submission
+    if (isSubmitting) return;
+    
+    setIsSubmitting(true);
+    try {
+      const sanitizedData = sanitizeFormData(formData);
+      await onCustomize(sanitizedData);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -459,9 +498,9 @@ export const TemplateCustomizer: React.FC<TemplateCustomizerProps> = ({
             onClick={handleSubmit} 
             className="create-campaign-button"
             data-testid="create-campaign-button"
-            disabled={!formData.title.trim()}
+            disabled={!formData.title.trim() || isSubmitting}
           >
-            {isModified ? 'カスタマイズして作成' : 'キャンペーンを作成'}
+            {isSubmitting ? '作成中...' : (isModified ? 'カスタマイズして作成' : 'キャンペーンを作成')}
           </button>
         </div>
       </div>

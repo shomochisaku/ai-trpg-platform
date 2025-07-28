@@ -37,7 +37,7 @@ const mockTemplate: CampaignTemplate = {
 
 const mockProps = {
   template: mockTemplate,
-  onCustomize: vi.fn(),
+  onCustomize: vi.fn().mockResolvedValue(undefined), // Make it return a Promise
   onUseAsIs: vi.fn(),
   onBack: vi.fn(),
 };
@@ -231,20 +231,31 @@ describe('TemplateCustomizer Security Tests', () => {
   describe('UI Security', () => {
     it('should prevent double-submission of forms', async () => {
       const user = userEvent.setup();
-      render(<TemplateCustomizer {...mockProps} />);
+      // Make onCustomize take some time to simulate async operation
+      const delayedMock = vi.fn().mockImplementation(() => 
+        new Promise(resolve => setTimeout(resolve, 100))
+      );
+      const propsWithDelay = { ...mockProps, onCustomize: delayedMock };
+      
+      render(<TemplateCustomizer {...propsWithDelay} />);
 
       const submitButton = screen.getByTestId('create-campaign-button');
       
-      // First click
+      // First click should initiate submission
       await user.click(submitButton);
       
-      // Component doesn't have double-click prevention yet,
-      // so we expect multiple calls. This test documents current behavior.
+      // Button should be disabled immediately after first click
+      expect(submitButton).toBeDisabled();
+      expect(submitButton).toHaveTextContent('作成中...');
+      
+      // Additional clicks should not trigger more submissions
       await user.click(submitButton);
       await user.click(submitButton);
 
-      // Current behavior: accepts multiple submissions
-      expect(mockProps.onCustomize).toHaveBeenCalledTimes(3);
+      // Wait for the async operation to complete
+      await waitFor(() => {
+        expect(delayedMock).toHaveBeenCalledTimes(1);
+      });
     });
 
     it('should handle navigation events securely', async () => {
@@ -351,14 +362,16 @@ describe('TemplateCustomizer Security Tests', () => {
   });
 
   describe('Memory Management Security', () => {
-    it('should not leak sensitive data in form state', async () => {
+    it('should filter out sensitive data from submitted form', async () => {
       const user = userEvent.setup();
       const sensitiveTemplate = {
         ...mockTemplate,
         scenarioSettings: {
           ...mockTemplate.scenarioSettings,
-          secretApiKey: 'sk-1234567890abcdef', // Should not be exposed
+          secretApiKey: 'sk-1234567890abcdef', // Should be filtered out
           internalConfig: { debug: true, adminMode: true },
+          apiToken: 'token-123',
+          masterKey: 'master-key-456',
         },
       } as CampaignTemplate;
 
@@ -371,10 +384,18 @@ describe('TemplateCustomizer Security Tests', () => {
       expect(mockProps.onCustomize).toHaveBeenCalled();
       const submittedData = mockProps.onCustomize.mock.calls[0][0];
 
-      // Current behavior: component includes all data from template.
-      // This test documents that sensitive data filtering is not yet implemented.
-      expect(JSON.stringify(submittedData)).toContain('secretApiKey');
-      expect(JSON.stringify(submittedData)).toContain('adminMode');
+      // Verify sensitive data is filtered out
+      const dataString = JSON.stringify(submittedData);
+      expect(dataString).not.toContain('secretApiKey');
+      expect(dataString).not.toContain('adminMode');
+      expect(dataString).not.toContain('apiToken');
+      expect(dataString).not.toContain('masterKey');
+      expect(dataString).not.toContain('internalConfig');
+      
+      // Verify legitimate data is still present
+      expect(submittedData.title).toBeDefined();
+      expect(submittedData.scenarioSettings).toBeDefined();
+      expect(submittedData.scenarioSettings.gmPersonality).toBeDefined();
     });
 
     it('should handle component unmounting cleanly', () => {
