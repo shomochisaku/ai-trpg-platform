@@ -52,23 +52,21 @@ COPY --from=build /app/dist /usr/share/nginx/html
 # Copy custom error pages
 COPY error-pages/ /usr/share/nginx/html/error-pages/
 
-# Set proper permissions
+# Set proper permissions for non-root nginx
 RUN chown -R node:nodejs /usr/share/nginx/html
-RUN chown -R node:nodejs /var/cache/nginx
-RUN chown -R node:nodejs /var/log/nginx
+RUN mkdir -p /tmp/nginx /var/cache/nginx/client_temp
+RUN chown -R node:nodejs /tmp/nginx /var/cache/nginx
 RUN chown -R node:nodejs /etc/nginx/conf.d
-RUN touch /var/run/nginx.pid
-RUN chown -R node:nodejs /var/run/nginx.pid
 
 # Switch to non-root user
 USER node
 
 # Expose port
-EXPOSE 80
+EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:80 || exit 1
+  CMD curl -f http://localhost:8080 || exit 1
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]
