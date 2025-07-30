@@ -1,0 +1,251 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # Pre-deployment checks
+  pre-deploy:
+    runs-on: ubuntu-latest
+    outputs:
+      deploy-backend: ${{ steps.changes.outputs.backend }}
+      deploy-frontend: ${{ steps.changes.outputs.frontend }}
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check for changes
+        uses: dorny/paths-filter@v2
+        id: changes
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'docker-compose.prod.yml'
+              - 'workflows/**'
+            frontend:
+              - 'frontend/**'
+              - 'docker-compose.prod.yml'
+              - 'workflows/**'
+
+      - name: Deployment Summary
+        run: |
+          echo "## 🚀 Deployment Plan" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Component | Deploy | Reason |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|---------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend | ${{ steps.changes.outputs.backend == 'true' && '✅ Yes' || '⏭️ Skip' }} | ${{ steps.changes.outputs.backend == 'true' && 'Backend changes detected' || 'No backend changes' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend | ${{ steps.changes.outputs.frontend == 'true' && '✅ Yes' || '⏭️ Skip' }} | ${{ steps.changes.outputs.frontend == 'true' && 'Frontend changes detected' || 'No frontend changes' }} |" >> $GITHUB_STEP_SUMMARY
+
+  # Deploy to Render (Backend)
+  deploy-render:
+    runs-on: ubuntu-latest
+    needs: pre-deploy
+    if: needs.pre-deploy.outputs.deploy-backend == 'true'
+    environment: 
+      name: production
+      url: ${{ vars.BACKEND_URL || 'https://your-app.onrender.com' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Render
+        uses: johnbeynon/render-deploy-action@v0.0.8
+        with:
+          service-id: ${{ secrets.RENDER_SERVICE_ID }}
+          api-key: ${{ secrets.RENDER_API_KEY }}
+          wait-for-success: true
+
+      - name: Health Check
+        run: |
+          echo "Waiting for deployment to be ready..."
+          sleep 30
+          
+          for i in {1..10}; do
+            if curl -f "${{ vars.BACKEND_URL || 'https://your-app.onrender.com' }}/api/health"; then
+              echo "✅ Backend is healthy!"
+              break
+            else
+              echo "⏳ Attempt $i/10 failed, retrying in 30s..."
+              sleep 30
+            fi
+          done
+
+      - name: Post-deploy notification
+        if: success()
+        run: |
+          echo "## ✅ Render Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Backend deployed to: ${{ vars.BACKEND_URL || 'https://your-app.onrender.com' }}" >> $GITHUB_STEP_SUMMARY
+
+  # Deploy to Vercel (Frontend)
+  deploy-vercel:
+    runs-on: ubuntu-latest
+    needs: pre-deploy
+    if: needs.pre-deploy.outputs.deploy-frontend == 'true'
+    environment:
+      name: production
+      url: ${{ vars.FRONTEND_URL || 'https://your-app.vercel.app' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./frontend
+          vercel-args: '--prod'
+
+      - name: Health Check
+        run: |
+          echo "Waiting for deployment to be ready..."
+          sleep 15
+          
+          for i in {1..5}; do
+            if curl -f "${{ vars.FRONTEND_URL || 'https://your-app.vercel.app' }}"; then
+              echo "✅ Frontend is healthy!"
+              break
+            else
+              echo "⏳ Attempt $i/5 failed, retrying in 15s..."
+              sleep 15
+            fi
+          done
+
+      - name: Post-deploy notification
+        if: success()
+        run: |
+          echo "## ✅ Vercel Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Frontend deployed to: ${{ vars.FRONTEND_URL || 'https://your-app.vercel.app' }}" >> $GITHUB_STEP_SUMMARY
+
+  # Alternative: Deploy to Fly.io (Backend)
+  deploy-fly:
+    runs-on: ubuntu-latest
+    needs: pre-deploy
+    if: needs.pre-deploy.outputs.deploy-backend == 'true' && vars.USE_FLY_IO == 'true'
+    environment:
+      name: production-fly
+      url: ${{ vars.FLY_APP_URL || 'https://your-app.fly.dev' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly.io
+        run: flyctl deploy --remote-only --wait-timeout 300
+        working-directory: ./backend
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Health Check
+        run: |
+          echo "Waiting for deployment to be ready..."
+          sleep 30
+          
+          for i in {1..10}; do
+            if curl -f "${{ vars.FLY_APP_URL || 'https://your-app.fly.dev' }}/api/health"; then
+              echo "✅ Fly.io deployment is healthy!"
+              break
+            else
+              echo "⏳ Attempt $i/10 failed, retrying in 30s..."
+              sleep 30
+            fi
+          done
+
+  # Integration Tests (Post-deploy)
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: [deploy-render, deploy-vercel]
+    if: always() && (needs.deploy-render.result == 'success' || needs.deploy-vercel.result == 'success')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Run integration tests
+        working-directory: ./backend
+        run: |
+          # Run production smoke tests
+          npm install --production
+          npm run test:integration
+        env:
+          API_BASE_URL: ${{ vars.BACKEND_URL || 'https://your-app.onrender.com' }}
+          FRONTEND_URL: ${{ vars.FRONTEND_URL || 'https://your-app.vercel.app' }}
+
+  # Deployment summary
+  deploy-summary:
+    runs-on: ubuntu-latest
+    needs: [deploy-render, deploy-vercel, deploy-fly, integration-tests]
+    if: always()
+
+    steps:
+      - name: Deployment Summary
+        run: |
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | Status | URL |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|-----|" >> $GITHUB_STEP_SUMMARY
+          
+          # Render status
+          if [[ "${{ needs.deploy-render.result }}" == "success" ]]; then
+            echo "| Render (Backend) | ✅ Success | ${{ vars.BACKEND_URL || 'https://your-app.onrender.com' }} |" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ needs.deploy-render.result }}" == "skipped" ]]; then
+            echo "| Render (Backend) | ⏭️ Skipped | - |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Render (Backend) | ❌ Failed | - |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Vercel status
+          if [[ "${{ needs.deploy-vercel.result }}" == "success" ]]; then
+            echo "| Vercel (Frontend) | ✅ Success | ${{ vars.FRONTEND_URL || 'https://your-app.vercel.app' }} |" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ needs.deploy-vercel.result }}" == "skipped" ]]; then
+            echo "| Vercel (Frontend) | ⏭️ Skipped | - |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Vercel (Frontend) | ❌ Failed | - |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Integration tests status
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ needs.integration-tests.result }}" == "success" ]]; then
+            echo "🧪 Integration tests: ✅ Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "🧪 Integration tests: ❌ Failed or Skipped" >> $GITHUB_STEP_SUMMARY
+          fi
