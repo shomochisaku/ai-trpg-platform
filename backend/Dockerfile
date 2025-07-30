@@ -34,9 +34,7 @@ RUN npm run build
 # Production stage
 FROM node:20-alpine AS production
 
-# Create non-root user for security
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S node -u 1001
+# Use existing node user for security (already exists in node:20-alpine)
 
 # Install runtime dependencies only
 RUN apk add --no-cache \
@@ -60,8 +58,8 @@ COPY --from=build /app/dist ./dist
 # Copy any necessary static files
 COPY --from=build /app/src/config ./src/config
 
-# Change ownership to nodejs user
-RUN chown -R node:nodejs /app
+# Change ownership to node user (existing user in node:20-alpine)
+RUN chown -R node:node /app
 USER node
 
 # Expose port
