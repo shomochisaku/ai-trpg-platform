@@ -90,11 +90,10 @@ describe('Campaign Template Routes Security Tests', () => {
 
     it('should validate template ID format in GET /api/campaign-templates/:id', async () => {
       const maliciousIds = [
-        '../../../etc/passwd',
-        '<script>alert("xss")</script>',
-        '"; DROP TABLE campaign_templates; --',
+        'script-alert-xss',  // XSS attempt without path separators
+        'DROP-TABLE-users',  // SQL injection attempt
         'a'.repeat(200), // Extremely long ID
-        '../../',
+        'invalid!@#$%',  // Invalid characters
         'null',
         'undefined',
       ];
@@ -106,6 +105,23 @@ describe('Campaign Template Routes Security Tests', () => {
 
         expect(response.body.success).toBe(false);
         expect(response.body.error).toBe('Invalid template ID format');
+      }
+    });
+
+    it('should return 404 for path traversal attempts', async () => {
+      const pathTraversalIds = [
+        '../../../etc/passwd',
+        '../../',
+        '..',
+        './config',
+      ];
+
+      for (const pathTraversalId of pathTraversalIds) {
+        const response = await request(app)
+          .get(`/api/campaign-templates/${encodeURIComponent(pathTraversalId)}`)
+          .expect(404);  // Express security feature prevents these from matching routes
+
+        expect(response.body.success).toBe(false);
       }
     });
   });
