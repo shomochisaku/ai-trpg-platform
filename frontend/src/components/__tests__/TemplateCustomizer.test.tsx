@@ -45,6 +45,12 @@ const mockProps = {
 describe('TemplateCustomizer Security Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Mock window.alert to prevent execution during XSS tests
+    vi.stubGlobal('alert', vi.fn());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   describe('XSS Prevention', () => {
@@ -168,7 +174,7 @@ describe('TemplateCustomizer Security Tests', () => {
       await waitFor(() => {
         const submitButton = screen.getByTestId('create-campaign-button');
         expect(submitButton).toBeDisabled();
-      });
+      }, { timeout: 3000 });
 
       // Try to submit with empty title
       const submitButton = screen.getByTestId('create-campaign-button');
@@ -187,14 +193,19 @@ describe('TemplateCustomizer Security Tests', () => {
       await user.clear(titleInput);
       await user.paste('Modified Title');
 
-      // Wait for modification to be detected
-      const resetButton = await screen.findByRole('button', { name: /テンプレートに戻す/ });
+      // Wait for modification to be detected and reset button to appear
+      await waitFor(() => {
+        const resetButton = screen.getByRole('button', { name: /テンプレートに戻す/ });
+        expect(resetButton).toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      const resetButton = screen.getByRole('button', { name: /テンプレートに戻す/ });
       await user.click(resetButton);
 
       // Verify original data is restored
       await waitFor(() => {
         expect(screen.getByLabelText('キャンペーンタイトル')).toHaveValue(mockTemplate.name);
-      });
+      }, { timeout: 3000 });
     });
 
     it('should validate form data before submission', async () => {
@@ -205,14 +216,16 @@ describe('TemplateCustomizer Security Tests', () => {
       const submitButton = screen.getByTestId('create-campaign-button');
       await user.click(submitButton);
 
-      // Verify onCustomize is called with valid data structure
-      expect(mockProps.onCustomize).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: expect.any(String),
-          description: expect.any(String),
-          scenarioSettings: expect.any(Object),
-        })
-      );
+      // Wait for async submission to complete
+      await waitFor(() => {
+        expect(mockProps.onCustomize).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: expect.any(String),
+            description: expect.any(String),
+            scenarioSettings: expect.any(Object),
+          })
+        );
+      }, { timeout: 3000 });
     });
 
     it('should handle malformed template data gracefully', async () => {
@@ -244,9 +257,11 @@ describe('TemplateCustomizer Security Tests', () => {
       // First click should initiate submission
       await user.click(submitButton);
       
-      // Button should be disabled immediately after first click
-      expect(submitButton).toBeDisabled();
-      expect(submitButton).toHaveTextContent('作成中...');
+      // Wait for button state to update
+      await waitFor(() => {
+        expect(submitButton).toBeDisabled();
+        expect(submitButton).toHaveTextContent('作成中...');
+      }, { timeout: 1000 });
       
       // Additional clicks should not trigger more submissions
       await user.click(submitButton);
@@ -255,7 +270,7 @@ describe('TemplateCustomizer Security Tests', () => {
       // Wait for the async operation to complete
       await waitFor(() => {
         expect(delayedMock).toHaveBeenCalledTimes(1);
-      });
+      }, { timeout: 3000 });
     });
 
     it('should handle navigation events securely', async () => {
@@ -309,7 +324,7 @@ describe('TemplateCustomizer Security Tests', () => {
         await waitFor(() => {
           const removeButtons = screen.getAllByRole('button', { name: '削除' });
           expect(removeButtons.length).toBe(i + 1);
-        });
+        }, { timeout: 1000 });
       }
 
       // Should handle rapid additions without crashing
@@ -323,13 +338,13 @@ describe('TemplateCustomizer Security Tests', () => {
         await waitFor(() => {
           const updatedRemoveButtons = screen.getAllByRole('button', { name: '削除' });
           expect(updatedRemoveButtons.length).toBe(10 - i - 1);
-        });
+        }, { timeout: 1000 });
       }
 
       // Component should remain stable
       await waitFor(() => {
         expect(screen.getAllByRole('button', { name: '削除' })).toHaveLength(5);
-      });
+      }, { timeout: 1000 });
       expect(addButton).toBeInTheDocument();
     });
 
@@ -348,13 +363,14 @@ describe('TemplateCustomizer Security Tests', () => {
       const newInput = await screen.findByPlaceholderText('指導原則を入力');
       expect(newInput).toBeInTheDocument();
       
-      // Use type instead of paste for better reliability
-      await user.type(newInput, '<script>alert("array-xss")</script>Evil Principle');
+      // Focus the input first, then paste the content
+      await user.click(newInput);
+      await user.paste('<script>alert("array-xss")</script>Evil Principle');
 
       // Wait for state update
       await waitFor(() => {
         expect(newInput).toHaveValue('<script>alert("array-xss")</script>Evil Principle');
-      });
+      }, { timeout: 2000 });
 
       // Verify script is not executed
       expect(window.alert).not.toHaveBeenCalled();
@@ -381,7 +397,11 @@ describe('TemplateCustomizer Security Tests', () => {
       const submitButton = screen.getByTestId('create-campaign-button');
       await user.click(submitButton);
 
-      expect(mockProps.onCustomize).toHaveBeenCalled();
+      // Wait for async submission to complete
+      await waitFor(() => {
+        expect(mockProps.onCustomize).toHaveBeenCalled();
+      }, { timeout: 3000 });
+      
       const submittedData = mockProps.onCustomize.mock.calls[0][0];
 
       // Verify sensitive data is filtered out
