@@ -47,12 +47,12 @@ jest.mock('@prisma/client', () => {
         return Promise.resolve({ ...mockUser, ...data.data });
       }),
       update: jest.fn().mockImplementation(({ where, data }) => {
-        if (data.data && data.data.refreshToken === null) {
+        if (data.refreshToken === null) {
           // User logged out, invalidate refresh token by removing it from our mock storage
           userLoggedOut = true;
           return Promise.resolve({ ...mockUser, refreshToken: null });
         }
-        return Promise.resolve({ ...mockUser, refreshToken: data.data?.refreshToken || 'mock-refresh-token' });
+        return Promise.resolve({ ...mockUser, refreshToken: data.refreshToken || 'mock-refresh-token' });
       }),
       findUnique: jest.fn().mockImplementation(({ where }) => {
         if (where.email && existingEmails.has(where.email)) {
@@ -497,27 +497,27 @@ describe('Authentication Integration Tests', () => {
   });
 
   describe('POST /api/auth/logout', () => {
-    it('should successfully logout', async () => {
-      const response = await request(app)
+    it('should successfully logout and invalidate refresh token', async () => {
+      // First, logout
+      const logoutResponse = await request(app)
         .post('/api/auth/logout')
         .set('Authorization', `Bearer ${testUser.accessToken}`)
         .expect(200);
 
-      expect(response.body.success).toBe(true);
-      expect(response.body.message).toBe('Logged out successfully');
-    });
+      expect(logoutResponse.body.success).toBe(true);
+      expect(logoutResponse.body.message).toBe('Logged out successfully');
 
-    it('should invalidate refresh token after logout', async () => {
+      // Then, try to use the refresh token - it should fail
       const refreshData = {
         refreshToken: testUser.refreshToken
       };
 
-      const response = await request(app)
+      const refreshResponse = await request(app)
         .post('/api/auth/refresh')
         .send(refreshData)
         .expect(401);
 
-      expect(response.body.success).toBe(false);
+      expect(refreshResponse.body.success).toBe(false);
     });
   });
 

@@ -42,7 +42,25 @@ describe('Campaign Template Routes Security Tests', () => {
       usageByMonth: [],
     });
     mockCampaignTemplateService.getPopularTemplates.mockResolvedValue([]);
-    mockCampaignTemplateService.createTemplate.mockResolvedValue({} as any);
+    // Mock createTemplate to return a valid response
+    // The validation should fail at the route level before reaching this
+    mockCampaignTemplateService.createTemplate.mockResolvedValue({
+      id: 'test-id',
+      name: 'Test Template',
+      description: 'Test Description',
+      templateId: 'test-template',
+      category: 'FANTASY',
+      isOfficial: false,
+      isActive: true,
+      scenarioSettings: {} as any,
+      difficulty: 'BEGINNER',
+      estimatedDuration: '2-4 hours',
+      playerCount: '1-4',
+      tags: ['adventure'],
+      createdBy: 'user-id',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
     mockCampaignTemplateService.updateTemplate.mockResolvedValue({} as any);
     mockCampaignTemplateService.deleteTemplate.mockResolvedValue(undefined);
     mockCampaignTemplateService.recordUsage.mockResolvedValue(undefined);
@@ -189,9 +207,16 @@ describe('Campaign Template Routes Security Tests', () => {
       for (const invalidData of invalidTemplateData) {
         const response = await request(app)
           .post('/api/campaign-templates')
-          .send(invalidData)
-          .expect(400);
+          .send(invalidData);
+        
+        // Debug output
+        if (response.status !== 400) {
+          console.log('Unexpected status:', response.status);
+          console.log('Response body:', response.body);
+          console.log('Sent data:', invalidData);
+        }
 
+        expect(response.status).toBe(400);
         expect(response.body.success).toBe(false);
         expect(response.body.error).toBe('Validation error');
         expect(response.body.details).toBeDefined();
