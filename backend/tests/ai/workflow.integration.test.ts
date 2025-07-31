@@ -25,7 +25,7 @@ describe('Game Workflow Integration Tests', () => {
     gameWorkflow = new GameWorkflow(mockMastraInstance as any, {
       maxRetries: 2,
       timeout: 60000, // Increased to 60 seconds to prevent phase timeouts
-      verbose: true
+      verbose: process.env.NODE_ENV !== 'test' || process.env.WORKFLOW_VERBOSE === 'true'
     });
   });
 
@@ -221,7 +221,8 @@ describe('Game Workflow Integration Tests', () => {
       // Create workflow with no Mastra instance to test fallback
       const fallbackWorkflow = new GameWorkflow(null as any, {
         maxRetries: 1,
-        timeout: 60000 // Align with main workflow timeout
+        timeout: 60000, // Align with main workflow timeout
+        verbose: false // Explicitly disable verbose logging for fallback tests
       });
 
       // This should trigger fallback mechanisms
