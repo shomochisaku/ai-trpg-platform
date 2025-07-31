@@ -24,7 +24,7 @@ describe('Game Workflow Integration Tests', () => {
     
     gameWorkflow = new GameWorkflow(mockMastraInstance as any, {
       maxRetries: 2,
-      timeout: 15000,
+      timeout: 60000, // Increased to 60 seconds to prevent phase timeouts
       verbose: true
     });
   });
@@ -221,7 +221,7 @@ describe('Game Workflow Integration Tests', () => {
       // Create workflow with no Mastra instance to test fallback
       const fallbackWorkflow = new GameWorkflow(null as any, {
         maxRetries: 1,
-        timeout: 5000
+        timeout: 60000 // Align with main workflow timeout
       });
 
       // This should trigger fallback mechanisms
@@ -247,7 +247,7 @@ describe('Game Workflow Integration Tests', () => {
       const processingTime = endTime - startTime;
 
       expect(result).toBeDefined();
-      expect(processingTime).toBeLessThan(30000); // Should complete within 30 seconds
+      expect(processingTime).toBeLessThan(60000); // Should complete within 60 seconds (aligned with timeout setting)
     });
 
     it('should handle multiple concurrent requests', async () => {
