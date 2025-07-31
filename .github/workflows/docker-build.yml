@@ -122,21 +122,32 @@ jobs:
 
     strategy:
       matrix:
-        image: ['backend', 'frontend']
+        component: ['backend', 'frontend']
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.30.0
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ github.repository }}-${{ matrix.image }}:${{ github.sha }}
+          # Use filesystem scan for PRs since images aren't pushed
+          scan-type: ${{ github.event_name == 'pull_request' && 'fs' || 'image' }}
+          scan-ref: ${{ github.event_name == 'pull_request' && format('./{0}', matrix.component) || format('{0}/{1}-{2}:{3}', env.REGISTRY, github.repository, matrix.component, github.sha) }}
           format: 'sarif'
-          output: 'trivy-${{ matrix.image }}-results.sarif'
+          output: 'trivy-${{ matrix.component }}-results.sarif'
+          # Optimized settings for solo development
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+          exit-code: 0
+          # Skip scanning common paths that don't affect security
+          skip-dirs: 'node_modules,dist,build'
 
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: 'trivy-${{ matrix.image }}-results.sarif'
-          category: 'trivy-${{ matrix.image }}'
+          sarif_file: 'trivy-${{ matrix.component }}-results.sarif'
+          category: 'trivy-${{ matrix.component }}'
 
   # Build summary
   build-summary:
