@@ -61,6 +61,57 @@ jest.mock('@prisma/client', () => {
   };
 });
 
+// Mock JWT utilities specifically for auth tests
+jest.mock('@/utils/jwt', () => ({
+  generateTokenPair: jest.fn().mockImplementation((userId, email) => ({
+    accessToken: `mock-access-token-${userId}`,
+    refreshToken: `mock-refresh-token-${userId}`,
+  })),
+  verifyAccessToken: jest.fn().mockImplementation((token) => {
+    if (token && token.startsWith('mock-access-token-')) {
+      const userId = token.replace('mock-access-token-', '');
+      return {
+        userId: userId,
+        email: 'test-auth-register@example.com',
+      };
+    }
+    throw new Error('Invalid token');
+  }),
+  verifyRefreshToken: jest.fn().mockImplementation((token) => {
+    if (token && token.startsWith('mock-refresh-token-')) {
+      const userId = token.replace('mock-refresh-token-', '');
+      return {
+        userId: userId,
+        email: 'test-auth-register@example.com',
+      };
+    }
+    throw new Error('Invalid token');
+  }),
+}));
+
+// Mock authentication middleware
+jest.mock('@/middleware/auth', () => ({
+  authenticate: jest.fn().mockImplementation((req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      if (token.startsWith('mock-access-token-')) {
+        const userId = token.replace('mock-access-token-', '');
+        req.user = {
+          id: userId,
+          email: 'test-auth-register@example.com',
+          username: 'testuser123',
+        };
+        return next();
+      }
+    }
+    return res.status(401).json({ success: false, error: 'Authentication required' });
+  }),
+  checkLoginAttempts: jest.fn().mockImplementation((req, res, next) => next()),
+  recordFailedLogin: jest.fn(),
+  recordSuccessfulLogin: jest.fn(),
+}));
+
 // Set required environment variables for auth
 process.env.JWT_SECRET = 'test-jwt-secret-key-for-auth-integration-tests';
 process.env.BCRYPT_ROUNDS = '10';
