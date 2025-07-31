@@ -401,33 +401,7 @@ jest.mock('opossum', () => jest.fn());
 // Mock p-retry directly  
 jest.mock('p-retry', () => jest.fn().mockImplementation(async (fn) => fn()));
 
-// Mock bcrypt for password hashing/verification
-jest.mock('bcryptjs', () => ({
-  hash: jest.fn().mockResolvedValue('hashed-password'),
-  compare: jest.fn().mockImplementation((plaintext, hash) => {
-    // Simple mock: return true if plaintext is 'TestPassword123'
-    return Promise.resolve(plaintext === 'TestPassword123');
-  }),
-}));
-
-// Mock JWT utilities
-jest.mock('jsonwebtoken', () => ({
-  sign: jest.fn().mockImplementation((payload, secret, options) => {
-    return `mock-token-${payload.userId || 'unknown'}`;
-  }),
-  verify: jest.fn().mockImplementation((token, secret) => {
-    if (token.startsWith('mock-token-')) {
-      const userId = token.replace('mock-token-', '');
-      return {
-        userId: userId,
-        email: 'test-auth-register@example.com',
-        iat: Math.floor(Date.now() / 1000),
-        exp: Math.floor(Date.now() / 1000) + 3600,
-      };
-    }
-    throw new Error('Invalid token');
-  }),
-}));
+// Note: JWT and bcrypt mocks moved to individual test files to avoid conflicts
 
 // Mock monitoring service to prevent interval handles
 jest.mock('../src/services/monitoringService', () => ({
