@@ -73,7 +73,6 @@ jobs:
         with:
           service-id: ${{ secrets.RENDER_SERVICE_ID }}
           api-key: ${{ secrets.RENDER_API_KEY }}
-          wait-for-success: true
 
       - name: Health Check
         run: |
@@ -203,8 +202,8 @@ jobs:
       - name: Run integration tests
         working-directory: ./backend
         run: |
-          # Run production smoke tests
-          npm install --production
+          # Run production smoke tests (install dev dependencies for ts-node)
+          npm ci
           npm run test:integration
         env:
           API_BASE_URL: ${{ vars.BACKEND_URL || 'https://your-app.onrender.com' }}

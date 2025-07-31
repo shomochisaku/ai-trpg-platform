@@ -401,6 +401,8 @@ jest.mock('opossum', () => jest.fn());
 // Mock p-retry directly  
 jest.mock('p-retry', () => jest.fn().mockImplementation(async (fn) => fn()));
 
+// Note: JWT and bcrypt mocks moved to individual test files to avoid conflicts
+
 // Mock monitoring service to prevent interval handles
 jest.mock('../src/services/monitoringService', () => ({
   monitoringService: {

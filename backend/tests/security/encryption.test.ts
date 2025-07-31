@@ -5,13 +5,8 @@ describe('SecretsService Encryption Tests', () => {
   let secretsService: SecretsService;
 
   beforeEach(() => {
-    // Use a test master key for consistent testing
-    process.env.MASTER_ENCRYPTION_KEY = crypto.randomBytes(32).toString('hex');
+    // Use the test master key from .env.test for consistent testing
     secretsService = new SecretsService();
-  });
-
-  afterEach(() => {
-    delete process.env.MASTER_ENCRYPTION_KEY;
   });
 
   describe('Encryption/Decryption Round-trip Tests', () => {
@@ -171,17 +166,21 @@ describe('SecretsService Encryption Tests', () => {
     test('should fail to decrypt with different master key', () => {
       const plaintext = 'Test different keys';
       
-      // Encrypt with first key
+      // Encrypt with the default test key
       const encrypted = secretsService.encryptSecret(plaintext);
       
-      // Change master key
+      // Save original key and set a different one temporarily
+      const originalKey = process.env.MASTER_ENCRYPTION_KEY;
       process.env.MASTER_ENCRYPTION_KEY = crypto.randomBytes(32).toString('hex');
       const secretsService2 = new SecretsService();
       
-      // Decryption should fail
+      // Decryption should fail with different key
       expect(() => {
         secretsService2.decryptSecret(encrypted);
       }).toThrow('Secret decryption failed');
+      
+      // Restore original key
+      process.env.MASTER_ENCRYPTION_KEY = originalKey;
     });
   });
 

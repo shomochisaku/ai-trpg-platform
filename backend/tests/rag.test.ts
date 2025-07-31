@@ -48,17 +48,40 @@ describe('Vector Search Service (RAG replacement)', () => {
     });
   });
 
-  describe('bulk operations', () => {
-    it('should handle bulk memory storage', async () => {
-      const mockEntries = [
-        { id: 'mem1', content: 'content1', category: 'conversation' },
-        { id: 'mem2', content: 'content2', category: 'game_action' }
+  describe('vector similarity search', () => {
+    it('should search for similar memories with vector embedding', async () => {
+      const mockResults = [
+        { 
+          id: 'mem1', 
+          content: 'content1', 
+          category: 'conversation',
+          importance: 0.8,
+          similarity: 0.95,
+          tags: ['test'],
+          createdAt: new Date()
+        },
+        { 
+          id: 'mem2', 
+          content: 'content2', 
+          category: 'game_action',
+          importance: 0.6,
+          similarity: 0.85,
+          tags: ['action'],
+          createdAt: new Date()
+        }
       ];
       
-      jest.spyOn(vectorSearchService, 'bulkStore').mockResolvedValue(mockEntries);
+      jest.spyOn(vectorSearchService, 'searchSimilar').mockResolvedValue(mockResults);
       
-      const result = await vectorSearchService.bulkStore('test-campaign', mockEntries);
+      const embedding = new Array(1024).fill(0.1); // Mock embedding vector
+      const result = await vectorSearchService.searchSimilar(embedding, {
+        campaignId: 'test-campaign',
+        limit: 10,
+        threshold: 0.8
+      });
+      
       expect(result).toHaveLength(2);
+      expect(result[0].similarity).toBeGreaterThan(0.8);
     });
   });
 });

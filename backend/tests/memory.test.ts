@@ -110,12 +110,21 @@ describe('MemoryService', () => {
     });
 
     it('should handle validation errors', async () => {
+      // Test for Zod validation error (empty content)
       await expect(
         memoryService.createMemory({
           content: '', // Invalid empty content
           category: 'GENERAL',
         })
-      ).rejects.toThrow();
+      ).rejects.toThrow(/String must contain at least 1 character|Required/);
+      
+      // Test for invalid category
+      await expect(
+        memoryService.createMemory({
+          content: 'Valid content',
+          category: 'INVALID_CATEGORY' as any,
+        })
+      ).rejects.toThrow(/Invalid enum value/);
     });
   });
 
