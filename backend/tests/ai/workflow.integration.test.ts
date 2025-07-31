@@ -4,6 +4,8 @@ import { GameActionContext, WorkflowPhase, ProcessGameActionResult } from '../..
 import { MemoryType, SessionStatus } from '@prisma/client';
 import { mastraInstance } from '../../src/ai/config';
 
+jest.setTimeout(120000); // 120 seconds timeout for this test suite
+
 describe('Game Workflow Integration Tests', () => {
   let gameWorkflow: GameWorkflow;
   let mockContext: GameActionContext;

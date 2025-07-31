@@ -18,13 +18,35 @@ jest.mock('@prisma/client', () => {
     refreshToken: null,
   };
 
+  let userExists = false;
+  const existingEmails = new Set<string>();
+
   const mockPrisma = {
     $disconnect: jest.fn().mockResolvedValue(undefined),
     user: {
-      findFirst: jest.fn().mockResolvedValue(null), // No existing user found
-      create: jest.fn().mockResolvedValue(mockUser),
+      findFirst: jest.fn().mockImplementation(({ where }) => {
+        if (where.OR) {
+          const email = where.OR[0]?.email;
+          const username = where.OR[1]?.username;
+          
+          if (existingEmails.has(email) || (username && username === 'testuser123' && userExists)) {
+            return Promise.resolve(mockUser);
+          }
+        }
+        return Promise.resolve(null);
+      }),
+      create: jest.fn().mockImplementation((data) => {
+        existingEmails.add(data.data.email);
+        userExists = true;
+        return Promise.resolve({ ...mockUser, ...data.data });
+      }),
       update: jest.fn().mockResolvedValue({ ...mockUser, refreshToken: 'mock-refresh-token' }),
-      findUnique: jest.fn(),
+      findUnique: jest.fn().mockImplementation(({ where }) => {
+        if (where.email && existingEmails.has(where.email)) {
+          return Promise.resolve(mockUser);
+        }
+        return Promise.resolve(null);
+      }),
       delete: jest.fn().mockResolvedValue(mockUser),
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
@@ -150,15 +172,28 @@ describe('Authentication Integration Tests', () => {
     });
 
     it('should reject registration with duplicate email', async () => {
-      const userData = {
-        email: testUser.email,
+      // First register a user
+      const firstUserData = {
+        email: 'duplicate-test@example.com',
+        password: 'TestPassword123',
+        username: 'firstuser'
+      };
+
+      await request(app)
+        .post('/api/auth/register')
+        .send(firstUserData)
+        .expect(201);
+
+      // Try to register with same email
+      const duplicateUserData = {
+        email: 'duplicate-test@example.com',
         password: 'TestPassword123',
         username: 'differentuser'
       };
 
       const response = await request(app)
         .post('/api/auth/register')
-        .send(userData)
+        .send(duplicateUserData)
         .expect(409);
 
       expect(response.body.success).toBe(false);
