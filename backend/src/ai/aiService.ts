@@ -341,6 +341,11 @@ export class AIService {
    * Start cleanup interval for expired status tags
    */
   private startCleanupInterval(): void {
+    // Skip cleanup interval in test environment to prevent Jest open handles
+    if (process.env.NODE_ENV === 'test') {
+      return;
+    }
+
     setInterval(async () => {
       try {
         await clearExpiredTags();

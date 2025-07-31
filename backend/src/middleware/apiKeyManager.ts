@@ -79,6 +79,11 @@ export class ApiKeyManager {
   }
 
   private setupRotationMonitoring(): void {
+    // Skip rotation monitoring in test environment to prevent Jest open handles
+    if (process.env.NODE_ENV === 'test') {
+      return;
+    }
+
     // Check for API key rotation needs every 24 hours
     const rotationInterval = setInterval(
       () => {
