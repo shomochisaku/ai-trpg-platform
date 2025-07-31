@@ -119,39 +119,53 @@ export const createTemplateSchema = z.object({
       'Template ID can only contain lowercase letters, numbers, and hyphens'
     )
     .transform(str => str.toLowerCase().trim()),
-  
+
   // Optional fields for MVP - can be added incrementally
   category: z.nativeEnum(TemplateCategoryType).optional(),
   difficulty: z.nativeEnum(TemplateDifficulty).optional(),
   estimatedDuration: sanitizedString(1, 50).optional(),
   playerCount: sanitizedString(1, 20).default('1-4'),
   tags: sanitizedArray(10, 30).optional(),
-  
+
   // Scenario settings completely optional for now
   // TODO: Re-enable strict validation when frontend is ready
-  scenarioSettings: z.object({
-    gmProfile: z.object({
-      personality: sanitizedString(1, 2000).optional(),
-      speechStyle: sanitizedString(1, 500).optional(),
-      guidingPrinciples: sanitizedArray(10, 200).optional(),
-    }).optional(),
-    worldSettings: z.object({
-      toneAndManner: sanitizedString(1, 500).optional(),
-      keyConcepts: sanitizedArray(15, 100).optional(),
-      setting: sanitizedString(1, 3000).optional(),
-    }).optional(),
-    opening: z.object({
-      prologue: sanitizedString(1, 3000).optional(),
-      initialStatusTags: sanitizedArray(10, 50).optional(),
-      initialInventory: sanitizedArray(10, 100).optional(),
-    }).optional(),
-    gameStyle: sanitizedString(1, 50).optional(),
-    gmBehavior: z.object({
-      narrativeStyle: z.enum(['descriptive', 'concise', 'theatrical']).optional(),
-      playerAgency: z.enum(['high', 'medium', 'guided']).optional(),
-      difficultyAdjustment: z.enum(['adaptive', 'static', 'escalating']).optional(),
-    }).optional(),
-  }).optional(),
+  scenarioSettings: z
+    .object({
+      gmProfile: z
+        .object({
+          personality: sanitizedString(1, 2000).optional(),
+          speechStyle: sanitizedString(1, 500).optional(),
+          guidingPrinciples: sanitizedArray(10, 200).optional(),
+        })
+        .optional(),
+      worldSettings: z
+        .object({
+          toneAndManner: sanitizedString(1, 500).optional(),
+          keyConcepts: sanitizedArray(15, 100).optional(),
+          setting: sanitizedString(1, 3000).optional(),
+        })
+        .optional(),
+      opening: z
+        .object({
+          prologue: sanitizedString(1, 3000).optional(),
+          initialStatusTags: sanitizedArray(10, 50).optional(),
+          initialInventory: sanitizedArray(10, 100).optional(),
+        })
+        .optional(),
+      gameStyle: sanitizedString(1, 50).optional(),
+      gmBehavior: z
+        .object({
+          narrativeStyle: z
+            .enum(['descriptive', 'concise', 'theatrical'])
+            .optional(),
+          playerAgency: z.enum(['high', 'medium', 'guided']).optional(),
+          difficultyAdjustment: z
+            .enum(['adaptive', 'static', 'escalating'])
+            .optional(),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 
 export const updateTemplateSchema = createTemplateSchema.partial().extend({
