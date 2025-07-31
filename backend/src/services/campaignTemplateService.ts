@@ -104,7 +104,10 @@ const sanitizedArray = (maxItems: number = 10, maxItemLength: number = 100) =>
       'Duplicate items not allowed'
     );
 
+// Simplified schema for practical solo development
+// Complex nested structures are now optional to allow gradual development
 export const createTemplateSchema = z.object({
+  // Core required fields only
   name: sanitizedString(3, 100),
   description: sanitizedString(10, 1000),
   templateId: z
@@ -116,37 +119,39 @@ export const createTemplateSchema = z.object({
       'Template ID can only contain lowercase letters, numbers, and hyphens'
     )
     .transform(str => str.toLowerCase().trim()),
-  category: z.nativeEnum(TemplateCategoryType),
-  difficulty: z.nativeEnum(TemplateDifficulty),
+  
+  // Optional fields for MVP - can be added incrementally
+  category: z.nativeEnum(TemplateCategoryType).optional(),
+  difficulty: z.nativeEnum(TemplateDifficulty).optional(),
   estimatedDuration: sanitizedString(1, 50).optional(),
   playerCount: sanitizedString(1, 20).default('1-4'),
-  tags: sanitizedArray(10, 30).refine(
-    arr => arr.every(tag => /^[a-zA-Z0-9\s\-_.]+$/.test(tag)),
-    'Invalid characters in tags'
-  ),
+  tags: sanitizedArray(10, 30).optional(),
+  
+  // Scenario settings completely optional for now
+  // TODO: Re-enable strict validation when frontend is ready
   scenarioSettings: z.object({
     gmProfile: z.object({
-      personality: sanitizedString(20, 2000),
-      speechStyle: sanitizedString(10, 500),
-      guidingPrinciples: sanitizedArray(10, 200),
-    }),
+      personality: sanitizedString(1, 2000).optional(),
+      speechStyle: sanitizedString(1, 500).optional(),
+      guidingPrinciples: sanitizedArray(10, 200).optional(),
+    }).optional(),
     worldSettings: z.object({
-      toneAndManner: sanitizedString(10, 500),
-      keyConcepts: sanitizedArray(15, 100),
-      setting: sanitizedString(50, 3000),
-    }),
+      toneAndManner: sanitizedString(1, 500).optional(),
+      keyConcepts: sanitizedArray(15, 100).optional(),
+      setting: sanitizedString(1, 3000).optional(),
+    }).optional(),
     opening: z.object({
-      prologue: sanitizedString(100, 3000),
-      initialStatusTags: sanitizedArray(10, 50),
-      initialInventory: sanitizedArray(10, 100),
-    }),
-    gameStyle: sanitizedString(3, 50),
+      prologue: sanitizedString(1, 3000).optional(),
+      initialStatusTags: sanitizedArray(10, 50).optional(),
+      initialInventory: sanitizedArray(10, 100).optional(),
+    }).optional(),
+    gameStyle: sanitizedString(1, 50).optional(),
     gmBehavior: z.object({
-      narrativeStyle: z.enum(['descriptive', 'concise', 'theatrical']),
-      playerAgency: z.enum(['high', 'medium', 'guided']),
-      difficultyAdjustment: z.enum(['adaptive', 'static', 'escalating']),
-    }),
-  }),
+      narrativeStyle: z.enum(['descriptive', 'concise', 'theatrical']).optional(),
+      playerAgency: z.enum(['high', 'medium', 'guided']).optional(),
+      difficultyAdjustment: z.enum(['adaptive', 'static', 'escalating']).optional(),
+    }).optional(),
+  }).optional(),
 });
 
 export const updateTemplateSchema = createTemplateSchema.partial().extend({
