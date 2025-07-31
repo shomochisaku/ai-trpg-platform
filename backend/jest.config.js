@@ -24,9 +24,9 @@ module.exports = {
   ...(process.env.CI && {
     maxWorkers: 2,
     workerIdleMemoryLimit: '1GB',
-    // Optionally skip resource-intensive tests in CI for faster builds
-    testPathIgnorePatterns: process.env.SKIP_AI_TESTS === 'true' 
-      ? ['<rootDir>/tests/ai/workflow.integration.test.ts']
-      : ['<rootDir>/node_modules/']
+  }),
+  // Conditionally skip AI tests
+  ...(process.env.SKIP_AI_TESTS === 'true' && {
+    testPathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/tests/ai/']
   }),
 };
